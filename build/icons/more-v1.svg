@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="96"
+   height="96"
+   viewBox="0 0 25.399999 25.400001"
+   version="1.1"
+   id="svg8"
+   inkscape:export-filename="/home/passick/2019/dev/hn_extension/extension/icons/more-128.png"
+   inkscape:export-xdpi="128"
+   inkscape:export-ydpi="128"
+   inkscape:version="0.92.4 5da689c313, 2019-01-14"
+   sodipodi:docname="more.svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="3.959798"
+     inkscape:cx="14.398463"
+     inkscape:cy="58.960794"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     units="px"
+     inkscape:window-width="1362"
+     inkscape:window-height="744"
+     inkscape:window-x="0"
+     inkscape:window-y="20"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-271.59998)">
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.90769386px;line-height:22.85421562px;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';text-align:end;letter-spacing:0px;word-spacing:0px;text-anchor:end;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.77912092px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="26.043774"
+       y="279.38318"
+       id="text12"><tspan
+         sodipodi:role="line"
+         id="tspan10"
+         x="26.043774"
+         y="279.38318"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';stroke-width:0.77912092px">More</tspan></text>
+    <text
+       id="text16"
+       y="288.00259"
+       x="26.043774"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.90769386px;line-height:22.85421562px;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';text-align:end;letter-spacing:0px;word-spacing:0px;text-anchor:end;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.77912092px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       xml:space="preserve"><tspan
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';stroke-width:0.77912092px"
+         y="288.00259"
+         x="26.043774"
+         id="tspan14"
+         sodipodi:role="line">More</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:10.90769386px;line-height:22.85421562px;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';text-align:end;letter-spacing:0px;word-spacing:0px;text-anchor:end;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.77912092px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="26.043774"
+       y="296.98019"
+       id="text20"><tspan
+         sodipodi:role="line"
+         id="tspan18"
+         x="26.043774"
+         y="296.98019"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'PT Sans Caption';-inkscape-font-specification:'PT Sans Caption';stroke-width:0.77912092px">More</tspan></text>
+  </g>
+</svg>

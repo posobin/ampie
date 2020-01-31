@@ -1,0 +1,15 @@
+;; shadow-cljs configuration
+{:source-paths
+ ["src/dev"
+  "src/main"
+  "src/test"]
+
+ :dependencies []
+
+ :dev-http {8080 "public"}
+ :builds
+ {:frontend
+  {:target :chrome-extension
+   :extension-dir "./build/"
+   :compiler-options {:closure-output-charset "US-ASCII"}
+  }}}

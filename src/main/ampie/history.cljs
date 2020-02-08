@@ -2,9 +2,6 @@
   (:require ["dexie" :default Dexie]))
 
 (def open-tabs (atom {}))
-(def closed-tabs (atom ()))
-(def visits (atom {}))
-(def visited-urls (atom {}))
 (def db nil (Dexie. "AmpieDB"))
 
 ;; Functions for managing visits and tabs
@@ -52,13 +49,7 @@
                                  clj->js))))))
       ;; Add the new visit to visits
       (let [visit-with-hash (assoc visit :visitHash visit-hash)]
-        (.. db -visits (add (clj->js visit-with-hash))))))
-  (when (some? (:parent visit))
-    (swap! visits update-in [(:parent visit) :children]
-           #(conj % visit-hash)))
-  (swap! visits assoc visit-hash visit)
-  (swap! visited-urls update (:url visit)
-         (fn [visits] (conj (or visits []) visit-hash))))
+        (.. db -visits (add (clj->js visit-with-hash)))))))
 
 (defn open-tab! [tab-id tab-info]
   (swap! open-tabs assoc tab-id tab-info))
@@ -74,6 +65,25 @@
                     (fn []
                       (.. db -closedTabs (add (clj->js tab-info))))))))
 
+;; Returns a Promise that resolves to a visit object with the first hash
+;; in the list that has the given url. If no visit matches, resolves to nil.
+(defn get-first-visit-with-url [visit-hashes url & {:keys [just-hash]
+                                                    :or   {just-hash true}}]
+  (->
+    (-> (.-visits db)
+        (.where "visitHash")
+        (.anyOf (clj->js visit-hashes))
+        (.and #(= (.-url %) url))
+        (.toArray))
+    (.then
+      #(->> (js->clj % :keywordize-keys true)
+            (map (fn [visit] [(:visitHash visit) visit]))
+            (into {})))
+    (.then
+      (fn [hash-to-visit]
+        (-> (filter #(contains? hash-to-visit %) visit-hashes)
+            first
+            ((if just-hash identity hash-to-visit)))))))
 
 ;; Go through the last n closed tabs and see if there is one with the matching url.
 ;; If there is, restore it and return true. Otherwise do nothing and return false.
@@ -86,18 +96,7 @@
                 (.toArray
                   (fn [array]
                     (map #(js-tab->clj % :keep-obj-id true)
-                         array)))))
-
-          (get-last-visit-with-url [visit-hashes]
-            (.then
-              (-> (.-visits db)
-                  (.where "visitHash")
-                  (.anyOf (clj->js visit-hashes))
-                  (.and #(= (.-url %) url))
-                  ;; Reverse comes before sortBy in Dexie
-                  (.reverse) (.sortBy "first-opened"))
-              #(-> (aget % 0)
-                   (js-visit->clj :keep-visit-hash true))))]
+                         array)))))]
     (.transaction
       db "rw" (.-visits db) (.-closedTabs db)
       (fn []
@@ -109,10 +108,9 @@
           (.then
             (fn [last-tabs]
               (.then
-                (get-last-visit-with-url (map :visit-hash last-tabs))
+                (get-first-visit-with-url (map :visit-hash last-tabs) url
+                                          :just-hash false)
                 (fn [{visit-hash :visitHash :as visit}]
-                  (println "last tabs:" last-tabs)
-                  (println "found visit:" visit)
                   [visit
                    (first (filter #(= (:visit-hash %) visit-hash)
                                   last-tabs))]))))

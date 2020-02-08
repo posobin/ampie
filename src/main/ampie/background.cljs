@@ -84,42 +84,52 @@
         url (:url evt)
         tab-info (@history/open-tabs tab-id)
         history-back (:history-back tab-info)
-        history-fwd (:history-fwd tab-info)
+        history-fwd (:history-fwd tab-info)]
+    (.then
+      (js/Promise.all
+        #js [(history/get-first-visit-with-url history-back url)
+             (history/get-first-visit-with-url history-fwd url)])
+      (fn [js-result]
+        (let [back-hash (aget js-result 0)
+              fwd-hash (aget js-result 1)
 
-        [back-1 back-2]
-        (split-with #(not= url (get-in @history/visits [% :url])) history-back)
-        back-count (when (seq back-2) (count back-1))
+              [back-1 back-2]
+              (split-with #(not= % back-hash) history-back)
+              back-count (when (seq back-2) (count back-1))
 
-        [fwd-1 fwd-2]
-        (split-with #(not= url (get-in @history/visits [% :url])) history-fwd)
-        fwd-count (when (seq fwd-2) (count fwd-1))
+              [fwd-1 fwd-2]
+              (split-with #(not= % fwd-hash) history-fwd)
+              fwd-count (when (seq fwd-2) (count fwd-1))
 
-        back-better? (and back-count
-                          (or (nil? fwd-count)
-                              (< back-count fwd-count)))
-        fwd-better? (and (not back-better?) fwd-count)
-        not-found? (and (not back-better?) (not fwd-better?))
+              back-better? (and back-count
+                                (or (nil? fwd-count)
+                                    (< back-count fwd-count)))
+              fwd-better? (and (not back-better?) fwd-count)
+              not-found? (and (not back-better?) (not fwd-better?))
 
-        visit (history/evt->visit evt)
-        new-back (condp = [(boolean back-better?) (boolean fwd-better?)]
-                   [true false] back-2
-                   [false true]
-                   (conj (concat (reverse fwd-1) history-back)
-                         (first fwd-2))
-                   [false false]
-                   (conj (concat (reverse history-fwd) history-back)
-                         (history/generate-visit-hash visit)))
-        new-fwd (condp = [(boolean back-better?) (boolean fwd-better?)]
-                  [true false] (concat (reverse back-1) history-fwd)
-                  [false true] (rest fwd-2)
-                  [false false] ())
-        visit-hash (first new-back)
-        new-tab-info (history/generate-new-tab visit-hash
-                                               new-back
-                                               new-fwd)]
-    (when not-found?
-      (history/add-new-visit! visit-hash visit))
-    (history/update-tab! tab-id new-tab-info)))
+              visit (history/evt->visit evt)
+              new-back (condp = [(boolean back-better?) (boolean fwd-better?)]
+                         [true false] back-2
+                         [false true]
+                         (conj (concat (reverse fwd-1) history-back)
+                               (first fwd-2))
+                         [false false]
+                         (conj (concat (reverse history-fwd) history-back)
+                               (history/generate-visit-hash visit)))
+              new-fwd (condp = [(boolean back-better?) (boolean fwd-better?)]
+                        [true false] (concat (reverse back-1) history-fwd)
+                        [false true] (rest fwd-2)
+                        [false false] ())
+              visit-hash (first new-back)
+              new-tab-info (history/generate-new-tab visit-hash
+                                                     new-back
+                                                     new-fwd)]
+          (println back-hash fwd-hash)
+          (when not-found?
+            (history/add-new-visit! visit-hash visit))
+          (when (not not-found?)
+            (println "Found the url in history!"))
+          (history/update-tab! tab-id new-tab-info))))))
 
 ;; Not doing anything right now if it is just a simple reload.
 (defn reloaded-tab [_])
@@ -178,7 +188,6 @@
 
             (and (= transition-type "reload"))
             (reloaded-tab evt)))))
-    (println "visits:" @history/visits)
     (println "tabs:" @history/open-tabs)))
 
 (defn on-history-state-updated [evt]

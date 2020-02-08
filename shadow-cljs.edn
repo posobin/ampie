@@ -4,9 +4,9 @@
   "src/main"
   "src/test"]
 
- :dependencies []
+ :dependencies [[funcool/promesa "5.0.0"]]
 
- :dev-http {8080 "public"}
+ :nrepl {:port 9000}
  :builds
  {:frontend
   {:target :chrome-extension

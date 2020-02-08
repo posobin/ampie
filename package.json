@@ -5,5 +5,7 @@
   "devDependencies": {
     "shadow-cljs": "2.8.83"
   },
-  "dependencies": {}
+  "dependencies": {
+    "dexie": "^2.0.4"
+  }
 }

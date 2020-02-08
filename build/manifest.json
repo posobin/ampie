@@ -278,6 +278,9 @@
    "out/cljs-runtime/cljs.repl.js", "out/cljs-runtime/cljs.user.js",
    "out/cljs-runtime/shadow.module.shared.append.js",
    "out/cljs-runtime/shadow.module.bg-shared.append.js",
+   "out/cljs-runtime/shadow.js.js",
+   "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
+   "out/cljs-runtime/ampie.history.js",
    "out/cljs-runtime/ampie.background.js",
    "out/cljs-runtime/shadow.module.background.append.js"],
   "persistent":false}}

@@ -1,6 +1,7 @@
 (ns ampie.background
-  (:require [cljs.core.async :refer [>! <! chan]])
   (:require [ampie.history :as history]))
+
+(defonce active-tab-interval-id (atom nil))
 
 (defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
 (defn clean-up-url [url]
@@ -124,11 +125,8 @@
               new-tab-info (history/generate-new-tab visit-hash
                                                      new-back
                                                      new-fwd)]
-          (println back-hash fwd-hash)
           (when not-found?
             (history/add-new-visit! visit-hash visit))
-          (when (not not-found?)
-            (println "Found the url in history!"))
           (history/update-tab! tab-id new-tab-info))))))
 
 ;; Not doing anything right now if it is just a simple reload.
@@ -173,7 +171,8 @@
             (some #(= "forward_back" %) transition-qualifiers)
             (went-back-or-fwd-in-tab evt)
 
-            (= transition-type "link")
+            (or (= transition-type "link")
+                (= transition-type "client_redirect"))
             (opened-link-same-tab evt)
 
             (= transition-type "typed")
@@ -193,11 +192,61 @@
 (defn on-history-state-updated [evt]
   (on-committed evt))
 
+(defn on-message-received [request sender send-response]
+  (let [request (js->clj request :keywordize-keys true)
+        request-type (:type request)]
+    (cond (= request-type "get-past-visits-parents")
+          (let [url (clean-up-url (:url request))]
+            (-> (history/get-past-visits-to-the-url url 5)
+                (.then
+                  (fn [past-visits]
+                    (->> (js->clj past-visits :keywordize-keys true)
+                         (map :parent)
+                         (filter some?)
+                         history/get-visits-info)))
+                (.then
+                  (fn [past-visits-parents]
+                    (println "Sending response" past-visits-parents)
+                    (send-response
+                      (clj->js
+                        (map #(select-keys % [:url :first-opened])
+                             past-visits-parents))))))
+            ;; Need to return true to let browser know that we will call
+            ;; send-response asynchronously.
+            true))))
+
+;; We need this event in addition to the check-active-tab interval because
+;; interval may not be called when the computer is put to sleep, for example.
+;; But this event will be called.
+(defn on-window-focus-changed [window]
+  (when (= window (.. js/chrome -windows -WINDOW_ID_NONE))
+    (history/no-tab-in-focus)))
+
+(defn check-active-tab []
+  (.. js/chrome -windows
+      (getLastFocused
+        #js {:populate true}
+        (fn [window]
+          (let [{tabs :tabs focused :focused :as window}
+                (js->clj window :keywordize-keys true)
+                {tab-id :id :as active-tab} (first (filter :active tabs))]
+            (if focused
+              (history/tab-in-focus tab-id)
+              (history/no-tab-in-focus)))))))
+
 (defn ^:dev/before-load remove-listeners []
   (println "Removing listeners")
 
   (.close history/db)
 
+
+  (. js/window clearInterval @active-tab-interval-id)
+  (reset! active-tab-interval-id nil)
+
+  (.. js/chrome -windows -onFocusChanged
+      (removeListener on-window-focus-changed))
+  (.. js/chrome -runtime -onMessage
+      (removeListener on-message-received))
   (.. js/chrome -tabs -onRemoved
       (removeListener on-tab-removed))
   (.. js/chrome -webNavigation -onHistoryStateUpdated
@@ -207,7 +256,7 @@
   (.. js/chrome -webNavigation -onCreatedNavigationTarget
       (removeListener on-created-navigation-target)))
 
-;; TODO initiate open-tabs at the load
+
 (defn ^:dev/after-load init []
   (println "Hello from the background world!")
   (-> (. history/db (version 1))
@@ -217,14 +266,19 @@
   (.open history/db)
 
 
-  #_(.. js/chrome -tabs
-        (query #js {} (fn [tabs] (doseq [tab tabs]
-                                   (let [tab (js->clj tab :keywordize-keys)
-                                         tab-id (:id tab)
-                                         tab (assoc tab :tabId tab-id)
-                                         tab (clj->js tab)]
-                                     (on-committed tab))))))
+  (when (some? @active-tab-interval-id)
+    (. js/window clearInterval @active-tab-interval-id)
+    (reset! active-tab-interval-id nil))
 
+  (reset! active-tab-interval-id
+          (. js/window setInterval
+             check-active-tab
+             1000))
+
+  (.. js/chrome -windows -onFocusChanged
+      (addListener on-window-focus-changed))
+  (.. js/chrome -runtime -onMessage
+      (addListener on-message-received))
   (.. js/chrome -tabs -onRemoved
       (addListener on-tab-removed))
   (.. js/chrome -webNavigation -onHistoryStateUpdated

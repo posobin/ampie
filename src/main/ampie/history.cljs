@@ -1,7 +1,12 @@
 (ns ampie.history
   (:require ["dexie" :default Dexie]))
 
-(def open-tabs (atom {}))
+;; Using defonce so it is preserved on hot reloads of ampie
+(defonce open-tabs (atom {}))
+;; Stores a map for the current visit: the active visit hash and
+;; since when the user has been on that page.
+;; {:visit-hash :start-time}
+(defonce current-visit-info (atom nil))
 (def db nil (Dexie. "AmpieDB"))
 
 ;; Functions for managing visits and tabs
@@ -20,6 +25,7 @@
       (dissoc (when (not keep-visit-hash)
                 :visitHash))))
 
+;; TODO choose hash function, prepend timestamp in front of the hash
 (defn generate-visit-hash [visit]
   (let [{time-stamp :first-opened
          url        :url
@@ -64,6 +70,20 @@
       (.transaction db "rw" (.-closedTabs db)
                     (fn []
                       (.. db -closedTabs (add (clj->js tab-info))))))))
+
+;; Returns a clojure sequence of visits corresponding to visit-hashes.
+;; Done in one request to the database.
+(defn get-visits-info [visit-hashes]
+  (-> (.-visits db)
+      (.where "visitHash")
+      (.anyOf (clj->js visit-hashes))
+      (.toArray
+        (fn [js-visits]
+          (->> (js->clj js-visits :keywordize-keys true)
+               (map (fn [visit] [(:visitHash visit)
+                                 (dissoc visit :visitHash)]))
+               (into {}))))
+      (.then #(map % visit-hashes))))
 
 ;; Returns a Promise that resolves to a visit object with the first hash
 ;; in the list that has the given url. If no visit matches, resolves to nil.
@@ -127,6 +147,18 @@
                       (.delete)))
                 (some? visit)))))))))
 
+;; Returns a js promise that resolves with the clojure list of
+;; visit hashes of length at most n, identifying the last n visits
+;; to the given url.
+(defn get-past-visits-to-the-url [url n]
+  (->
+    (.-visits db)
+    (.where "url")
+    (.equals url)
+    (.reverse)
+    (.limit n)
+    (.toArray)))
+
 (defn evt->visit
   ([evt] (evt->visit evt nil))
   ([evt parent-hash]
@@ -149,3 +181,34 @@
     {:visit-hash   visit-hash
      :history-back new-history
      :history-fwd  ()}))
+
+;; Update the entry for the given visit in the db by incrementing
+;; its time-spent by time-delta.
+(defn increase-visit-time! [visit-hash time-delta]
+  (->
+    (.-visits db)
+    (.where "visitHash")
+    (.equals visit-hash)
+    (.modify
+      (fn [visit]
+        (let [current-time (aget visit "time-spent")]
+          (aset visit "time-spent" (+ current-time time-delta)))))))
+
+(defn tab-in-focus [tab-id]
+  ;; Not worrying about race conditions for now, they may only affect stuff for only
+  ;; a couple of seconds.
+  (let [{:keys [visit-hash start-time]} @current-visit-info
+        time-delta (-> (- (.getTime (js/Date.))
+                          start-time)
+                       (/ 1000)
+                       (int))
+        new-visit-hash (:visit-hash (@open-tabs tab-id))]
+    (when (not= new-visit-hash visit-hash)
+      (println "Switched visit" new-visit-hash "from" visit-hash)
+      (when (some? visit-hash)
+        (increase-visit-time! visit-hash time-delta))
+      (reset! current-visit-info
+              {:visit-hash new-visit-hash
+               :start-time (.getTime (js/Date.))}))))
+
+(defn no-tab-in-focus [] (tab-in-focus nil))

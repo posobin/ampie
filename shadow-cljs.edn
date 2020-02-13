@@ -4,7 +4,8 @@
   "src/main"
   "src/test"]
 
- :dependencies [[funcool/promesa "5.0.0"]]
+ :dependencies [[funcool/promesa "5.0.0"]
+                [reagent "0.9.1"]]
 
  :nrepl {:port 9000}
  :builds

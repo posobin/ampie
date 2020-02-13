@@ -6,6 +6,8 @@
     "shadow-cljs": "2.8.83"
   },
   "dependencies": {
-    "dexie": "^2.0.4"
+    "dexie": "^2.0.4",
+    "react": "16.9.0",
+    "react-dom": "16.9.0"
   }
 }

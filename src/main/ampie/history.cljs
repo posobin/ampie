@@ -212,3 +212,32 @@
                :start-time (.getTime (js/Date.))}))))
 
 (defn no-tab-in-focus [] (tab-in-focus nil))
+
+;; Add the urls from the links seq to the set of links seen at the given url.
+;; Succeeds only when the url in the tab with tab-id is page-url, otherwise
+;; does nothing.
+;; TODO: if the url doesn't match, search through tab history for it.
+(defn add-seen-links [tab-id page-url links]
+  (let [visit-hash (-> tab-id (@open-tabs) :visit-hash)
+        unique-links (-> links set seq)
+        objects-to-save (mapv (fn [url] {:childUrl  url
+                                         :parentUrl page-url})
+                              unique-links)]
+    (println "Adding" objects-to-save)
+    (println "visit-hash" visit-hash)
+    (->
+      (get-visit-by-hash visit-hash)
+      (.then
+        (fn [{:keys [url]}]
+          (when (= url page-url)
+            (-> (.-seenLinks db)
+                (.bulkPut (clj->js objects-to-save))))))
+      ;; Need to catch to put at least some of the links into DB.
+      ;; (Dexie will commit if BulkError is caught)
+      ;; Though don't know why this would happen, it doesn't throw on
+      ;; the same key being already present in the DB.
+      (.catch
+        (.-BulkError Dexie)
+        (fn [e]
+          (println "Didn't add" (.. e -failures -length)
+                   "entries to seenLinks"))))))

@@ -4,6 +4,8 @@
 (defonce active-tab-interval-id (atom nil))
 
 (defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
+;; TODO: figure out how to clean urls better and what to do with the real url
+;; (whether to save it too or not)
 (defn clean-up-url [url]
   (clojure.string/replace url #"^https?://(www.)?|#.*$" ""))
 (defn preprocess-navigation-evt [navigation-evt]
@@ -192,28 +194,39 @@
 (defn on-history-state-updated [evt]
   (on-committed evt))
 
+(defn on-message-get-past-visits-parents [{url :url} sender send-response]
+  (-> (history/get-past-visits-to-the-url url 5)
+      (.then
+        (fn [past-visits]
+          (->> (js->clj past-visits :keywordize-keys true)
+               (map :parent)
+               (filter some?)
+               history/get-visits-info)))
+      (.then
+        (fn [past-visits-parents]
+          (->
+            (map #(select-keys % [:url :first-opened]) past-visits-parents)
+            clj->js
+            send-response)))))
+
+(defn on-message-send-links-on-page [{:keys [links page-url]} sender send-response]
+  (let [page-url (clean-up-url page-url)
+        links (map clean-up-url links)
+        sender (js->clj sender :keywordize-keys true)
+        tab-id (-> sender :tab :id)]
+    (history/add-seen-links tab-id page-url links)))
+
 (defn on-message-received [request sender send-response]
   (let [request (js->clj request :keywordize-keys true)
         request-type (:type request)]
     (cond (= request-type "get-past-visits-parents")
-          (let [url (clean-up-url (:url request))]
-            (-> (history/get-past-visits-to-the-url url 5)
-                (.then
-                  (fn [past-visits]
-                    (->> (js->clj past-visits :keywordize-keys true)
-                         (map :parent)
-                         (filter some?)
-                         history/get-visits-info)))
-                (.then
-                  (fn [past-visits-parents]
-                    (println "Sending response" past-visits-parents)
-                    (send-response
-                      (clj->js
-                        (map #(select-keys % [:url :first-opened])
-                             past-visits-parents))))))
-            ;; Need to return true to let browser know that we will call
-            ;; send-response asynchronously.
-            true))))
+          (on-message-get-past-visits-parents request sender send-response)
+
+          (= request-type "send-links-on-page")
+          (on-message-send-links-on-page request sender send-response)))
+  ;; Need to return true to let browser know that we will call
+  ;; send-response asynchronously.
+  true)
 
 ;; We need this event in addition to the check-active-tab interval because
 ;; interval may not be called when the computer is put to sleep, for example.
@@ -229,7 +242,7 @@
         (fn [window]
           (let [{tabs :tabs focused :focused :as window}
                 (js->clj window :keywordize-keys true)
-                {tab-id :id :as active-tab} (first (filter :active tabs))]
+                {tab-id :id} (first (filter :active tabs))]
             (if focused
               (history/tab-in-focus tab-id)
               (history/no-tab-in-focus)))))))
@@ -263,6 +276,9 @@
       (. stores
          #js {:visits     "&visitHash, url"
               :closedTabs "++objId"}))
+  (-> (. history/db (version 2))
+      (. stores
+         #js {:seenLinks "&[parentUrl+childUrl],childUrl"}))
   (.open history/db)
 
 

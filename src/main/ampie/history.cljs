@@ -176,7 +176,7 @@
     :history-fwd  history-fwd}))
 
 (defn add-new-visit-to-tab [tab-info visit-hash]
-  (let [history (:history-back tab-info)
+  (let [history     (:history-back tab-info)
         new-history (conj history visit-hash)]
     {:visit-hash   visit-hash
      :history-back new-history
@@ -198,10 +198,10 @@
   ;; Not worrying about race conditions for now, they may only affect stuff for only
   ;; a couple of seconds.
   (let [{:keys [visit-hash start-time]} @current-visit-info
-        time-delta (-> (- (.getTime (js/Date.))
-                          start-time)
-                       (/ 1000)
-                       (int))
+        time-delta     (-> (- (.getTime (js/Date.))
+                              start-time)
+                           (/ 1000)
+                           (int))
         new-visit-hash (:visit-hash (@open-tabs tab-id))]
     (when (not= new-visit-hash visit-hash)
       (println "Switched visit" new-visit-hash "from" visit-hash)
@@ -218,13 +218,11 @@
 ;; does nothing.
 ;; TODO: if the url doesn't match, search through tab history for it.
 (defn add-seen-links [tab-id page-url links]
-  (let [visit-hash (-> tab-id (@open-tabs) :visit-hash)
-        unique-links (-> links set seq)
+  (let [visit-hash      (-> tab-id (@open-tabs) :visit-hash)
+        unique-links    (-> links set seq)
         objects-to-save (mapv (fn [url] {:childUrl  url
                                          :parentUrl page-url})
                               unique-links)]
-    (println "Adding" objects-to-save)
-    (println "visit-hash" visit-hash)
     (->
       (get-visit-by-hash visit-hash)
       (.then
@@ -233,11 +231,27 @@
             (-> (.-seenLinks db)
                 (.bulkPut (clj->js objects-to-save))))))
       ;; Need to catch to put at least some of the links into DB.
-      ;; (Dexie will commit if BulkError is caught)
+      ;; (Dexie will commit after exception if BulkError is caught)
       ;; Though don't know why this would happen, it doesn't throw on
-      ;; the same key being already present in the DB.
+      ;; the same key being already present in the DB. Maybe should
+      ;; remove it and let the error bubble up? I need a global handler
+      ;; then.
       (.catch
         (.-BulkError Dexie)
         (fn [e]
           (println "Didn't add" (.. e -failures -length)
                    "entries to seenLinks"))))))
+
+(defn find-where-saw-urls [urls]
+  (->
+    (.-seenLinks db)
+    (.where "childUrl")
+    (.anyOf urls)
+    (.toArray
+      (fn [arr]
+        (->> (js->clj arr :keywordize-keys true)
+             (reduce
+               (fn [accum {:keys [childUrl parentUrl]}]
+                 (update accum childUrl
+                         #(conj (or % []) parentUrl)))
+               {}))))))

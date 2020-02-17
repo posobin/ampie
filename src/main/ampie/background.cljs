@@ -2,6 +2,7 @@
   (:require [ampie.history :as history]))
 
 (defonce active-tab-interval-id (atom nil))
+(defonce launched-tab? (atom false))
 
 (defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
 ;; TODO: figure out how to clean urls better and what to do with the real url
@@ -17,23 +18,23 @@
 ;; The main event handlers will dispatch to these functions
 
 (defn opened-link-same-tab [evt]
-  (let [tab-id (:tabId evt)
+  (let [tab-id        (:tabId evt)
         prev-tab-info (@history/open-tabs tab-id)
-        parent-hash (:visit-hash prev-tab-info)
-        visit (history/evt->visit evt parent-hash)
-        visit-hash (history/generate-visit-hash visit)
-        tab-info (history/add-new-visit-to-tab prev-tab-info visit-hash)]
+        parent-hash   (:visit-hash prev-tab-info)
+        visit         (history/evt->visit evt parent-hash)
+        visit-hash    (history/generate-visit-hash visit)
+        tab-info      (history/add-new-visit-to-tab prev-tab-info visit-hash)]
     (history/add-new-visit! visit-hash visit)
     (history/update-tab! tab-id tab-info)))
 
 (defn opened-link-new-tab [evt]
-  (let [tab-id (:tabId evt)
-        parent-tab-id (:sourceTabId evt)
+  (let [tab-id          (:tabId evt)
+        parent-tab-id   (:sourceTabId evt)
         parent-tab-info (@history/open-tabs parent-tab-id)
-        parent-hash (:visit-hash parent-tab-info)
-        visit (history/evt->visit evt parent-hash)
-        visit-hash (history/generate-visit-hash visit)
-        tab-info (history/generate-new-tab visit-hash)]
+        parent-hash     (:visit-hash parent-tab-info)
+        visit           (history/evt->visit evt parent-hash)
+        visit-hash      (history/generate-visit-hash visit)
+        tab-info        (history/generate-new-tab visit-hash)]
     (history/add-new-visit! visit-hash visit)
     (history/open-tab! tab-id tab-info)))
 
@@ -43,15 +44,16 @@
 ;; TODO check if the URL was modified from the previous one
 ;;      and set the previous URL as the parent then
 (defn opened-from-typed-url [evt]
-  (let [tab-id (:tabId evt)
-        in-existing-tab? (contains? @history/open-tabs tab-id)
+  (let [tab-id            (:tabId evt)
+        in-existing-tab?  (contains? @history/open-tabs tab-id)
         existing-tab-info (@history/open-tabs tab-id)
-        parent-hash (:visit-hash existing-tab-info)
-        visit (history/evt->visit evt parent-hash)
-        visit-hash (history/generate-visit-hash visit)
-        tab-info (if in-existing-tab?
-                   (history/add-new-visit-to-tab existing-tab-info visit-hash)
-                   (history/generate-new-tab visit-hash))]
+        parent-hash       (:visit-hash existing-tab-info)
+        visit             (history/evt->visit evt parent-hash)
+        visit-hash        (history/generate-visit-hash visit)
+        tab-info          (if in-existing-tab?
+                            (history/add-new-visit-to-tab
+                              existing-tab-info visit-hash)
+                            (history/generate-new-tab visit-hash))]
     (history/add-new-visit! visit-hash visit)
     (if in-existing-tab?
       (history/update-tab! tab-id tab-info)
@@ -62,16 +64,16 @@
 ;; If no, create a new visit for this URL, without a parent visit, and a new tab.
 (defn restored-tab [evt]
   (let [tab-id (:tabId evt)
-        url (:url evt)]
+        url    (:url evt)]
     (.then
       (history/maybe-restore-last-tab tab-id url :n 3)
       (fn [found-tab?]
         (when found-tab?
           (println "Restored tab" tab-id "with url" url))
         (when (not found-tab?)
-          (let [visit (history/evt->visit evt)
+          (let [visit      (history/evt->visit evt)
                 visit-hash (history/generate-visit-hash visit)
-                tab-info (history/generate-new-tab visit-hash)]
+                tab-info   (history/generate-new-tab visit-hash)]
             (history/add-new-visit! visit-hash visit)
             (history/open-tab! tab-id tab-info)))))))
 
@@ -83,47 +85,47 @@
 ;; move the whole history to history-back, generate a new visit, and add it
 ;; to the tab.
 (defn went-back-or-fwd-in-tab [evt]
-  (let [tab-id (:tabId evt)
-        url (:url evt)
-        tab-info (@history/open-tabs tab-id)
+  (let [tab-id       (:tabId evt)
+        url          (:url evt)
+        tab-info     (@history/open-tabs tab-id)
         history-back (:history-back tab-info)
-        history-fwd (:history-fwd tab-info)]
+        history-fwd  (:history-fwd tab-info)]
     (.then
       (js/Promise.all
         #js [(history/get-first-visit-with-url history-back url)
              (history/get-first-visit-with-url history-fwd url)])
       (fn [js-result]
-        (let [back-hash (aget js-result 0)
-              fwd-hash (aget js-result 1)
+        (let [back-hash    (aget js-result 0)
+              fwd-hash     (aget js-result 1)
 
               [back-1 back-2]
               (split-with #(not= % back-hash) history-back)
-              back-count (when (seq back-2) (count back-1))
+              back-count   (when (seq back-2) (count back-1))
 
               [fwd-1 fwd-2]
               (split-with #(not= % fwd-hash) history-fwd)
-              fwd-count (when (seq fwd-2) (count fwd-1))
+              fwd-count    (when (seq fwd-2) (count fwd-1))
 
               back-better? (and back-count
                                 (or (nil? fwd-count)
                                     (< back-count fwd-count)))
-              fwd-better? (and (not back-better?) fwd-count)
-              not-found? (and (not back-better?) (not fwd-better?))
+              fwd-better?  (and (not back-better?) fwd-count)
+              not-found?   (and (not back-better?) (not fwd-better?))
 
-              visit (history/evt->visit evt)
-              new-back (condp = [(boolean back-better?) (boolean fwd-better?)]
-                         [true false] back-2
-                         [false true]
-                         (conj (concat (reverse fwd-1) history-back)
-                               (first fwd-2))
-                         [false false]
-                         (conj (concat (reverse history-fwd) history-back)
-                               (history/generate-visit-hash visit)))
-              new-fwd (condp = [(boolean back-better?) (boolean fwd-better?)]
-                        [true false] (concat (reverse back-1) history-fwd)
-                        [false true] (rest fwd-2)
-                        [false false] ())
-              visit-hash (first new-back)
+              visit        (history/evt->visit evt)
+              new-back     (condp = [(boolean back-better?) (boolean fwd-better?)]
+                             [true false] back-2
+                             [false true]
+                             (conj (concat (reverse fwd-1) history-back)
+                                   (first fwd-2))
+                             [false false]
+                             (conj (concat (reverse history-fwd) history-back)
+                                   (history/generate-visit-hash visit)))
+              new-fwd      (condp = [(boolean back-better?) (boolean fwd-better?)]
+                             [true false] (concat (reverse back-1) history-fwd)
+                             [false true] (rest fwd-2)
+                             [false false] ())
+              visit-hash   (first new-back)
               new-tab-info (history/generate-new-tab visit-hash
                                                      new-back
                                                      new-fwd)]
@@ -149,16 +151,16 @@
 
 (defn on-committed [evt]
   (when (parent-event? evt)
-    (let [evt (preprocess-navigation-evt evt)
-          url (:url evt)
-          tab-id (:tabId evt)
-          transition-type (:transitionType evt)
+    (let [evt                   (preprocess-navigation-evt evt)
+          url                   (:url evt)
+          tab-id                (:tabId evt)
+          transition-type       (:transitionType evt)
           transition-qualifiers (:transitionQualifiers evt)
           current-visit-promise
-          (-> tab-id
-              (@history/open-tabs)
-              :visit-hash
-              (history/get-visit-by-hash))]
+                                (-> tab-id
+                                    (@history/open-tabs)
+                                    :visit-hash
+                                    (history/get-visit-by-hash))]
       (println "Got event:" evt)
       (println "Transition qualifiers:" transition-qualifiers)
       (.then
@@ -209,15 +211,21 @@
             clj->js
             send-response)))))
 
-(defn on-message-send-links-on-page [{:keys [links page-url]} sender send-response]
+(defn on-message-send-links-on-page [{:keys [links page-url]}
+                                     sender send-response]
   (let [page-url (clean-up-url page-url)
-        links (map clean-up-url links)
-        sender (js->clj sender :keywordize-keys true)
-        tab-id (-> sender :tab :id)]
-    (history/add-seen-links tab-id page-url links)))
+        links    (map clean-up-url links)
+        sender   (js->clj sender :keywordize-keys true)
+        tab-id   (-> sender :tab :id)]
+    (history/add-seen-links tab-id page-url links)
+    (.then
+      (history/find-where-saw-urls links)
+      #(send-response (clj->js %)))
+    ;; Return true not to close the send-response channel.
+    true))
 
 (defn on-message-received [request sender send-response]
-  (let [request (js->clj request :keywordize-keys true)
+  (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
     (cond (= request-type "get-past-visits-parents")
           (on-message-get-past-visits-parents request sender send-response)
@@ -280,6 +288,8 @@
       (. stores
          #js {:seenLinks "&[parentUrl+childUrl],childUrl"}))
   (.open history/db)
+
+  (.. js/chrome -tabs (create #js {:url "history.html"}))
 
 
   (when (some? @active-tab-interval-id)

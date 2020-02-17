@@ -156,8 +156,7 @@
           tab-id                (:tabId evt)
           transition-type       (:transitionType evt)
           transition-qualifiers (:transitionQualifiers evt)
-          current-visit-promise
-                                (-> tab-id
+          current-visit-promise (-> tab-id
                                     (@history/open-tabs)
                                     :visit-hash
                                     (history/get-visit-by-hash))]
@@ -207,7 +206,7 @@
       (.then
         (fn [past-visits-parents]
           (->
-            (map #(select-keys % [:url :first-opened]) past-visits-parents)
+            (map #(select-keys % [:url :firstOpened]) past-visits-parents)
             clj->js
             send-response)))))
 
@@ -280,13 +279,7 @@
 
 (defn ^:dev/after-load init []
   (println "Hello from the background world!")
-  (-> (. history/db (version 1))
-      (. stores
-         #js {:visits     "&visitHash, url"
-              :closedTabs "++objId"}))
-  (-> (. history/db (version 2))
-      (. stores
-         #js {:seenLinks "&[parentUrl+childUrl],childUrl"}))
+  (history/init-db)
   (.open history/db)
 
   (.. js/chrome -tabs (create #js {:url "history.html"}))

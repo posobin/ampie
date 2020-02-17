@@ -1,0 +1,18 @@
+body {
+  font-size: 12pt;
+  font-family: "Open Sans";
+  line-height: 1.3em;
+}
+
+.visit-component .visit-component {
+  padding-left: 1em;
+  border-left: 1px solid lightblue;
+}
+
+.visit-component:only-child {
+  padding-left: 0;
+}
+
+.visit-component + .visit-component {
+  margin-bottom: 1em;
+}

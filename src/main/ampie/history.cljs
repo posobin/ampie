@@ -27,17 +27,18 @@
 
 ;; TODO choose hash function, prepend timestamp in front of the hash
 (defn generate-visit-hash [visit]
-  (let [{time-stamp :first-opened
+  (let [{time-stamp :firstOpened
          url        :url
          parent     :parent} visit]
     (hash [time-stamp url parent])))
 
-(defn get-visit-by-hash [visit-hash]
+(defn get-visit-by-hash [visit-hash & {:keys [keep-visit-hash]
+                                       :or   {keep-visit-hash false}}]
   (if (nil? visit-hash)
     (js/Promise.resolve nil)
     (-> (.-visits db)
         (.get visit-hash)
-        (.then js-visit->clj))))
+        (.then #(js-visit->clj % :keep-visit-hash keep-visit-hash)))))
 
 (defn add-new-visit! [visit-hash visit]
   (.transaction
@@ -147,6 +148,17 @@
                       (.delete)))
                 (some? visit)))))))))
 
+(defn get-last-n-root-visits
+  "Returns the last n root visits added to the database"
+  [n]
+  (->
+    (.-visits db)
+    (.orderBy "firstOpened")
+    (.reverse)
+    (.filter #(nil? (aget % "parent")))
+    (.limit n)
+    (.toArray (fn [array] (map js-visit->clj (array-seq array))))))
+
 ;; Returns a js promise that resolves with the clojure list of
 ;; visit hashes of length at most n, identifying the last n visits
 ;; to the given url.
@@ -162,11 +174,11 @@
 (defn evt->visit
   ([evt] (evt->visit evt nil))
   ([evt parent-hash]
-   {:url          (:url evt)
-    :first-opened (:timeStamp evt)
-    :time-spent   0
-    :children     []
-    :parent       parent-hash}))
+   {:url         (:url evt)
+    :firstOpened (:timeStamp evt)
+    :timeSpent   0
+    :children    []
+    :parent      parent-hash}))
 
 (defn generate-new-tab
   ([visit-hash] (generate-new-tab visit-hash (list visit-hash) ()))
@@ -183,7 +195,7 @@
      :history-fwd  ()}))
 
 ;; Update the entry for the given visit in the db by incrementing
-;; its time-spent by time-delta.
+;; its timeSpent by time-delta.
 (defn increase-visit-time! [visit-hash time-delta]
   (->
     (.-visits db)
@@ -191,8 +203,8 @@
     (.equals visit-hash)
     (.modify
       (fn [visit]
-        (let [current-time (aget visit "time-spent")]
-          (aset visit "time-spent" (+ current-time time-delta)))))))
+        (let [current-time (aget visit "timeSpent")]
+          (aset visit "timeSpent" (+ current-time time-delta)))))))
 
 (defn tab-in-focus [tab-id]
   ;; Not worrying about race conditions for now, they may only affect stuff for only
@@ -255,3 +267,10 @@
                  (update accum childUrl
                          #(conj (or % []) parentUrl)))
                {}))))))
+
+(defn init-db []
+  (-> (. db (version 1))
+      (. stores
+         #js {:visits     "&visitHash, url, firstOpened"
+              :closedTabs "++objId"
+              :seenLinks  "&[parentUrl+childUrl],childUrl"})))

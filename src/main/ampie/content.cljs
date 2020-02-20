@@ -25,10 +25,10 @@
                          'shadow.cljs.devtools.client.hud]}]
     (shadow.browser/handle-build-complete
       {:info        {:sources [this-file] :compiled #{(:resource-id this-file)}}
-       :reload-info {:never-load #{} :always-load #{}
-                     :after-load
-                                 [{:fn-sym 'ampie.content/refreshed
-                                   :fn-str "ampie.content.refreshed"}]}})))
+       :reload-info {:never-load  #{}
+                     :always-load #{}
+                     :after-load  [{:fn-sym 'ampie.content/refreshed
+                                    :fn-str "ampie.content.refreshed"}]}})))
 
 (defn send-links-to-background [urls response-handler]
   (when (not-empty urls)

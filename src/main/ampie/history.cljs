@@ -65,12 +65,12 @@
   (swap! open-tabs assoc tab-id tab-info))
 
 (defn close-tab! [tab-id]
-  (let [tab-info (@open-tabs tab-id)]
-    (when tab-info
-      (swap! open-tabs dissoc tab-id)
-      (.transaction db "rw" (.-closedTabs db)
-                    (fn []
-                      (.. db -closedTabs (add (clj->js tab-info))))))))
+  (when-let [tab-info (@open-tabs tab-id)]
+    (swap! open-tabs dissoc tab-id)
+    (println "Removing tab:" tab-info)
+    (.transaction db "rw" (.-closedTabs db)
+                  (fn []
+                    (.. db -closedTabs (add (clj->js tab-info)))))))
 
 ;; Returns a clojure sequence of visits corresponding to visit-hashes.
 ;; Done in one request to the database.
@@ -176,6 +176,7 @@
   ([evt parent-hash]
    {:url         (:url evt)
     :firstOpened (:timeStamp evt)
+    :title       (:title evt)
     :timeSpent   0
     :children    []
     :parent      parent-hash}))
@@ -224,6 +225,43 @@
                :start-time (.getTime (js/Date.))}))))
 
 (defn no-tab-in-focus [] (tab-in-focus nil))
+
+(defn set-visit-title! [visit-hash title]
+  (->
+    (.-visits db)
+    (.update visit-hash #js {:title title})))
+
+;; TODO accept the url and change the corresponding visit, since
+;; the events may come in a different order the current visit in
+;; @open-tabs may be different from the one at which the update
+;; is targeted.
+(defn update-tab-title
+  "Changes the title of the currently active visit in the tab-id"
+  ([tab-id title url] (update-tab-title tab-id title url false))
+  ([tab-id title url second-time?]
+   (let [{{[current-hash prev-hash] :history-back} tab-id} @open-tabs]
+     (.then
+       (.all
+         js/Promise
+         [(get-visit-by-hash current-hash)
+          (get-visit-by-hash prev-hash)])
+       (fn [results-js]
+         (let [[{current-url :url} {prev-url :url}] (js->clj results-js)]
+           (cond
+             (= current-url url)
+             (set-visit-title! current-hash title)
+
+             (= prev-url url)
+             (set-visit-title! prev-hash title)
+
+             (not second-time?)
+             (js/setTimeout (fn [] (update-tab-title tab-id title url true))
+                            500)
+
+             :else
+             (. js/console warn "The url for update-tab-title does not match."
+                "Current" current-url "needs to match" url
+                "wanted to assign title" title))))))))
 
 ;; Add the urls from the links seq to the set of links seen at the given url.
 ;; Succeeds only when the url in the tab with tab-id is page-url, otherwise

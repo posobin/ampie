@@ -2,7 +2,6 @@
   (:require [ampie.history :as history]))
 
 (defonce active-tab-interval-id (atom nil))
-(defonce launched-tab? (atom false))
 
 (defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
 ;; TODO: figure out how to clean urls better and what to do with the real url
@@ -181,7 +180,8 @@
             (= transition-type "typed")
             (opened-from-typed-url evt)
 
-            (= transition-type "generated")
+            (or (= transition-type "generated")
+                (= transition-type "auto_bookmark"))
             (opened-from-typed-url evt)
 
             (and (= transition-type "reload")
@@ -254,6 +254,27 @@
               (history/tab-in-focus tab-id)
               (history/no-tab-in-focus)))))))
 
+(defn on-tab-updated [tab-id change-info tab-info]
+  (let [{title :title} (js->clj change-info :keywordize-keys true)
+        {dirty-url :url} (js->clj tab-info :keywordize-keys true)
+        url (clean-up-url dirty-url)]
+    ;; Only fire when the title was updated
+    (when title
+      (println "Title of" url "updated to" title)
+      (history/update-tab-title tab-id title url))))
+
+(defn process-already-open-tabs [tabs]
+  (let [tabs (js->clj tabs :keywordize-keys true)]
+    (doseq [{:keys [id url title] :as tab} tabs]
+      (let [evt {:tabId     id
+                 :url       (clean-up-url url)
+                 :title     title
+                 :timeStamp (.getTime (js/Date.))}]
+        (if (contains? @history/open-tabs id)
+          (went-back-or-fwd-in-tab evt)
+          (restored-tab evt)))))
+  (js/setTimeout (fn [] (println @history/open-tabs)) 1000))
+
 (defn ^:dev/before-load remove-listeners []
   (println "Removing listeners")
 
@@ -263,6 +284,8 @@
   (. js/window clearInterval @active-tab-interval-id)
   (reset! active-tab-interval-id nil)
 
+  (.. js/chrome -tabs -onUpdated
+      (removeListener on-tab-updated))
   (.. js/chrome -windows -onFocusChanged
       (removeListener on-window-focus-changed))
   (.. js/chrome -runtime -onMessage
@@ -282,8 +305,10 @@
   (history/init-db)
   (.open history/db)
 
-  (.. js/chrome -tabs (create #js {:url "history.html"}))
+  #_(.. js/chrome -tabs (create #js {:url "history.html"}))
 
+  #_(.. js/chrome -tabs
+      (query #js {} process-already-open-tabs))
 
   (when (some? @active-tab-interval-id)
     (. js/window clearInterval @active-tab-interval-id)
@@ -294,6 +319,8 @@
              check-active-tab
              1000))
 
+  (.. js/chrome -tabs -onUpdated
+      (addListener on-tab-updated))
   (.. js/chrome -windows -onFocusChanged
       (addListener on-window-focus-changed))
   (.. js/chrome -runtime -onMessage

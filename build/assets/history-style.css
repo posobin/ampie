@@ -1,18 +1,46 @@
 body {
-  font-size: 12pt;
-  font-family: "Open Sans";
-  line-height: 1.3em;
+  font-size: 11pt;
+  font-family: "Lato";
+  background: #fffbfb;
+  /*line-height: 1.3em;*/
 }
 
-.visit-component .visit-component {
-  padding-left: 1em;
-  border-left: 1px solid lightblue;
+.visit-info {
+  width: 250px;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 0.5em;
+  padding: 10px 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: 1px solid lightblue;
+  box-shadow: 0px 0px 3px 0px lightblue;
+  position: relative;
+  height: 2.5em;
 }
 
-.visit-component:only-child {
-  padding-left: 0;
+.visits-column {
+  margin-right: 1em;
 }
 
-.visit-component + .visit-component {
-  margin-bottom: 1em;
+.visit-block {
+  padding: 1em;
+  border-bottom: 1px solid lightblue;
+  display: flex;
+}
+
+a.title {
+  text-decoration: none;
+  color: #624d7d;
+}
+
+.time-spent {
+  float: right;
+  color: grey;
+  margin-bottom: 0;
+  position: absolute;
+  right: 0.7em;
+  bottom: 0.5em;
+  font-size: 8pt;
 }

@@ -5,42 +5,67 @@
 
 (defonce last-visits (r/atom []))
 
-(defn visit-component [{:keys [url time-spent children] :as visit}]
-  [:div.visit-component
-   (str url " for " time-spent "s")
-   (for [[child id] (map vector children (range))]
-     ^{:key id} [visit-component child])])
+(defn visit-info [{:keys [title url time-spent] :as visit}]
+  [:div.visit-info
+   [:a.title {:href (str "http://" url)} (or title url)]
+   [:p.time-spent "spent " time-spent "s"]])
+
+(defn visits-column [column]
+  [:div.visits-column
+   (for [[visit id] (map vector column (range))]
+     ^{:key id} [visit-info visit])])
+
+(defn visit-block [{:keys [columns] :as visit}]
+  [:div.visit-block
+   [:div.visits-column
+    [visit-info visit]]
+   (for [[column id] (map vector columns (range))]
+     ^{:key id} [visits-column column])])
 
 (defn history-page []
   [:div.history-container
    (for [[visit id] (map vector @last-visits (range))]
-     ^{:key id} [visit-component visit])])
+     ^{:key id} [visit-block visit])])
 
-(defn display-visit-at [visit place]
-  (let [{time-spent :timeSpent :keys [url children]} visit
-        visit-to-add {:url        url
-                      :time-spent time-spent
-                      :children   []}
-        index        (count (get-in @last-visits place))
-        new-place    (conj place index :children)]
-    (swap! last-visits update-in place conj visit-to-add)
-    (doseq [child-hash children]
-      (.then
-        (history/get-visit-by-hash child-hash)
-        (fn [visit] (display-visit-at visit new-place))))))
+(defn db-visit->necessary-data [{time-spent :timeSpent :keys [url title]}]
+  {:url           url
+   :title         title
+   :time-spent    time-spent
+   :children-from 0
+   :children-to   0})
 
-(defn display-root-visit [visit]
-  (let [{time-spent :timeSpent :keys [url children]} visit
-        visit-to-add {:url        url
+(defn load-visits-column [block-id visit-hashes]
+  (.then
+    (history/get-visits-info visit-hashes)
+    (fn [visits]
+      (when (seq visits)
+        (let [children-counts (map #(count (:children %)) visits)
+              all-children    (apply concat (map :children visits))
+              children-sums   (reductions + children-counts)
+              children-ints   (map vector (cons 0 children-sums) children-sums)
+              visits-to-add   (->> visits
+                                   (map db-visit->necessary-data)
+                                   (map (fn [[from to] visit]
+                                          (assoc visit :children-from from
+                                                       :children-to to))
+                                        children-ints))]
+          (swap! last-visits update-in [block-id :columns]
+                 conj visits-to-add)
+          (load-visits-column block-id all-children))))))
+
+(defn load-root-visit [{time-spent :timeSpent :keys [children url title] :as visit}]
+  (let [visit-to-add {:url        url
                       :time-spent time-spent
-                      :children   []}
-        index        (count @last-visits)]
-    (swap! last-visits conj visit-to-add)
-    (doseq [child-hash children]
-      (.then
-        (history/get-visit-by-hash child-hash)
-        (fn [visit] (display-visit-at visit
-                                      [index :children]))))))
+                      :title      title
+                      :columns    []}
+        index        (atom nil)]
+    (swap! last-visits (fn [last-visits]
+                         ;; This function has side-effects against recommendations for
+                         ;; swap!, but it should be ok since the attempt that works will
+                         ;; set the index correctly.
+                         (reset! index (count last-visits))
+                         (conj last-visits visit-to-add)))
+    (load-visits-column @index children)))
 
 (defn init []
   (history/init-db)
@@ -51,6 +76,6 @@
       (fn [visits]
         (println (js->clj visits))
         (doseq [visit visits]
-          (display-root-visit visit)))))
+          (load-root-visit visit)))))
   (rdom/render [history-page]
                (. js/document getElementById "history-holder")))

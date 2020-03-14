@@ -1,5 +1,6 @@
 {"description":"Social web browsing",
  "permissions":["webNavigation", "tabs"],
+ "browser_action":{"default_popup":"popup.html"},
  "name":"Ampie",
  "background":
  {"scripts":
@@ -154,14 +155,15 @@
    "out/cljs-runtime/module$node_modules$react_dom$cjs$react_dom_development.js",
    "out/cljs-runtime/module$node_modules$react_dom$index.js",
    "out/cljs-runtime/reagent.dom.js",
-   "out/cljs-runtime/reagent.core.js",
+   "out/cljs-runtime/reagent.core.js", "out/cljs-runtime/ampie.url.js",
    "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
    "out/cljs-runtime/ampie.history.js",
    "out/cljs-runtime/shadow.module.bg-shared.append.js",
    "out/cljs-runtime/ampie.background.js",
    "out/cljs-runtime/shadow.module.background.append.js"],
   "persistent":false},
- "web_accessible_resources":["assets/content_style.css"],
+ "web_accessible_resources":["assets/content-style.css"],
+ "options_page":"settings.html",
  "manifest_version":2,
  "content_security_policy":
  "default-src 'self'; script-src 'self' 'unsafe-eval'; object-src 'self'; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
@@ -320,6 +322,7 @@
     "out/cljs-runtime/module$node_modules$react_dom$index.js",
     "out/cljs-runtime/reagent.dom.js",
     "out/cljs-runtime/reagent.core.js",
+    "out/cljs-runtime/ampie.url.js",
     "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
     "out/cljs-runtime/ampie.history.js",
     "out/cljs-runtime/shadow.module.bg-shared.append.js",

@@ -1,5 +1,6 @@
 (ns ampie.history
-  (:require ["dexie" :default Dexie]))
+  (:require ["dexie" :default Dexie])
+  (:require [ampie.url :as url]))
 
 ;; Using defonce so it is preserved on hot reloads of ampie
 (defonce open-tabs (atom {}))
@@ -297,6 +298,10 @@
     (.-seenLinks db)
     (.where "childUrl")
     (.anyOf urls)
+    (.and (fn [seen-link]
+            (not=
+              (url/get-domain (aget seen-link "childUrl"))
+              (url/get-domain (aget seen-link "parentUrl")))))
     (.toArray
       (fn [arr]
         (->> (js->clj arr :keywordize-keys true)

@@ -1,0 +1,80 @@
+.ampie-badge {
+  all: initial;
+  position: absolute;
+}
+
+.ampie-badge-icon {
+  position: absolute;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 50%;
+  color: blue;
+  font-family: "Crimson Text";
+  user-select: none;
+  border-radius: 2px;
+  width: 11px;
+  text-align: center;
+  height: 15px;
+}
+
+.ampie-badge-tooltip {
+  display: none;
+  position: absolute;
+  padding: 5px 5px;
+  top: 0;
+  left: 15px;
+  max-width: 200px;
+  border-radius: 3px;
+  line-height: 1.3em;
+  border: 1px solid lightblue;
+  box-shadow: 0px 0px 3px #c190ef;
+  max-height: 400px;
+  overflow-y: scroll;
+}
+
+.ampie-badge-tooltip-align-right .ampie-badge-tooltip {
+  left: initial;
+  right: 5px;
+}
+
+.ampie-badge-tooltip-align-bottom .ampie-badge-tooltip {
+  top: initial;
+  bottom: -10px;
+}
+
+.ampie-badge-tooltip, .ampie-badge-tooltip * {
+  background: white;
+  font-size: 12px;
+  font-family: Lato;
+  text-indent: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  color: black;
+}
+
+.ampie-badge-tooltip p {
+  text-indent: 0;
+  margin-top: 0;
+  margin-bottom: 0em;
+  color: blue;
+}
+
+.ampie-badge-tooltip-visible .ampie-badge-tooltip {
+  display: block;
+}
+
+.ampie-badge-hidden {
+  visibility: hidden;
+  display: none;
+}
+
+.ampie-badge-fixed {
+  position: fixed;
+}
+
+.ampie-badge-tooltip-header {
+  border-bottom: 1px solid lightgrey;
+  margin-bottom: 0.1em;
+  padding-bottom: 0.2em;
+}

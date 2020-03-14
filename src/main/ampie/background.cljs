@@ -1,17 +1,14 @@
 (ns ampie.background
-  (:require [ampie.history :as history]))
+  (:require [ampie.history :as history])
+  (:require [ampie.url :as url]))
 
 (defonce active-tab-interval-id (atom nil))
 
 (defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
-;; TODO: figure out how to clean urls better and what to do with the real url
-;; (whether to save it too or not)
-(defn clean-up-url [url]
-  (clojure.string/replace url #"^https?://(www.)?|#.*$" ""))
 (defn preprocess-navigation-evt [navigation-evt]
   (-> navigation-evt
       (js->clj :keywordize-keys true)
-      (update :url clean-up-url)))
+      (update :url url/clean-up)))
 
 
 ;; The main event handlers will dispatch to these functions
@@ -212,8 +209,8 @@
 
 (defn on-message-send-links-on-page [{:keys [links page-url]}
                                      sender send-response]
-  (let [page-url (clean-up-url page-url)
-        links    (map clean-up-url links)
+  (let [page-url (url/clean-up page-url)
+        links    (map url/clean-up links)
         sender   (js->clj sender :keywordize-keys true)
         tab-id   (-> sender :tab :id)]
     (history/add-seen-links tab-id page-url links)
@@ -257,7 +254,7 @@
 (defn on-tab-updated [tab-id change-info tab-info]
   (let [{title :title} (js->clj change-info :keywordize-keys true)
         {dirty-url :url} (js->clj tab-info :keywordize-keys true)
-        url (clean-up-url dirty-url)]
+        url (url/clean-up dirty-url)]
     ;; Only fire when the title was updated
     (when title
       (println "Title of" url "updated to" title)
@@ -267,7 +264,7 @@
   (let [tabs (js->clj tabs :keywordize-keys true)]
     (doseq [{:keys [id url title] :as tab} tabs]
       (let [evt {:tabId     id
-                 :url       (clean-up-url url)
+                 :url       (url/clean-up url)
                  :title     title
                  :timeStamp (.getTime (js/Date.))}]
         (if (contains? @history/open-tabs id)
@@ -308,7 +305,7 @@
   #_(.. js/chrome -tabs (create #js {:url "history.html"}))
 
   #_(.. js/chrome -tabs
-      (query #js {} process-already-open-tabs))
+        (query #js {} process-already-open-tabs))
 
   (when (some? @active-tab-interval-id)
     (. js/window clearInterval @active-tab-interval-id)

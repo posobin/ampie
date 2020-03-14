@@ -23,9 +23,12 @@
      ^{:key id} [visits-column column])])
 
 (defn history-page []
-  [:div.history-container
-   (for [[visit id] (map vector @last-visits (range))]
-     ^{:key id} [visit-block visit])])
+  [:div.history-page
+   [:div.header
+    [:h1 "Browsing history"]]
+   [:div.history-container
+    (for [[visit id] (map vector @last-visits (range))]
+      ^{:key id} [visit-block visit])]])
 
 (defn db-visit->necessary-data [{time-spent :timeSpent :keys [url title]}]
   {:url           url

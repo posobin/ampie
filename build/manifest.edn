@@ -7,16 +7,26 @@
                             {:init-fn        ampie.content/init
                              :chrome/options {:matches ["<all_urls>"]}}
 
-                            :chrome/single-file
-                            {:init-fn ampie.history-page/init}
+                            :history-page
+                            {:output-type :chrome/single-file
+                             :init-fn     ampie.history-page/init}
+
+                            :settings-page
+                            {:output-type :chrome/single-file
+                             :init-fn     ampie.settings-page/init}
 
                             :background
-                            {:init-fn ampie.background/init}}
+                            {:init-fn ampie.background/init}
+
+                            :browser-action
+                            {:init-fn ampie.popup/init}}
 
  :permissions              ["webNavigation", "tabs"]
- :web-accessible-resources ["assets/content_style.css"]
+ :web-accessible-resources ["assets/content-style.css"]
  :content-scripts          [{:css     ["assets/content_style.css"]
                              :matches ["<all_urls>"]}]
+ :browser-action           {:default-popup "popup.html"}
+ :options-page             "settings.html"
 
  :content-security-policy  ["default-src 'self';"
                             ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
@@ -28,4 +38,3 @@
                             "frame-src 'self' data: chrome-extension-resource:;"
                             "font-src 'self' data: chrome-extension-resource:;"
                             "media-src * data: blob: filesystem:;"]}
-

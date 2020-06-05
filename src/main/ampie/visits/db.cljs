@@ -1,5 +1,6 @@
 (ns ampie.visits.db
-  (:require [ampie.db :refer [db]]))
+  (:require [ampie.db :refer [db]]
+            [taoensso.timbre :as log]))
 
 (defn js-visit->clj [visit & {:keys [keep-visit-hash]
                               :or   {keep-visit-hash false}}]

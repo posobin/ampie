@@ -1,4 +1,5 @@
-(ns ampie.url)
+(ns ampie.url
+  (:require [taoensso.timbre :as log]))
 
 (defn clean-up-params [url]
   (-> url

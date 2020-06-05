@@ -2,8 +2,10 @@
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
             [ampie.url :as url]
+            [taoensso.timbre :as log]
             [shadow.cljs.devtools.client.browser :as shadow.browser]
-            [ampie.content-script.info-bar :refer [display-info-bar remove-info-bar]]
+            [ampie.content-script.info-bar
+             :refer [display-info-bar remove-info-bar]]
             ["webextension-polyfill" :as browser]))
 
 (defonce parent-urls (r/atom []))
@@ -19,36 +21,58 @@
          :output-name   "ampie.content_script.content.js"
          :resource-name "ampie/content_script/content.cljs"
          :type          :cljs
-         :provides      #{'ampie.content}
+         :provides      #{'ampie.content-script.content}
+         :warnings      []
+         :from-jar      nil
+         :deps          ['goog 'cljs.core 'reagent.core 'reagent.dom
+                         'shadow.cljs.devtools.client.browser
+                         'ampie.content-script.info-bar
+                         'shadow.cljs.devtools.client.hud]}
+
+        info-bar
+        {:resource-id   [:shadow.build.classpath/resource "ampie/content_script/info_bar.cljs"]
+         :module        :content-script :ns 'ampie.content-script.info-bar
+         :output-name   "ampie.content_script.info_bar.js"
+         :resource-name "ampie/content_script/info_bar.cljs"
+         :type          :cljs
+         :provides      #{'ampie.content-script.info-bar}
          :warnings      []
          :from-jar      nil
          :deps          ['goog 'cljs.core 'reagent.core 'reagent.dom
                          'shadow.cljs.devtools.client.browser
                          'shadow.cljs.devtools.client.hud]}]
     (shadow.browser/handle-build-complete
-      {:info        {:sources [this-file] :compiled #{(:resource-id this-file)}}
+      {:info        {:sources  [info-bar this-file]
+                     :compiled #{(:resource-id this-file)
+                                 (:resource-id info-bar)}}
        :reload-info {:never-load  #{}
                      :always-load #{}
                      :after-load  [{:fn-sym 'ampie.content-script.content/refreshed
                                     :fn-str "ampie.content_script.content.refreshed"}]}})))
 
-(defn send-links-to-background [urls response-handler]
+(defn send-links-to-background
+  "Sends the given urls to background so that it saves them to seen-links,
+  and returns the map url -> [visits on which saw the url]."
+  [urls response-handler]
   (when (seq urls)
     (->
       (.. browser
         -runtime
         (sendMessage
-          #js {:type     "send-links-on-page"
-               :links    (clj->js urls)
-               :page-url (.. js/window -location -href)}))
+          (clj->js {:type     :add-seen-links
+                    :links    urls
+                    :page-url (.. js/window -location -href)})))
       (.then
-        (fn [js-url->where-seen]
-          (let [url->where-seen (js->clj js-url->where-seen)
-                current-url     (url/clean-up (.. js/window -location -href))
-                cleaned-up      (into {} (for [[k v] url->where-seen]
-                                           [k (filter #(not= (url/clean-up %)
-                                                         current-url)
-                                                v)]))]
+        (fn [seen-urls-visits]
+          (log/info "Got seen urls" (js->clj seen-urls-visits))
+          (let [seen-urls-visits (js->clj seen-urls-visits :keywordize-keys true)
+                current-url      (url/clean-up (.. js/window -location -href))
+
+                cleaned-up
+                (into {}
+                  (for [[url visits] (map vector urls seen-urls-visits)]
+                    [url (filter #(not= (url/clean-up (:url %)) current-url)
+                           visits)]))]
             (response-handler cleaned-up)))))))
 
 (defn get-z-index
@@ -134,7 +158,7 @@
     (.appendChild tooltip-div header)
     (doseq [previously-seen-at target-info]
       (let [url-p (. js/document createElement "p")]
-        (aset url-p "textContent" previously-seen-at)
+        (aset url-p "textContent" (:url previously-seen-at))
         (.appendChild tooltip-div url-p)))
     tooltip-div))
 
@@ -194,20 +218,26 @@
   (let [page-links      (array-seq (.-links js/document))
         unvisited-links (filter #(nil? (.getAttribute % "processed-by-ampie"))
                           page-links)
-        current-url     (url/clean-up (.. js/document -location -href))]
+        current-url     (url/clean-up (.. js/document -location -href))
+        links-to-query  (->> unvisited-links
+                          (map #(.-href %))
+                          (filter url/should-store-url?)
+                          (map url/clean-up))]
     (doseq [link-element unvisited-links]
       (.setAttribute link-element "processed-by-ampie" ""))
     (send-links-to-background
-      (->> unvisited-links
-        (mapv #(.-href %))
-        (filter url/should-store-url?))
+      links-to-query
       (fn [url->where-saw-it]
         (swap! url->display-info merge url->where-saw-it)
+        (log/info url->where-saw-it)
         (doseq [target unvisited-links]
           (let [target-url             (url/clean-up (.-href target))
                 target-prior-sightings (url->where-saw-it target-url)]
+            (log/info target-url target-prior-sightings)
             (when (and (seq target-prior-sightings)
                     (not= target-url current-url))
+              (log/info "Putting on page" target-url
+                target-prior-sightings)
               (add-ampie-badge target @next-target-id target-prior-sightings)
               (.setAttribute target "processed-by-ampie" @next-target-id)
               (swap! target-ids conj @next-target-id)
@@ -216,9 +246,9 @@
 (defn screen-update []
   (doseq [target-id @target-ids]
     (let [target (. js/document querySelector
-                    (str "[processed-by-ampie=\"" target-id "\"]"))
+                   (str "[processed-by-ampie=\"" target-id "\"]"))
           badge  (. js/document querySelector
-                    (str "[ampie-badge-id=\"" target-id "\"]"))]
+                   (str "[ampie-badge-id=\"" target-id "\"]"))]
       (if (nil? target)
         (do
           (.remove badge)
@@ -259,8 +289,8 @@
     (.. browser
       -runtime
       (sendMessage
-        #js {:type "get-past-visits-parents"
-             :url  (.. js/window -location -href)}))
+        (clj->js {:type :get-past-visits-parents
+                  :url  (.. js/window -location -href)})))
     (.then
       (fn [parents]
         (let [parents (->> (js->clj parents :keywordize-keys true)

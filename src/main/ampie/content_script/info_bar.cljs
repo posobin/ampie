@@ -1,22 +1,36 @@
 (ns ampie.content-script.info-bar
   (:require [reagent.dom :as rdom]
             [reagent.core :as r]
-            [ampie.url :as url]))
+            [ampie.url :as url]
+            [taoensso.timbre :as log]
+            [goog.string :as gstring]
+            [goog.string.format]))
 
 (defn timestamp->date [timestamp]
-  "June 1, 2020")
+  (let [date  (js/Date. timestamp)
+        day   (.getDay date)
+        month (.getMonth date)
+        month-name
+        (["January" "February" "March" "April" "May" "June" "July" "August"
+          "September" "October" "November" "December"]
+         month)
+        year  (.getFullYear date)]
+    (gstring/format "%s %d, %d" month-name day year)))
 
 (defn seen-at [sources]
   (when (seq sources)
     [:div.seen-at
      [:div.header [:i.icon.history] "Previously seen at"]
-     (for [{:keys [url timestamp title]} sources]
-       ^{:key (str url " " timestamp)}
-       [:div.row
-        [:div.title title]
-        [:div.info
-         [:div.domain (url/get-domain url)]
-         [:div.date (timestamp->date timestamp)]]])]))
+     (for [{:keys [url visit-hash firstOpened title] :as info} sources]
+       ^{:key visit-hash}
+       (try
+         [:div.row
+          [:div.title title]
+          [:div.info
+           [:div.domain (url/get-domain url)]
+           [:div.date (timestamp->date firstOpened)]]]
+         (catch js/Error e
+           (log/error info))))]))
 
 (defn mini-tags [reference-counts]
   (for [[source-name count] reference-counts]
@@ -29,6 +43,7 @@
   [:div.bottom-row
    [:div.url url]
    [mini-tags reference-counts]])
+
 
 (defn info-bar [{page-info :page-info}]
   (let [{seen  :seen-at
@@ -48,15 +63,11 @@
     (.. js/chrome
       -runtime
       (sendMessage
-        #js {:type  "send-links-on-page"
-             :links #js [current-url]}
+        (clj->js {:type  :add-seen-links
+                  :links [current-url]})
         (fn [js-url->where-seen]
-          (let [seen-at (->> js-url->where-seen
-                          js->clj
-                          first
-                          second
-                          (map url/clean-up)
-                          (map #(assoc {} :title % :url %)))]
+          (let [seen-at (->> (js->clj js-url->where-seen :keywordize-keys true)
+                          first)]
             (swap! page-info assoc :seen-at seen-at)))))))
 
 (defn display-info-bar []

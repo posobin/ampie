@@ -6,7 +6,7 @@
     "shadow-cljs": "2.9.10"
   },
   "dependencies": {
-    "dexie": "^2.0.4",
+    "dexie": "^3.0.1",
     "react": "16.9.0",
     "react-dom": "16.9.0",
     "webextension-polyfill": "^0.6.0"

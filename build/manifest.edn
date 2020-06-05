@@ -1,40 +1,32 @@
-{:name                     "Ampie"
- :version                  "1.0"
- :description              "Social web browsing"
- :manifest-version         2
+{:name             "Ampie"
+ :version          "1.0"
+ :description      "Social web browsing"
+ :manifest-version 2
 
- :shadow/outputs           {:content-script
-                            {:init-fn        ampie.content/init
-                             :chrome/options {:matches ["<all_urls>"]}}
+ :shadow/outputs {:content-script {:init-fn        ampie.content-script.content/init
+                                   :chrome/options {:matches ["<all_urls>"]}}
+                  :background     {:init-fn ampie.background.core/init}
+                  :browser-action {:init-fn ampie.popup/init}
 
-                            :history-page
-                            {:output-type :chrome/single-file
-                             :init-fn     ampie.history-page/init}
-
-                            :settings-page
-                            {:output-type :chrome/single-file
-                             :init-fn     ampie.settings-page/init}
-
-                            :background
-                            {:init-fn ampie.background/init}
-
-                            :browser-action
-                            {:init-fn ampie.popup/init}}
+                  :history-page  {:output-type :chrome/single-file
+                                  :init-fn     ampie.history-page/init}
+                  :settings-page {:output-type :chrome/single-file
+                                  :init-fn     ampie.settings-page/init}}
 
  :permissions              ["webNavigation", "tabs"]
  :web-accessible-resources ["assets/content-style.css"]
- :content-scripts          [{:css     ["assets/content_style.css"]
+ :content-scripts          [{:css     ["assets/content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}
  :options-page             "settings.html"
 
- :content-security-policy  ["default-src 'self';"
-                            ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
-                            "script-src 'self' 'unsafe-eval';"
-                            "object-src 'self';"
-                            "connect-src * data: blob: filesystem:;"
-                            "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
-                            "img-src 'self' data: chrome-extension-resource:;"
-                            "frame-src 'self' data: chrome-extension-resource:;"
-                            "font-src 'self' data: chrome-extension-resource:;"
-                            "media-src * data: blob: filesystem:;"]}
+ :content-security-policy ["default-src 'self';"
+                           ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
+                           "script-src 'self' 'unsafe-eval';"
+                           "connect-src * data: blob: filesystem:;"
+                           "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
+                           "img-src 'self' data: chrome-extension-resource:;"
+                           ;; FIXME: localhost only? don't want to allow any origin though
+                           "frame-src 'self' http://localhost:* data: chrome-extension-resource:;"
+                           "font-src 'self' data: chrome-extension-resource:;"
+                           "media-src * data: blob: filesystem:;"]}

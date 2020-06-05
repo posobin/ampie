@@ -3,7 +3,6 @@ public/js
 
 /target
 /checkouts
-/src/gen
 /build/out
 
 pom.xml
@@ -11,8 +10,8 @@ pom.xml.asc
 *.iml
 *.jar
 *.log
-.shadow-cljs
-.idea
+.shadow-cljs/
+.idea/
 .lein-*
 .nrepl-*
 .DS_Store

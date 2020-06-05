@@ -78,3 +78,23 @@
   margin-bottom: 0.1em;
   padding-bottom: 0.2em;
 }
+
+.ampie-info-bar {
+    width: 300px;
+    min-height: 3em;
+    background: white;
+    position: fixed;
+    bottom: -1px;
+    right: -1px;
+    border: 2px solid blue;
+    font: 10pt Roboto, sans-serif;
+}
+
+.ampie-info-bar .seen-at .header {font-weight: 600}
+.ampie-info-bar .seen-at .row {margin-top: 0.5em;}
+.ampie-info-bar .seen-at .row .info {color: grey;}
+.ampie-info-bar .seen-at .row .info * {display: inline;}
+.ampie-info-bar .seen-at .row .info .domain:after {content: ", visited on ";}
+
+.ampie-info-bar .bottom-row {border-top: 1px solid blue; font-size: 12pt; font-weight: 600;}
+.ampie-info-bar > * {padding: 8px 4px;}

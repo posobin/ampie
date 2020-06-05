@@ -1,7 +1,8 @@
 (ns ampie.history-page
-  (:require [reagent.core :as r])
-  (:require [reagent.dom :as rdom])
-  (:require [ampie.history :as history]))
+  (:require [reagent.core :as r]
+            [reagent.dom :as rdom]
+            [ampie.db :refer [db]]
+            [ampie.visits.db :as visits.db]))
 
 (defonce last-visits (r/atom []))
 
@@ -39,7 +40,7 @@
 
 (defn load-visits-column [block-id visit-hashes]
   (.then
-    (history/get-visits-info visit-hashes)
+    (visits.db/get-visits-info visit-hashes)
     (fn [visits]
       (when (seq visits)
         (let [children-counts (map #(count (:children %)) visits)
@@ -47,13 +48,13 @@
               children-sums   (reductions + children-counts)
               children-ints   (map vector (cons 0 children-sums) children-sums)
               visits-to-add   (->> visits
-                                   (map db-visit->necessary-data)
-                                   (map (fn [[from to] visit]
-                                          (assoc visit :children-from from
-                                                       :children-to to))
-                                        children-ints))]
+                                (map db-visit->necessary-data)
+                                (map (fn [[from to] visit]
+                                       (assoc visit :children-from from
+                                         :children-to to))
+                                  children-ints))]
           (swap! last-visits update-in [block-id :columns]
-                 conj visits-to-add)
+            conj visits-to-add)
           (load-visits-column block-id all-children))))))
 
 (defn load-root-visit [{time-spent :timeSpent :keys [children url title] :as visit}]
@@ -71,14 +72,11 @@
     (load-visits-column @index children)))
 
 (defn init []
-  (history/init-db)
-  (.open history/db)
   (->
-    (history/get-last-n-root-visits 50)
+    (visits.db/get-last-n-root-visits 50)
     (.then
       (fn [visits]
-        (println (js->clj visits))
         (doseq [visit visits]
           (load-root-visit visit)))))
   (rdom/render [history-page]
-               (. js/document getElementById "history-holder")))
+    (. js/document getElementById "history-holder")))

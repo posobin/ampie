@@ -11,14 +11,15 @@
 ;; TODO: figure out how to clean urls better and what to do with the real url
 ;; (whether to save it too or not)
 (defn clean-up [url]
-  (-> url
+  (when url
+    (-> url
       clean-up-params
-      (clojure.string/replace #"^https?://(www\.)?|#.*$" "")))
+      (clojure.string/replace #"^https?://(www\.)?|#.*$" ""))))
 
 (defn get-domain [url]
   (or (clojure.string/replace
         url #"^[^/]*//+(www\.)?|(/|\?|#).*$" "")
-      url))
+    url))
 
 (defn should-store-url? [url]
   (some? (re-matches #"^https?://.*" url)))

@@ -1,16 +1,18 @@
-;; shadow-cljs configuration
-{:source-paths
- ["src/dev"
-  "src/main"
-  "src/test"]
+{:source-paths ["src/dev"
+                "src/main"
+                "src/test"]
 
  :dependencies [[funcool/promesa "5.0.0"]
-                [reagent "0.9.1"]]
+                [reagent "0.9.1"]
+                [mount "0.1.16"]
+                [binaryage/devtools "1.0.2"]
+                [lambdaisland/glogi "1.0.63"]
+                [com.taoensso/timbre "4.10.0"]]
 
- :nrepl {:port 9000}
- :builds
- {:frontend
-  {:target :chrome-extension
-   :extension-dir "./build/"
-   :compiler-options {:closure-output-charset "US-ASCII"}
-  }}}
+ :nrepl  {:port 9000}
+ :builds {:extension
+          {:target           :chrome-extension
+           :extension-dir    "./build/"
+           :js-options       {:output-feature-set :es6}
+           :compiler-options {:closure-output-charset "US-ASCII"
+                              :source-map-inline      true}}}}

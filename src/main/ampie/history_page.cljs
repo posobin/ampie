@@ -31,7 +31,7 @@
     (for [[visit id] (map vector @last-visits (range))]
       ^{:key id} [visit-block visit])]])
 
-(defn db-visit->necessary-data [{time-spent :timeSpent :keys [url title]}]
+(defn db-visit->necessary-data [{:keys [url title time-spent]}]
   {:url           url
    :title         title
    :time-spent    time-spent
@@ -57,7 +57,7 @@
             conj visits-to-add)
           (load-visits-column block-id all-children))))))
 
-(defn load-root-visit [{time-spent :timeSpent :keys [children url title] :as visit}]
+(defn load-root-visit [{time-spent :time-spent :keys [children url title] :as visit}]
   (let [visit-to-add {:url        url
                       :time-spent time-spent
                       :title      title

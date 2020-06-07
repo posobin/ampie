@@ -1,46 +1,47 @@
-(ns ampie.seen-links
+(ns ampie.seen-urls
   (:require [ampie.db :refer [db]]
             [ampie.url :as url]
             [ampie.tabs.core :refer [open-tabs]]
             [ampie.visits.db :as visits.db]
+            [ampie.interop :as i]
             [taoensso.timbre :as log]
             ["dexie" :default Dexie]))
 
-(defn find-where-saw-urls
+(defn find-where-saw-nurls
   "Returns a Promise that resolves with a vector of vectors of visits,
-  one vector for each given url - visits during which saw that url."
-  [urls]
-  (log/trace "find-where-saw-urls" urls)
-  (-> (.-seenLinks @db)
-    (.bulkGet (clj->js urls))
+  one vector for each given normalized url - visits during which saw that url."
+  [normalized-urls]
+  (log/trace "find-where-saw-nurls" normalized-urls)
+  (-> (.-seenUrls @db)
+    (.bulkGet (i/clj->js normalized-urls))
     (.then
       (fn [arr]
         (let [;; Vector of vectors of visit-hashes for those urls
-              visit-hashes  (->> (js->clj arr :keywordize-keys true)
-                              (map (comp #(map first %) :seenAt)))
+              visit-hashes  (->> (i/js->clj arr)
+                              (map (comp #(map first %) :seen-at)))
               merged-hashes (reduce #(into %1 %2) #{} visit-hashes)]
           (-> (.-visits @db)
-            (.bulkGet (clj->js merged-hashes))
+            (.bulkGet (i/clj->js merged-hashes))
             (.then
               (fn [visits]
-                (log/info "Got visits" (js->clj visits :keywordize-keys true))
+                (log/info "Got visits" (i/js->clj visits))
                 (let [visits (reduce
-                               #(assoc %1 (:visitHash %2) %2)
+                               #(assoc %1 (:visit-hash %2) %2)
                                {}
-                               (js->clj visits :keywordize-keys true))]
+                               (i/js->clj visits))]
                   (map #(map visits %) visit-hashes))))))))))
 
-(defn add-seen-links
-  "Adds the urls from the urls seq to the set of links seen at the given visit,
-  the timestamp for the added links is set to timestamp."
-  [urls visit-hash timestamp]
-  (let [unique-urls (-> urls set seq)]
-    (-> (.-seenLinks @db)
-      (.bulkGet (clj->js unique-urls))
+(defn add-seen-nurls
+  "Adds the normalized urls from the `normalized-urls` seq to the set of links
+  seen at the given visit, the timestamp for the added links is set to timestamp."
+  [normalized-urls visit-hash timestamp]
+  (let [unique-urls (-> normalized-urls set seq)]
+    (-> (.-seenUrls @db)
+      (.bulkGet (i/clj->js unique-urls))
       (.then
         (fn [previously-seen]
           (let [previously-seen
-                (map #(-> % (js->clj :keywordize-keys true) :seenAt)
+                (map #(-> % (i/js->clj) :seen-at)
                   previously-seen)
                 ;; Function that adds the new visit hash to the saved ones,
                 ;; truncating if there are more than 10 links.
@@ -56,13 +57,13 @@
 
                 new-seen-at
                 (map add-visit
-                  (js->clj previously-seen)
+                  (i/js->clj previously-seen)
                   (repeat [visit-hash timestamp]))
 
-                to-insert (map #(hash-map :url %1 :seenAt %2)
+                to-insert (map #(hash-map :normalized-url %1 :seen-at %2)
                             unique-urls new-seen-at)]
-            (-> (.-seenLinks @db)
-              (.bulkPut (clj->js to-insert))))))
+            (-> (.-seenUrls @db)
+              (.bulkPut (i/clj->js to-insert))))))
       ;; Need to catch to put at least some of the links into DB.
       ;; (Dexie will commit after exception if BulkError is caught)
       ;; Though don't know why this would happen, it doesn't throw on
@@ -73,4 +74,4 @@
         (.-BulkError Dexie)
         (fn [e]
           (log/error "Couldn't add" (.. e -failures -length)
-            "entries to seenLinks"))))))
+            "entries to seenUrls"))))))

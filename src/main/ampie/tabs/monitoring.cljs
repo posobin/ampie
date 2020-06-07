@@ -5,6 +5,7 @@
             [ampie.tabs.core :as tabs :refer [open-tabs]]
             [ampie.visits :as visits]
             [ampie.tabs.event-handlers :as evt]
+            [ampie.interop :as i]
             [ampie.url :as url]))
 
 (defn check-active-tab []
@@ -12,19 +13,19 @@
     (.then
       (fn [window]
         (let [{tabs-list :tabs focused :focused :as window}
-              (js->clj window :keywordize-keys true)
+              (i/js->clj window)
               {tab-id :id} (first (filter :active tabs-list))]
           (if focused
             (tabs/tab-in-focus! tab-id)
             (tabs/no-tab-in-focus!)))))))
 
 (defn process-already-open-tabs [tabs]
-  (let [tabs (js->clj tabs :keywordize-keys true)]
+  (let [tabs (i/js->clj tabs)]
     (doseq [{:keys [id url title] :as tab} tabs]
-      (let [evt {:tabId     id
-                 :url       (url/clean-up url)
-                 :title     title
-                 :timeStamp (.getTime (js/Date.))}]
+      (let [evt {:tab-id     id
+                 :url        (url/clean-up url)
+                 :title      title
+                 :time-stamp (.getTime (js/Date.))}]
         (if (contains? @@open-tabs id)
           (evt/went-back-or-fwd-in-tab evt)
           (evt/restored-tab evt))))))

@@ -14,7 +14,8 @@
                                   :init-fn     ampie.settings-page/init}}
 
  :permissions              ["webNavigation", "tabs"]
- :web-accessible-resources ["assets/content-style.css"]
+ :web-accessible-resources ["assets/content-style.css"
+                            "assets/info-bar.css"]
  :content-scripts          [{:css     ["assets/content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}

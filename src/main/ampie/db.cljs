@@ -4,29 +4,11 @@
   (:require-macros [mount.core :refer [defstate]]))
 
 (defn init-db [db]
-  (-> (. db (version 3))
-    (. stores
-      #js {:visits     "&visitHash, url, firstOpened"
-           :closedTabs "++objId"
-           :seenLinks  "&url"})
-    (.upgrade
-      (fn [transaction]
-        (.clear
-          (.table transaction "seenLinks")))))
-  (-> (. db (version 2))
-    (. stores
-      #js {:visits     "&visitHash, url, firstOpened"
-           :closedTabs "++objId"
-           :seenLinks  "&url"})
-    (.upgrade
-      (fn [transaction]
-        (.clear
-          (.table transaction "seenLinks")))))
   (-> (. db (version 1))
     (. stores
-      #js {:visits     "&visitHash, url, firstOpened"
+      #js {:visits     "&visitHash, normalizedUrl, firstOpened, url"
            :closedTabs "++objId"
-           :seenLinks  "&[parentUrl+childUrl],childUrl"})))
+           :seenUrls   "&normalizedUrl"})))
 
 (defstate db
   :start (doto (Dexie. "AmpieDB") init-db)

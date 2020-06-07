@@ -4,15 +4,15 @@
             [ampie.visits.db :as visits.db]
             [ampie.tabs.core :as tabs]
             [ampie.url :as url]
+            [ampie.interop :as i]
             [ampie.logging]
             [taoensso.timbre :as log]
             ["webextension-polyfill" :as browser]))
 
-(defn parent-event? [evt] (= ((js->clj evt) "parentFrameId") -1))
+(defn parent-event? [evt] (= (.-parentFrameId evt) -1))
 (defn preprocess-navigation-evt [navigation-evt]
-  (-> navigation-evt
-    (js->clj :keywordize-keys true)
-    (update :url url/clean-up)))
+  (let [evt (i/js->clj navigation-evt)]
+    (assoc evt :normalized-url (url/clean-up (:url evt)))))
 
 
 ;; The main event handlers will dispatch to these functions
@@ -22,7 +22,7 @@
             (if (= (:url stored-title) (:url visit))
               (assoc visit :title (:title stored-title))
               visit))]
-    (let [tab-id        (:tabId evt)
+    (let [tab-id        (:tab-id evt)
           prev-tab-info (@@tabs/open-tabs tab-id)
           parent-hash   (:visit-hash prev-tab-info)
           visit         (-> (visits/evt->visit evt parent-hash)
@@ -34,8 +34,8 @@
       (tabs/update-tab! tab-id tab-info))))
 
 (defn opened-link-new-tab [evt]
-  (let [tab-id          (:tabId evt)
-        parent-tab-id   (:sourceTabId evt)
+  (let [tab-id          (:tab-id evt)
+        parent-tab-id   (:source-tab-id evt)
         parent-tab-info (@@tabs/open-tabs parent-tab-id)
         parent-hash     (:visit-hash parent-tab-info)
         visit           (visits/evt->visit evt parent-hash)
@@ -57,7 +57,7 @@
 ;; TODO check if the URL was modified from the previous one
 ;;      and set the previous URL as the parent then
 (defn opened-from-typed-url [evt]
-  (let [tab-id            (:tabId evt)
+  (let [tab-id            (:tab-id evt)
         in-existing-tab?  (contains? @@tabs/open-tabs tab-id)
         existing-tab-info (@@tabs/open-tabs tab-id)
         parent-hash       (:visit-hash existing-tab-info)
@@ -76,7 +76,7 @@
 ;; URL. If yes, pop it from the closed tabs and onto the open tabs list.
 ;; If no, create a new visit for this URL, without a parent visit, and a new tab.
 (defn restored-tab [evt]
-  (let [tab-id (:tabId evt)
+  (let [tab-id (:tab-id evt)
         url    (:url evt)]
     (.then
       (tabs/maybe-restore-last-tab tab-id url :n 3)
@@ -98,7 +98,7 @@
 ;; move the whole history to history-back, generate a new visit, and add it
 ;; to the tab.
 (defn went-back-or-fwd-in-tab [evt]
-  (let [tab-id       (:tabId evt)
+  (let [tab-id       (:tab-id evt)
         url          (:url evt)
         tab-info     (@@tabs/open-tabs tab-id)
         history-back (:history-back tab-info)
@@ -150,12 +150,12 @@
 (defn reloaded-tab [_])
 
 (defn tab-updated [tab-id change-info tab-info]
-  (let [{title :title}   (js->clj change-info :keywordize-keys true)
-        {dirty-url :url} (js->clj tab-info :keywordize-keys true)
+  (let [{title :title}   (i/js->clj change-info)
+        {dirty-url :url} (i/js->clj tab-info)
         url              (url/clean-up dirty-url)]
     ;; Only fire when the title was updated
     (when title
-      (log/info (js->clj change-info) (js->clj tab-info))
+      (log/info (i/js->clj change-info) (i/js->clj tab-info))
       (log/info "Title of" url "updated to" title)
       (tabs/update-tab-title tab-id title url))))
 
@@ -175,9 +175,10 @@
   (when (parent-event? evt)
     (let [evt                   (preprocess-navigation-evt evt)
           url                   (:url evt)
-          tab-id                (:tabId evt)
-          transition-type       (:transitionType evt)
-          transition-qualifiers (:transitionQualifiers evt)
+          normalized-url        (:normalized-url evt)
+          tab-id                (:tab-id evt)
+          transition-type       (:transition-type evt)
+          transition-qualifiers (:transition-qualifiers evt)
           current-visit-promise (-> tab-id
                                   (@@tabs/open-tabs)
                                   :visit-hash
@@ -189,7 +190,8 @@
         current-visit-promise
         (fn [current-visit]
           (cond
-            (= (:url current-visit) url) ; Nothing changed, treat as reload
+            (= (:normalized-url current-visit)
+              normalized-url) ; Nothing changed, treat as reload
             (do
               (log/info "URL is the same, doing nothing")
               (reloaded-tab evt))

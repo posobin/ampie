@@ -12,7 +12,7 @@
 
 ;; TODO choose hash function, prepend timestamp in front of the hash
 (defn generate-visit-hash [visit]
-  (let [{time-stamp :firstOpened
+  (let [{time-stamp :first-opened
          url        :url
          parent     :parent} visit]
     (hash [time-stamp url parent])))
@@ -20,12 +20,13 @@
 (defn evt->visit
   ([evt] (evt->visit evt nil))
   ([evt parent-hash]
-   {:url         (:url evt)
-    :firstOpened (:timeStamp evt)
-    :title       (:title evt)
-    :timeSpent   0
-    :children    []
-    :parent      parent-hash}))
+   {:url            (:url evt)
+    :normalized-url (:normalized-url evt)
+    :first-opened   (:time-stamp evt)
+    :title          (:title evt)
+    :time-spent     0
+    :children       []
+    :parent         parent-hash}))
 
 (defn visit-in-focus! [new-visit-hash]
   ;; Not worrying about race conditions for now, they may only affect stuff for only

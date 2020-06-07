@@ -2,6 +2,7 @@
   (:require [ampie.visits :as visits]
             [ampie.visits.db :as visits.db]
             [ampie.db :refer [db]]
+            [ampie.interop :as i]
             [taoensso.timbre :as log]
             [mount.core])
   (:require-macros [mount.core :refer [defstate]]))
@@ -10,11 +11,11 @@
 
 (defn js-tab->clj [tab-info & {:keys [keep-obj-id]
                                :or   {keep-obj-id false}}]
-  (-> (js->clj tab-info :keywordize-keys true)
+  (-> (i/js->clj tab-info)
     (update :history-back reverse)
     (update :history-fwd reverse)
     (dissoc (when (not keep-obj-id)
-              :objId))))
+              :obj-id))))
 
 (defn add-new-visit-to-tab [tab-info visit-hash]
   (let [history     (:history-back tab-info)
@@ -40,36 +41,34 @@
 ;; @open-tabs may be different from the one at which the update
 ;; is targeted.
 (defn update-tab-title
-  "Changes the title of the currently active visit in the tab-id"
-  ([tab-id title url] (update-tab-title tab-id title url false))
-  ([tab-id title url second-time?]
-   (let [{[current-hash prev-hash] :history-back} (@@open-tabs tab-id)]
-     (.then
-       (.all
-         js/Promise
-         [(visits.db/get-visit-by-hash current-hash)
-          (visits.db/get-visit-by-hash prev-hash)])
-       (fn [results-js]
-         (let [[{current-url :url} {prev-url :url}] (js->clj results-js)]
-           (cond
-             (= current-url url)
-             (visits.db/set-visit-title! current-hash title)
+  "Looks at the current and previous visit in `tab-id`, chooses
+  the one that matches the url, and updates its title to `title`.
+  If neither of the two match, saves the title to `:stored-title`
+  in the tab."
+  [tab-id title url]
+  (let [{[current-hash prev-hash] :history-back} (@@open-tabs tab-id)]
+    (.then
+      (.all
+        js/Promise
+        [(visits.db/get-visit-by-hash current-hash)
+         (visits.db/get-visit-by-hash prev-hash)])
+      (fn [results-js]
+        (let [[{current-url :url} {prev-url :url}] (i/js->clj results-js)]
+          (cond
+            (= current-url url)
+            (visits.db/set-visit-title! current-hash title)
 
-             (= prev-url url)
-             (visits.db/set-visit-title! prev-hash title)
+            (= prev-url url)
+            (visits.db/set-visit-title! prev-hash title)
 
-             #_ (not second-time?)
-             #_ (js/setTimeout (fn [] (update-tab-title tab-id title url true))
-                  500)
+            (contains? @@open-tabs tab-id)
+            (swap! @open-tabs assoc-in [tab-id :stored-title]
+              {:url   url
+               :title title})
 
-             (contains? @@open-tabs tab-id)
-             (swap! @open-tabs assoc-in [tab-id :stored-title]
-               {:url   url
-                :title title})
-
-             :else
-             (log/error "Got a title update event for a non-existent tab"
-               tab-id))))))))
+            :else
+            (log/error "Got a title update event for a non-existent tab"
+              tab-id)))))))
 
 (defn open-tab! [tab-id tab-info]
   (swap! @open-tabs assoc tab-id tab-info))
@@ -83,12 +82,13 @@
     (log/info "Removing tab:" tab-info)
     (.transaction @db "rw" (.-closedTabs @db)
       (fn []
-        (.. @db -closedTabs (add (clj->js tab-info)))))))
+        (.. @db -closedTabs (add (i/clj->js tab-info)))))))
 
-;; Go through the last n closed tabs and see if there is one with the matching url.
-;; If there is, restore it and return true. Otherwise do nothing and return false.
-(defn maybe-restore-last-tab [tab-id url & {:keys [n]
-                                            :or   {n 1}}]
+(defn maybe-restore-last-tab
+  "Go through the last n closed tabs and see if there is one with
+  the matching url. If there is, restore it to `open-tabs`
+  and return true. Otherwise do nothing and return false."
+  [tab-id url & {:keys [n] :or {n 1}}]
   (letfn [(get-last-n-closed-tabs []
             (-> (.-closedTabs @db)
               (.reverse)
@@ -100,8 +100,7 @@
     (.transaction
       @db "rw" (.-visits @db) (.-closedTabs @db)
       (fn []
-        (->
-          (get-last-n-closed-tabs)
+        (-> (get-last-n-closed-tabs)
 
           ;; Get the latest visit associated with these tabs that matches the url,
           ;; return that visit and the associated tab.
@@ -110,7 +109,7 @@
               (.then
                 (visits.db/get-first-visit-with-url (map :visit-hash last-tabs) url
                   :just-hash false)
-                (fn [{visit-hash :visitHash :as visit}]
+                (fn [{visit-hash :visit-hash :as visit}]
                   [visit
                    (first (filter #(= (:visit-hash %) visit-hash)
                             last-tabs))]))))
@@ -118,8 +117,8 @@
           ;; Open the tab with that visit and remove it from the closed tabs store
           ;; Return whether there was a matching tab.
           (.then
-            (fn [[visit {closed-tab-id :objId :as tab-info-with-id}]]
-              (let [tab-info (dissoc tab-info-with-id :objId)]
+            (fn [[visit {closed-tab-id :obj-id :as tab-info-with-id}]]
+              (let [tab-info (dissoc tab-info-with-id :obj-id)]
                 (when (some? visit)
                   (open-tab! tab-id tab-info)
                   (-> (.-closedTabs @db)

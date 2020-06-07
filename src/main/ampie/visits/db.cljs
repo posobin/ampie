@@ -1,12 +1,13 @@
 (ns ampie.visits.db
   (:require [ampie.db :refer [db]]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [ampie.interop :as i]))
 
 (defn js-visit->clj [visit & {:keys [keep-visit-hash]
                               :or   {keep-visit-hash false}}]
-  (-> (js->clj visit :keywordize-keys true)
+  (-> (i/js->clj visit)
     (dissoc (when (not keep-visit-hash)
-              :visitHash))))
+              :visit-hash))))
 
 (defn get-visit-by-hash [visit-hash & {:keys [keep-visit-hash]
                                        :or   {keep-visit-hash false}}]
@@ -27,40 +28,41 @@
           (.equals (:parent visit))
           (.modify (fn [parent-visit]
                      (set! (.-children parent-visit)
-                       (-> ((js->clj parent-visit) "children")
+                       (-> ((i/js->clj parent-visit) "children")
                          (conj visit-hash)
-                         clj->js))))))
+                         i/clj->js))))))
       ;; Add the new visit to visits
-      (let [visit-with-hash (assoc visit :visitHash visit-hash)]
-        (.. @db -visits (add (clj->js visit-with-hash)))))))
+      (let [visit-with-hash (assoc visit :visit-hash visit-hash)]
+        (.. @db -visits (add (i/clj->js visit-with-hash)))))))
 
 ;; Returns a clojure sequence of visits corresponding to visit-hashes.
 ;; Done in one request to the database.
 (defn get-visits-info [visit-hashes]
   (-> (.-visits @db)
     (.where "visitHash")
-    (.anyOf (clj->js visit-hashes))
+    (.anyOf (i/clj->js visit-hashes))
     (.toArray
       (fn [js-visits]
-        (->> (js->clj js-visits :keywordize-keys true)
-          (map (fn [visit] [(:visitHash visit)
-                            (dissoc visit :visitHash)]))
+        (->> (i/js->clj js-visits)
+          (map (fn [visit] [(:visit-hash visit)
+                            (dissoc visit :visit-hash)]))
           (into {}))))
     (.then #(map % visit-hashes))))
 
-;; Returns a Promise that resolves to a visit object with the first hash
-;; in the list that has the given url. If no visit matches, resolves to nil.
-(defn get-first-visit-with-url [visit-hashes url & {:keys [just-hash]
-                                                    :or   {just-hash true}}]
+(defn get-first-visit-with-url
+  "Returns a Promise that resolves to a visit object with the first hash
+  in the list that has the given url. If no visit matches, resolves to nil."
+  [visit-hashes url & {:keys [just-hash]
+                       :or   {just-hash true}}]
   (->
     (-> (.-visits @db)
       (.where "visitHash")
-      (.anyOf (clj->js visit-hashes))
+      (.anyOf (i/clj->js visit-hashes))
       (.and #(= (.-url %) url))
       (.toArray))
     (.then
-      #(->> (js->clj % :keywordize-keys true)
-         (map (fn [visit] [(:visitHash visit) visit]))
+      #(->> (i/js->clj %)
+         (map (fn [visit] [(:visit-hash visit) visit]))
          (into {})))
     (.then
       (fn [hash-to-visit]
@@ -101,7 +103,7 @@
     (.modify
       (fn [visit]
         (let [current-time (aget visit "timeSpent")]
-          (aset visit "timeSpent" (+ current-time time-delta)))))))
+          (set! (.-timeSpent visit) (+ current-time time-delta)))))))
 
 (defn set-visit-title! [visit-hash title]
   (->

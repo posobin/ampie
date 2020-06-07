@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
             [ampie.url :as url]
+            [ampie.interop :as i]
             [taoensso.timbre :as log]
             [shadow.cljs.devtools.client.browser :as shadow.browser]
             [ampie.content-script.info-bar
@@ -41,17 +42,17 @@
          :deps          ['goog 'cljs.core 'reagent.core 'reagent.dom
                          'shadow.cljs.devtools.client.browser
                          'shadow.cljs.devtools.client.hud]}]
-    (shadow.browser/handle-build-complete
-      {:info        {:sources  [info-bar this-file]
-                     :compiled #{(:resource-id this-file)
-                                 (:resource-id info-bar)}}
-       :reload-info {:never-load  #{}
-                     :always-load #{}
-                     :after-load  [{:fn-sym 'ampie.content-script.content/refreshed
-                                    :fn-str "ampie.content_script.content.refreshed"}]}})))
+    #_(shadow.browser/handle-build-complete
+        {:info        {:sources  [info-bar this-file]
+                       :compiled #{(:resource-id this-file)
+                                   (:resource-id info-bar)}}
+         :reload-info {:never-load  #{}
+                       :always-load #{}
+                       :after-load  [{:fn-sym 'ampie.content-script.content/refreshed
+                                      :fn-str "ampie.content_script.content.refreshed"}]}})))
 
-(defn send-links-to-background
-  "Sends the given urls to background so that it saves them to seen-links,
+(defn send-urls-to-background
+  "Sends the given urls to background so that it saves them to seen-urls,
   and returns the map url -> [visits on which saw the url]."
   [urls response-handler]
   (when (seq urls)
@@ -59,20 +60,24 @@
       (.. browser
         -runtime
         (sendMessage
-          (clj->js {:type     :add-seen-links
-                    :links    urls
+          (clj->js {:type     :add-seen-urls
+                    :urls     urls
                     :page-url (.. js/window -location -href)})))
       (.then
         (fn [seen-urls-visits]
-          (log/info "Got seen urls" (js->clj seen-urls-visits))
           (let [seen-urls-visits (js->clj seen-urls-visits :keywordize-keys true)
-                current-url      (url/clean-up (.. js/window -location -href))
+                current-nurl     (url/clean-up (.. js/window -location -href))
 
                 cleaned-up
                 (into {}
                   (for [[url visits] (map vector urls seen-urls-visits)]
-                    [url (filter #(not= (url/clean-up (:url %)) current-url)
-                           visits)]))]
+                    [url
+                     (->> visits
+                       (filter #(not= (:normalized-url %) current-nurl)))]))]
+            (log/info "Got response from background"
+              seen-urls-visits)
+            (log/info "After cleaning up"
+              cleaned-up)
             (response-handler cleaned-up)))))))
 
 (defn get-z-index
@@ -108,20 +113,21 @@
   ([element target-fixed?]
    (let [element-rect  (.getBoundingClientRect element)
          element-width (.-offsetWidth element)
-         width         (if (= element-width 0)
+         width         (if (and (= element-width 0)
+                             (.-firstChild element))
                          (.. element -firstChild -offsetWidth)
                          element-width)]
      (if target-fixed?
        [(+ (.-left element-rect)
-           width)
+          width)
         (- (.-top element-rect)
-           4)]
+          4)]
        [(+ (.-left element-rect)
-           (.-scrollX js/window)
-           width)
+          (.-scrollX js/window)
+          width)
         (+ (.-top element-rect)
-           (.-scrollY js/window)
-           -4)]))))
+          (.-scrollY js/window)
+          -4)]))))
 
 (defn position-ampie-badge [target badge]
   (let [target-fixed?   (is-fixed? target)
@@ -152,13 +158,13 @@
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")
         header      (. js/document createElement "div")]
-    (aset tooltip-div "className" "ampie-badge-tooltip")
-    (aset header "className" "ampie-badge-tooltip-header")
-    (aset header "textContent" "Seen at")
+    (set! (.-className tooltip-div) "ampie-badge-tooltip")
+    (set! (.-className header) "ampie-badge-tooltip-header")
+    (set! (.-textContent header) "Seen at")
     (.appendChild tooltip-div header)
     (doseq [previously-seen-at target-info]
       (let [url-p (. js/document createElement "p")]
-        (aset url-p "textContent" (:url previously-seen-at))
+        (set! (.-textContent url-p) (:url previously-seen-at))
         (.appendChild tooltip-div url-p)))
     tooltip-div))
 
@@ -179,9 +185,9 @@
   (let [badge-div  (. js/document createElement "div")
         badge-icon (. js/document createElement "div")
         tooltip    (generate-tooltip target-info)]
-    (aset badge-div "className" "ampie-badge")
-    (aset badge-icon "className" "ampie-badge-icon")
-    (aset badge-icon "textContent" "&")
+    (set! (.-className badge-div) "ampie-badge")
+    (set! (.-className badge-icon) "ampie-badge-icon")
+    (set! (.-textContent badge-icon) "&")
     (.appendChild badge-div badge-icon)
     (.appendChild badge-div tooltip)
     (.setAttribute badge-div "ampie-badge-id" target-id)
@@ -190,7 +196,7 @@
       (fn []
         (position-tooltip badge-div)
         (.. badge-div -classList
-            (add "ampie-badge-tooltip-visible"))))
+          (add "ampie-badge-tooltip-visible"))))
     (let [mouse-out? (atom false)]
       (.addEventListener
         badge-div "mouseout"
@@ -200,7 +206,7 @@
             (fn []
               (when @mouse-out?
                 (.. badge-div -classList
-                    (remove "ampie-badge-tooltip-visible"))))
+                  (remove "ampie-badge-tooltip-visible"))))
             200)))
       (.addEventListener
         tooltip "mouseover"
@@ -210,7 +216,7 @@
       tooltip "mouseout"
       (fn []
         (.. badge-div -classList
-            (remove "ampie-badge-tooltip-visible"))))
+          (remove "ampie-badge-tooltip-visible"))))
     (.. js/document -body (appendChild badge-div))
     (position-ampie-badge target badge-div)))
 
@@ -218,26 +224,21 @@
   (let [page-links      (array-seq (.-links js/document))
         unvisited-links (filter #(nil? (.getAttribute % "processed-by-ampie"))
                           page-links)
-        current-url     (url/clean-up (.. js/document -location -href))
-        links-to-query  (->> unvisited-links
+        current-nurl    (url/clean-up (.. js/document -location -href))
+        urls-to-query   (->> unvisited-links
                           (map #(.-href %))
-                          (filter url/should-store-url?)
-                          (map url/clean-up))]
+                          (filter url/should-store-url?))]
     (doseq [link-element unvisited-links]
       (.setAttribute link-element "processed-by-ampie" ""))
-    (send-links-to-background
-      links-to-query
+    (send-urls-to-background
+      urls-to-query
       (fn [url->where-saw-it]
         (swap! url->display-info merge url->where-saw-it)
-        (log/info url->where-saw-it)
         (doseq [target unvisited-links]
-          (let [target-url             (url/clean-up (.-href target))
+          (let [target-url             (.-href target)
                 target-prior-sightings (url->where-saw-it target-url)]
-            (log/info target-url target-prior-sightings)
             (when (and (seq target-prior-sightings)
-                    (not= target-url current-url))
-              (log/info "Putting on page" target-url
-                target-prior-sightings)
+                    (not= (url/clean-up target-url) current-nurl))
               (add-ampie-badge target @next-target-id target-prior-sightings)
               (.setAttribute target "processed-by-ampie" @next-target-id)
               (swap! target-ids conj @next-target-id)
@@ -293,7 +294,7 @@
                   :url  (.. js/window -location -href)})))
     (.then
       (fn [parents]
-        (let [parents (->> (js->clj parents :keywordize-keys true)
+        (let [parents (->> (i/js->clj parents)
                         (sort-by :first-opened)
                         (reverse))]
           (reset! parent-urls parents)))))
@@ -304,7 +305,8 @@
     (rdom/render [info-holder] info-holder-div)))
 
 (defn init []
-  (js/setTimeout refresh-source 500))
+  (refreshed)
+  #_(js/setTimeout refresh-source 500))
 
 (defn ^:dev/before-load before-load []
   (remove-info-bar)

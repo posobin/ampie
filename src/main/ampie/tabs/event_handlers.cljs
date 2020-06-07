@@ -150,12 +150,11 @@
 (defn reloaded-tab [_])
 
 (defn tab-updated [tab-id change-info tab-info]
-  (let [{title :title}   (i/js->clj change-info)
-        {dirty-url :url} (i/js->clj tab-info)
-        url              (url/clean-up dirty-url)]
+  (let [{title :title :as p} (i/js->clj change-info)
+        {url :url}           (i/js->clj tab-info)
+        normalized-url       (url/clean-up url)]
     ;; Only fire when the title was updated
     (when title
-      (log/info (i/js->clj change-info) (i/js->clj tab-info))
       (log/info "Title of" url "updated to" title)
       (tabs/update-tab-title tab-id title url))))
 

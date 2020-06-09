@@ -48,22 +48,25 @@
                 add-visit
                 (fn [previous new]
                   ;; Don't insert the same visit twice
-                  (if (some #(= (:first new) (:first %)) previous)
-                    previous
+                  (when-not (some #(= (first new) (first %)) previous)
                     ;; Keep the number of sightings at 10
                     (if (>= (count previous) 10)
                       (subvec (conj (or previous []) new) 1)
                       (conj (or previous []) new))))
 
-                new-seen-at
-                (map add-visit
-                  (i/js->clj previously-seen)
-                  (repeat [visit-hash timestamp]))
+                new-seen-at (map add-visit
+                              previously-seen
+                              (repeat [visit-hash timestamp]))
 
-                to-insert (map #(hash-map :normalized-url %1 :seen-at %2)
-                            unique-urls new-seen-at)]
-            (-> (.-seenUrls @db)
-              (.bulkPut (i/clj->js to-insert))))))
+                to-insert
+                (->> (map #(hash-map :normalized-url %1 :seen-at %2)
+                       unique-urls new-seen-at)
+                  (filter :seen-at))]
+            to-insert)))
+      (.then
+        (fn [to-insert]
+          (-> (.-seenUrls @db)
+            (.bulkPut (i/clj->js to-insert)))))
       ;; Need to catch to put at least some of the links into DB.
       ;; (Dexie will commit after exception if BulkError is caught)
       ;; Though don't know why this would happen, it doesn't throw on

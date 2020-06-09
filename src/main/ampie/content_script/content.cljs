@@ -118,16 +118,12 @@
                          (.. element -firstChild -offsetWidth)
                          element-width)]
      (if target-fixed?
-       [(+ (.-left element-rect)
-          width)
-        (- (.-top element-rect)
-          4)]
-       [(+ (.-left element-rect)
-          (.-scrollX js/window)
-          width)
-        (+ (.-top element-rect)
-          (.-scrollY js/window)
-          -4)]))))
+       [(+ (.-left element-rect) width)
+        (- (.-top element-rect) 4)]
+       [(- (+ (.-left element-rect) width)
+          (.. js/document -body (getBoundingClientRect) -x))
+        (- (.-top element-rect) 4
+          (.. js/document -body (getBoundingClientRect) -y))]))))
 
 (defn position-ampie-badge [target badge]
   (let [target-fixed?   (is-fixed? target)

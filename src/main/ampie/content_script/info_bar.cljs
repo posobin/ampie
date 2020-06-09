@@ -25,8 +25,8 @@
     [:div.seen-at
      [:div.header [:i.icon.history] "Previously seen at"]
      (for [{:keys [url visit-hash first-opened title] :as info} sources]
-       ^{:key visit-hash}
        (try
+         ^{:key visit-hash}
          [:div.row
           [:div.title
            [:a {:href url} title]]
@@ -122,15 +122,16 @@
   (let [current-url (.. js/window -location -href)]
     (swap! page-info assoc :url current-url
       :normalized-url (url/clean-up current-url))
-    (.. js/chrome
-      -runtime
-      (sendMessage
-        (clj->js {:type :add-seen-urls
-                  :urls [current-url]})
-        (fn [js-url->where-seen]
-          (let [seen-at (->> (js->clj js-url->where-seen :keywordize-keys true)
-                          first)]
-            (swap! page-info assoc :seen-at seen-at)))))))
+    (.then
+      (.. browser
+        -runtime
+        (sendMessage
+          (clj->js {:type :add-seen-urls
+                    :urls [current-url]})))
+      (fn [js-url->where-seen]
+        (let [seen-at (->> (js->clj js-url->where-seen :keywordize-keys true)
+                        first)]
+          (swap! page-info assoc :seen-at seen-at))))))
 
 (defn display-info-bar []
   (let [info-bar-div   (. js/document createElement "div")

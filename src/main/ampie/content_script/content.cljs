@@ -7,6 +7,7 @@
             [shadow.cljs.devtools.client.browser :as shadow.browser]
             [ampie.content-script.info-bar
              :refer [display-info-bar remove-info-bar]]
+            [clojure.string :as string]
             ["webextension-polyfill" :as browser]))
 
 (defonce parent-urls (r/atom []))
@@ -80,39 +81,40 @@
               cleaned-up)
             (response-handler cleaned-up)))))))
 
-(defn get-z-index
-  ([element] (get-z-index element 0))
-  ([element current-max]
-   (if (= element js/document)
-     current-max
-     (let [style   (.. js/document -defaultView (getComputedStyle element))
-           z-index (int (.getPropertyValue style "z-index"))
-           parent  (.-parentNode element)]
-       (recur parent (max z-index current-max))))))
+(defn get-z-index [element]
+  (let [style   (.. js/document -defaultView (getComputedStyle element))
+        z-index (.getPropertyValue style "z-index")]
+    (when-not (= z-index "auto")
+      (int z-index))))
 
 ;; Check if the element is displayed on the page, element has to be not null.
 (defn is-element-visible? [element]
   (let [style     (. js/window getComputedStyle element false)
         transform (= (. style getPropertyValue "transform")
-                     "matrix(1, 0, 0, 0, 0, 0)")
+                    "matrix(1, 0, 0, 0, 0, 0)")
         hidden    (= (. style getPropertyValue "visibility")
-                     "hidden")
+                    "hidden")
         display   (= (. style getPropertyValue "display")
-                     "none")]
+                    "none")]
     (not (or transform hidden display))))
+
+(defn table-element? [element]
+  (contains? #{"td" "th" "table"}
+    (string/lower-case (.-tagName element))))
 
 (defn is-fixed? [element]
   (and (some? element)
-       (or (= (-> (. js/window getComputedStyle element false)
-                  (. -position))
-              "fixed")
-           (recur (.-offsetParent element)))))
+    (or (= (-> (. js/window getComputedStyle element false)
+             (. -position))
+          "fixed")
+      (recur (.-offsetParent element)))))
 
 (defn get-offsets
   ([element] (get-offsets element (is-fixed? element)))
   ([element target-fixed?]
    (let [element-rect  (.getBoundingClientRect element)
          element-width (.-offsetWidth element)
+         style         (. js/window getComputedStyle element)
          width         (if (and (= element-width 0)
                              (.-firstChild element))
                          (.. element -firstChild -offsetWidth)
@@ -120,10 +122,33 @@
      (if target-fixed?
        [(+ (.-left element-rect) width)
         (- (.-top element-rect) 4)]
-       [(- (+ (.-left element-rect) width)
-          (.. js/document -body (getBoundingClientRect) -x))
-        (- (.-top element-rect) 4
-          (.. js/document -body (getBoundingClientRect) -y))]))))
+       (if-let [parent (.-offsetParent element)]
+         (if (table-element? parent)
+           [(- (+ (.-left element-rect) width
+                 (.-scrollX js/window))
+              (js/parseFloat (.-paddingRight style)))
+            (- (+ (.-top element-rect)
+                 (js/parseFloat (.-paddingTop style))
+                 (.-scrollY js/window))
+              2)]
+           [(max 0
+              (min
+                (- (+ (.-offsetLeft element) width)
+                  (js/parseFloat (.-paddingRight style)))
+                (- (.-clientWidth parent) 11)))
+            (max 0
+              (min
+                (- (+ (.-offsetTop element)
+                     (js/parseFloat (.-paddingTop style)))
+                  2)
+                (- (.-clientHeight parent) 15)))])
+         ;; If no offset parent, the element is either fixed or
+         ;; has display: none;
+         [0 0])))))
+
+(defn set-badge-color [target badge]
+  (let [color (.. js/window (getComputedStyle target) -color)]
+    (set! (.. badge -firstElementChild -style -color) color)))
 
 (defn position-ampie-badge [target badge]
   (let [target-fixed?   (is-fixed? target)
@@ -149,7 +174,7 @@
             (.. badge -classList (remove "ampie-badge-fixed")))
       (set! (.. badge -style -left) (str pos-x "px"))
       (set! (.. badge -style -top) (str pos-y "px"))
-      (set! (.. badge -style -zIndex) (+ (get-z-index target) 1)))))
+      (set! (.. badge -style -zIndex) (get-z-index target)))))
 
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")
@@ -169,11 +194,11 @@
         window-width  (. js/window -innerWidth)
         window-height (. js/window -innerHeight)]
     (if (< (- window-width (.-left badge-rect))
-           300)
+          300)
       (.. badge-div -classList (add "ampie-badge-tooltip-align-right"))
       (.. badge-div -classList (remove "ampie-badge-tooltip-align-right")))
     (if (< (- window-height (.-bottom badge-rect))
-           150)
+          150)
       (.. badge-div -classList (add "ampie-badge-tooltip-align-bottom"))
       (.. badge-div -classList (remove "ampie-badge-tooltip-align-bottom")))))
 
@@ -213,8 +238,12 @@
       (fn []
         (.. badge-div -classList
           (remove "ampie-badge-tooltip-visible"))))
-    (.. js/document -body (appendChild badge-div))
-    (position-ampie-badge target badge-div)))
+    (let [parent (.-offsetParent target)]
+      (if (and parent (not (table-element? parent)))
+        (.appendChild parent badge-div)
+        (.. js/document -body (appendChild badge-div))))
+    (position-ampie-badge target badge-div)
+    (set-badge-color target badge-div)))
 
 (defn process-links-on-page []
   (let [page-links      (array-seq (.-links js/document))
@@ -248,37 +277,48 @@
                    (str "[ampie-badge-id=\"" target-id "\"]"))]
       (if (nil? target)
         (do
-          (.remove badge)
+          (when badge (.remove badge))
           (swap! target-ids disj target-id))
-        (position-ampie-badge target badge)))))
+        (do
+          (let [badge-parent  (.-offsetParent badge)
+                target-parent (.-offsetParent target)]
+            (if (and target-parent (table-element? target-parent))
+              (when-not (= badge-parent (.-body js/document))
+                (.remove badge)
+                (.appendChild (.-body js/document) badge))
+              (when-not (= badge-parent target-parent)
+                (when-let [parent (.-parent badge)]
+                  (.removeChild parent badge))
+                (if (nil? target-parent)
+                  (.appendChild (. js/document -body) badge)
+                  (.appendChild (.-offsetParent target) badge)))))
+          (position-ampie-badge target badge)
+          (set-badge-color target badge))))))
 
 (defn ^:dev/after-load reloaded []
   (display-info-bar)
   (process-links-on-page)
   (let [ticking? (atom false)]
-    (. js/window addEventListener "scroll"
-      (fn []
-        (. js/window requestAnimationFrame
-          (fn []
-            (screen-update)
-            (reset! ticking? false)))
-        (when (not @ticking?)
-          (reset! ticking? true)))))
+    #_(. js/window addEventListener "scroll"
+        (fn []
+          (. js/window requestAnimationFrame
+            (fn []
+              (screen-update)
+              (reset! ticking? false)))
+          (when (not @ticking?)
+            (reset! ticking? true)))))
   (let [resize-id (atom nil)]
     (. js/window addEventListener "resize"
       (fn []
-        (js/clearTimeout resize-id)
+        (js/clearTimeout @resize-id)
         (reset! resize-id (js/setTimeout screen-update 25)))))
   (reset! link-tracking-interval-id
     (. js/window
       (setInterval
-        process-links-on-page
+        (fn []
+          (screen-update)
+          (process-links-on-page))
         2000))))
-
-(defn info-holder [props]
-  [:div
-   (for [parent-obj @parent-urls]
-     ^{:key (:first-opened parent-obj)} [:p (:url parent-obj)])])
 
 (defn refreshed []
   (reloaded)
@@ -293,12 +333,7 @@
         (let [parents (->> (i/js->clj parents)
                         (sort-by :first-opened)
                         (reverse))]
-          (reset! parent-urls parents)))))
-  (let [info-holder-div (.createElement js/document "div")]
-    (set! (.-id info-holder-div) "ampie-holder")
-    (-> (.-body js/document)
-      (.appendChild info-holder-div))
-    (rdom/render [info-holder] info-holder-div)))
+          (reset! parent-urls parents))))))
 
 (defn init []
   (refreshed)

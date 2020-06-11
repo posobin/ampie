@@ -1,5 +1,6 @@
 (ns ampie.background.core
   (:require [ampie.background.messaging :as background.messaging]
+            [ampie.background.backend]
             [ampie.tabs.monitoring :as tabs.monitoring]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount]
@@ -15,8 +16,7 @@
   (. js/window clearInterval @active-tab-interval-id)
   (reset! active-tab-interval-id nil)
 
-  (tabs.monitoring/stop)
-  (background.messaging/stop))
+  (tabs.monitoring/stop))
 
 
 (defn ^:dev/after-load init []
@@ -37,5 +37,4 @@
       tabs.monitoring/check-active-tab
       1000))
 
-  (tabs.monitoring/start)
-  (background.messaging/start))
+  (tabs.monitoring/start))

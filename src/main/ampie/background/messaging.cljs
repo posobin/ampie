@@ -5,7 +5,9 @@
             [ampie.tabs.core :as tabs]
             [ampie.interop :as i]
             [taoensso.timbre :as log]
-            ["webextension-polyfill" :as browser]))
+            ["webextension-polyfill" :as browser]
+            [mount.core])
+  (:require-macros [mount.core :refer [defstate]]))
 
 (defn get-past-visits-parents [{url :url} sender]
   (-> (visits.db/get-past-visits-to-the-url url 5)
@@ -63,3 +65,5 @@
 
 (defn start []
   (.. browser -runtime -onMessage (addListener message-received)))
+
+(defstate messages-handler :start (start) :stop (stop))

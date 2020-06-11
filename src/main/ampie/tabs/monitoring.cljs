@@ -6,7 +6,9 @@
             [ampie.visits :as visits]
             [ampie.tabs.event-handlers :as evt]
             [ampie.interop :as i]
-            [ampie.url :as url]))
+            [ampie.url :as url]
+            [mount.core])
+  (:require-macros [mount.core :refer [defstate]]))
 
 (defn check-active-tab []
   (-> (.. browser -windows (getLastFocused #js {:populate true}))
@@ -57,3 +59,6 @@
     (addListener evt/committed))
   (.. browser -webNavigation -onCreatedNavigationTarget
     (addListener evt/created-navigation-target)))
+
+(defstate service
+  :start (start) :stop (stop))

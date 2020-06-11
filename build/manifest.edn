@@ -13,7 +13,8 @@
                   :settings-page {:output-type :chrome/single-file
                                   :init-fn     ampie.settings-page/init}}
 
- :permissions              ["webNavigation", "tabs"]
+ :permissions              ["webNavigation" "tabs"
+                            "cookies" "http://localhost/"]
  :web-accessible-resources ["assets/content-style.css"
                             "assets/info-bar.css"]
  :content-scripts          [{:css     ["assets/content-style.css"]

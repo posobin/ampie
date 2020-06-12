@@ -4,7 +4,6 @@
 .ampie-badge-fixed {position: fixed;}
 
 .ampie-badge-icon {
-    position: absolute;
     font-size: 10px;
     /* background: rgba(255, 255, 255, 0.5); */
     opacity: 50%;
@@ -14,7 +13,7 @@
 }
 
 .ampie-badge-tooltip {
-    display: none;
+    /* display: none; */
     position: absolute;
     padding: 5px 5px;
     top: 0;
@@ -29,9 +28,10 @@
     z-index: 99999;
 }
 
-.ampie-badge-tooltip-align-right .ampie-badge-tooltip {left: initial; right: 5px;}
-.ampie-badge-tooltip-align-bottom .ampie-badge-tooltip {top: initial; bottom: -10px;}
+/* .ampie-badge-tooltip-align-right .ampie-badge-tooltip {left: initial; right: 5px;} */
+/* .ampie-badge-tooltip-align-bottom .ampie-badge-tooltip {top: initial; bottom: -10px;} */
 
+.ampie-badge-tooltip-fixed {position: fixed;}
 .ampie-badge-tooltip, .ampie-badge-tooltip * {
     background: white;
     font-size: 12px;

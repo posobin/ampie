@@ -164,6 +164,32 @@
       (.. badge-div -classList (add "ampie-badge-tooltip-align-bottom"))
       (.. badge-div -classList (remove "ampie-badge-tooltip-align-bottom")))))
 
+(defn show-tooltip [badge tooltip]
+  (let [badge-rect    (.getBoundingClientRect badge)
+        window-width  (. js/window -innerWidth)
+        window-height (. js/window -innerHeight)]
+    (when (not (.-parentElement tooltip))
+      (. js/document.body appendChild tooltip))
+    (let [tooltip-rect (.getBoundingClientRect tooltip)
+          body-x       (.. js/document.body (getBoundingClientRect) -left)
+          body-y       (.. js/document.body (getBoundingClientRect) -top)
+          client-x     (if (< (- window-width (.-left badge-rect)) 300)
+                         (- (.-left badge-rect) (.-width tooltip-rect) 2)
+                         (+ (.-right badge-rect) 2))
+          client-y     (if (< (- window-height (.-bottom badge-rect))
+                             150)
+                         (- (.-bottom badge-rect) (.-height tooltip-rect) 2)
+                         (.-top badge-rect))
+          fixed        (is-fixed? badge)]
+      (if (and fixed
+            (not (.. badge -classList (contains "ampie-badge-tooltip-fixed"))))
+        (.. tooltip -classList (add "ampie-badge-tooltip-fixed"))
+        (.. tooltip -classList (remove "ampie-badge-tooltip-fixed")))
+      (set! (.. tooltip -style -left)
+        (str (- client-x (when-not fixed body-x)) "px"))
+      (set! (.. tooltip -style -top)
+        (str (- client-y (when-not fixed body-y)) "px")))))
+
 (defn add-ampie-badge [target target-id target-info]
   (let [badge-div  (. js/document createElement "div")
         badge-icon (. js/document createElement "div")
@@ -172,34 +198,19 @@
     (set! (.-className badge-icon) "ampie-badge-icon")
     (set! (.-textContent badge-icon) "&")
     (.appendChild badge-div badge-icon)
-    (.appendChild badge-div tooltip)
     (.setAttribute badge-div "ampie-badge-id" target-id)
-    (.addEventListener
-      badge-div "mouseover"
-      (fn []
-        (position-tooltip badge-div)
-        (.. badge-div -classList
-          (add "ampie-badge-tooltip-visible"))))
-    (let [mouse-out? (atom false)]
-      (.addEventListener
-        badge-div "mouseout"
+    (let [mouse-out? (atom false)
+          on-mouse-out
+          (fn []
+            (reset! mouse-out? true)
+            (js/setTimeout #(when @mouse-out? (.remove tooltip)) 200))]
+      (.addEventListener badge-div "mouseover"
         (fn []
-          (reset! mouse-out? true)
-          (js/setTimeout
-            (fn []
-              (when @mouse-out?
-                (.. badge-div -classList
-                  (remove "ampie-badge-tooltip-visible"))))
-            200)))
-      (.addEventListener
-        tooltip "mouseover"
-        (fn []
-          (reset! mouse-out? false))))
-    (.addEventListener
-      tooltip "mouseout"
-      (fn []
-        (.. badge-div -classList
-          (remove "ampie-badge-tooltip-visible"))))
+          (reset! mouse-out? false)
+          (show-tooltip badge-div tooltip)))
+      (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
+      (.addEventListener badge-div "mouseout" on-mouse-out)
+      (.addEventListener tooltip "mouseout" on-mouse-out))
     (let [parent (.-offsetParent target)]
       (if (and parent (not (table-element? parent)))
         (.appendChild parent badge-div)

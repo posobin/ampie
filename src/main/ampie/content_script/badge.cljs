@@ -4,7 +4,8 @@
             [ampie.url :as url]
             [taoensso.timbre :as log]
             [mount.core]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [cljs.core.async :refer [go go-loop >! <! alts! chan]])
   (:require-macros [mount.core :refer [defstate]]))
 
 (defn- send-urls-to-background
@@ -12,13 +13,10 @@
   and returns the map url -> [visits on which saw the url]."
   [urls response-handler]
   (when (seq urls)
-    (->
-      (.. browser
-        -runtime
-        (sendMessage
-          (clj->js {:type     :add-seen-urls
-                    :urls     urls
-                    :page-url (.. js/window -location -href)})))
+    (-> (.. browser -runtime
+          (sendMessage (clj->js {:type     :add-seen-urls
+                                 :urls     urls
+                                 :page-url (.. js/window -location -href)})))
       (.then
         (fn [seen-urls-visits]
           (let [seen-urls-visits (js->clj seen-urls-visits :keywordize-keys true)
@@ -26,14 +24,13 @@
 
                 cleaned-up
                 (into {}
-                  (for [[url visits] (map vector urls seen-urls-visits)]
-                    [url
-                     (->> visits
-                       (filter #(not= (:normalized-url %) current-nurl)))]))]
-            (log/info "Got response from background"
-              seen-urls-visits)
-            (log/info "After cleaning up"
-              cleaned-up)
+                  (filter (comp seq second)
+                    (for [[url visits] (map vector urls seen-urls-visits)]
+                      [url
+                       (->> visits
+                         (filter #(not= (:normalized-url %) current-nurl)))])))]
+            (log/info "Got response from background" seen-urls-visits)
+            (log/info "After cleaning up" cleaned-up)
             (response-handler cleaned-up)))))))
 
 (defn- get-z-index
@@ -65,47 +62,33 @@
 
 (defn- is-fixed? [element]
   (and (some? element)
-    (or (= (-> (. js/window getComputedStyle element false)
-             (. -position))
+    (or (= (-> (. js/window getComputedStyle element) (. -position))
           "fixed")
-      (recur (.-offsetParent element)))))
+      #_(recur (.-offsetParent element)))))
 
 (defn- get-offsets
-  ([element] (get-offsets element (is-fixed? element)))
-  ([element target-fixed?]
-   (let [element-rect  (.getBoundingClientRect element)
+  ([badge element target-fixed?]
+   (let [badge-rect    (.getBoundingClientRect badge)
+         target-rect   (.getBoundingClientRect element)
          element-width (.-offsetWidth element)
          style         (. js/window getComputedStyle element)
          width         (if (and (= element-width 0)
                              (.-firstChild element))
                          (.. element -firstChild -offsetWidth)
-                         element-width)]
-     (if target-fixed?
-       [(+ (.-left element-rect) width)
-        (- (.-top element-rect) 4)]
-       (if-let [parent (.-offsetParent element)]
-         (if (table-element? parent)
-           [(- (+ (.-left element-rect) width
-                 (.-scrollX js/window))
-              (js/parseFloat (.-paddingRight style)))
-            (- (+ (.-top element-rect)
-                 (js/parseFloat (.-paddingTop style))
-                 (.-scrollY js/window))
-              2)]
-           [(max 0
-              (min
-                (- (+ (.-offsetLeft element) width)
-                  (js/parseFloat (.-paddingRight style)))
-                (- (.-clientWidth parent) 11)))
-            (max 0
-              (min
-                (- (+ (.-offsetTop element)
-                     (js/parseFloat (.-paddingTop style)))
-                  2)
-                (- (.-clientHeight parent) 15)))])
-         ;; If no offset parent, the element is either fixed or
-         ;; has display: none;
-         [0 0])))))
+                         element-width)
+         x             (+ (- (.-left target-rect) (.-left badge-rect)
+                            (js/parseFloat (.-paddingRight style)))
+                         width)
+         y             (+ (- (.-top target-rect) (.-top badge-rect))
+                         (js/parseFloat (.-paddingTop style)))]
+     [x (- y 4)]
+     #_(if target-fixed?
+         [x (- y 4)]
+         (if-let [parent (find-non-table-offset-parent element)]
+           [x (- y 4)]
+           ;; If no offset parent, the element is either fixed or
+           ;; has display: none;
+           [0 0])))))
 
 (defn set-badge-color
   "Sets the color of the `badge` to the color of the `target`."
@@ -116,11 +99,10 @@
 (defn position-ampie-badge [target badge]
   (let [target-fixed?   (is-fixed? target)
         badge-fixed?    (.. badge -classList (contains "ampie-badge-fixed"))
-        [pos-x pos-y]   (get-offsets target target-fixed?)
         ;; Set visibility of the badge depending on the visibility of the target
         target-visible? (and (some? (.-offsetParent target))
-                          (is-visible? target)
-                          (is-visible? (.-offsetParent target)))
+                          (is-visible? (.-offsetParent target))
+                          (is-visible? target))
         badge-hidden?   (.. badge -classList (contains "ampie-badge-hidden"))]
     (cond (and (not target-visible?) (not badge-hidden?))
           (.. badge -classList (add "ampie-badge-hidden"))
@@ -128,13 +110,23 @@
           (and target-visible? badge-hidden?)
           (.. badge -classList (remove "ampie-badge-hidden")))
     (when target-visible?
-      (cond (and target-fixed? (not badge-fixed?))
+      (cond (and (= (.-parent badge) (.-body js/document))
+              target-fixed?
+              (not badge-fixed?))
             (.. badge -classList (add "ampie-badge-fixed"))
 
-            (and (not target-fixed?) badge-fixed?)
+            (and (or (not= (.-parent badge)
+                       (.-body js/document))
+                   (not target-fixed?))
+              badge-fixed?)
             (.. badge -classList (remove "ampie-badge-fixed")))
-      (set! (.. badge -style -left) (str pos-x "px"))
-      (set! (.. badge -style -top) (str pos-y "px"))
+      ;; Set position to (0,0), find the distance to the correct location,
+      ;; update the position to the correct value.
+      (set! (.. badge -style -left) (str "0px"))
+      (set! (.. badge -style -top) (str "0px"))
+      (let [[pos-x pos-y] (get-offsets badge target target-fixed?)]
+        (set! (.. badge -style -left) (str pos-x "px"))
+        (set! (.. badge -style -top) (str pos-y "px")))
       (set! (.. badge -style -zIndex) (get-z-index target)))))
 
 (defn generate-tooltip [target-info]
@@ -151,44 +143,39 @@
         (.appendChild tooltip-div ahref)))
     tooltip-div))
 
-(defn position-tooltip [badge-div]
-  (let [badge-rect    (.getBoundingClientRect badge-div)
-        window-width  (. js/window -innerWidth)
-        window-height (. js/window -innerHeight)]
-    (if (< (- window-width (.-left badge-rect))
-          300)
-      (.. badge-div -classList (add "ampie-badge-tooltip-align-right"))
-      (.. badge-div -classList (remove "ampie-badge-tooltip-align-right")))
-    (if (< (- window-height (.-bottom badge-rect))
-          150)
-      (.. badge-div -classList (add "ampie-badge-tooltip-align-bottom"))
-      (.. badge-div -classList (remove "ampie-badge-tooltip-align-bottom")))))
-
 (defn show-tooltip [badge tooltip]
   (let [badge-rect    (.getBoundingClientRect badge)
         window-width  (. js/window -innerWidth)
         window-height (. js/window -innerHeight)]
     (when (not (.-parentElement tooltip))
-      (. js/document.body appendChild tooltip))
-    (let [tooltip-rect (.getBoundingClientRect tooltip)
-          body-x       (.. js/document.body (getBoundingClientRect) -left)
-          body-y       (.. js/document.body (getBoundingClientRect) -top)
-          client-x     (if (< (- window-width (.-left badge-rect)) 300)
-                         (- (.-left badge-rect) (.-width tooltip-rect) 2)
-                         (+ (.-right badge-rect) 2))
-          client-y     (if (< (- window-height (.-bottom badge-rect))
-                             150)
-                         (- (.-bottom badge-rect) (.-height tooltip-rect) 2)
-                         (.-top badge-rect))
-          fixed        (is-fixed? badge)]
-      (if (and fixed
-            (not (.. badge -classList (contains "ampie-badge-tooltip-fixed"))))
-        (.. tooltip -classList (add "ampie-badge-tooltip-fixed"))
-        (.. tooltip -classList (remove "ampie-badge-tooltip-fixed")))
-      (set! (.. tooltip -style -left)
-        (str (- client-x (when-not fixed body-x)) "px"))
-      (set! (.. tooltip -style -top)
-        (str (- client-y (when-not fixed body-y)) "px")))))
+      (. js/document.body appendChild tooltip)
+      ;; Position the tooltip at (0,0) and find how much we need to move it
+      ;; after that.
+      (set! (.. tooltip -style -left) "0px")
+      (set! (.. tooltip -style -top) "0px")
+      (let [tooltip-rect (.getBoundingClientRect tooltip)
+            client-x     (if (< (- window-width (.-left badge-rect)) 300)
+                           (- (.-left badge-rect) (.-width tooltip-rect) 2)
+                           (+ (.-right badge-rect) 2))
+            client-y     (if (< (- window-height (.-bottom badge-rect))
+                               150)
+                           (- (.-bottom badge-rect) (.-height tooltip-rect) 2)
+                           (.-top badge-rect))
+            fixed        (is-fixed? badge)]
+        (if (and fixed
+              (not (.. badge -classList (contains "ampie-badge-tooltip-fixed"))))
+          (.. tooltip -classList (add "ampie-badge-tooltip-fixed"))
+          (.. tooltip -classList (remove "ampie-badge-tooltip-fixed")))
+        (set! (.. tooltip -style -left)
+          (str (- client-x (when-not fixed (.-left tooltip-rect))) "px"))
+        (set! (.. tooltip -style -top)
+          (str (- client-y (when-not fixed (.-top tooltip-rect))) "px"))))))
+
+(defn find-non-table-offset-parent [element]
+  (loop [parent (.-offsetParent element)]
+    (if (and parent (table-element? parent))
+      (recur (.-offsetParent parent))
+      (or parent (.-body js/document)))))
 
 (defn add-ampie-badge [target target-id target-info]
   (let [badge-div  (. js/document createElement "div")
@@ -211,12 +198,48 @@
       (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
       (.addEventListener badge-div "mouseout" on-mouse-out)
       (.addEventListener tooltip "mouseout" on-mouse-out))
-    (let [parent (.-offsetParent target)]
-      (if (and parent (not (table-element? parent)))
-        (.appendChild parent badge-div)
-        (.. js/document -body (appendChild badge-div))))
+    (.appendChild (find-non-table-offset-parent target) badge-div)
     (position-ampie-badge target badge-div)
     (set-badge-color target badge-div)))
+
+(defn show-too-many-badges-message []
+  (let [shadow-holder   (.createElement js/document "div")
+        shadow          (. shadow-holder (attachShadow #js {"mode" "open"}))
+        shadow-style    (. js/document createElement "link")
+        message-element (.createElement js/document "div")
+        message-text    (.createElement js/document "div")
+        buttons         (.createElement js/document "div")
+        continue-button (.createElement js/document "button")
+        close-button    (.createElement js/document "button")
+        ch              (chan)
+        on-continue     (fn [] (.remove shadow-holder) (go (>! ch true)))
+        on-close        (fn [] (.remove shadow-holder) (go (>! ch false)))]
+    (log/info "Showing too many badges message")
+    (set! (.-rel shadow-style) "stylesheet")
+    (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/message.css")))
+    (set! (.-className shadow-holder) "ampie-message-holder")
+    (set! (.-className message-element) "message")
+    (.appendChild shadow shadow-style)
+    (.appendChild shadow message-element)
+    (set! (.-className message-text) "text")
+    (.appendChild message-text
+      (.createTextNode js/document
+        "Too many links, pausing loading of ampie badges."))
+    (set! (.-className continue-button) "button continue")
+    (.appendChild continue-button
+      (.createTextNode js/document "Continue loading badges"))
+    (set! (.-onclick continue-button) on-continue)
+    (.appendChild close-button
+      (.createTextNode js/document "Close"))
+    (set! (.-onclick close-button) on-close)
+    (set! (.-className close-button) "button close")
+    (set! (.-className buttons) "buttons")
+    (.appendChild buttons continue-button)
+    (.appendChild buttons close-button)
+    (.appendChild message-element message-text)
+    (.appendChild message-element buttons)
+    (.. js/document -body (appendChild shadow-holder))
+    ch))
 
 (defn process-child-links
   "Go through all the links that are in the `element`'s subtree and add badges
@@ -225,24 +248,44 @@
   (let [page-links        (array-seq (.querySelectorAll element "a[href]"))
         unprocessed-links (filter #(nil? (.getAttribute % "processed-by-ampie"))
                             page-links)
-        current-nurl      (url/clean-up (.. js/document -location -href))
-        urls-to-query     (->> unprocessed-links
-                            (map #(.-href %))
-                            (filter url/should-store-url?))]
+        current-nurl      (url/clean-up (.. js/document -location -href))]
     (doseq [link-element unprocessed-links]
       (.setAttribute link-element "processed-by-ampie" ""))
-    (send-urls-to-background
-      urls-to-query
-      (fn [url->where-saw-it]
-        (doseq [target unprocessed-links]
-          (let [target-url             (.-href target)
-                target-prior-sightings (url->where-saw-it target-url)]
-            (when (and (seq target-prior-sightings)
-                    (not= (url/clean-up target-url) current-nurl))
-              (let [target-id (dec (swap! next-target-id inc))]
-                (add-ampie-badge target target-id target-prior-sightings)
-                (.setAttribute target "processed-by-ampie" target-id)
-                (swap! target-ids conj target-id)))))))))
+    ((fn process-links-in-chunks [chunks badges-added]
+       (when (seq chunks)
+         (let [chunk         (first chunks)
+               urls-to-query (->> chunk
+                               (map #(.-href %))
+                               (filter url/should-store-url?))]
+           (send-urls-to-background
+             urls-to-query
+             (fn [url->where-saw-it]
+               (let [updated-badges-added
+                     (reduce + badges-added
+                       (for [target chunk
+                             :let   [target-url (.-href target)
+                                     target-prior-sightings
+                                     (url->where-saw-it target-url)
+                                     should-badge
+                                     (and (seq target-prior-sightings)
+                                       (not= (url/clean-up target-url)
+                                         current-nurl))]]
+                         (when should-badge
+                           (let [target-id (dec (swap! next-target-id inc))]
+                             (add-ampie-badge target target-id
+                               target-prior-sightings)
+                             (.setAttribute target
+                               "processed-by-ampie" target-id)
+                             (swap! target-ids conj target-id))
+                           true)))]
+                 (if (and (< badges-added 250)
+                       (>= updated-badges-added 250))
+                   (go (when (<! (show-too-many-badges-message))
+                         (process-links-in-chunks (rest chunks)
+                           updated-badges-added)))
+                   (process-links-in-chunks (rest chunks)
+                     updated-badges-added))))))))
+     (partition 100 100 nil unprocessed-links) 0)))
 
 (defn update-badge
   "Function to be run when `target` changes.
@@ -250,17 +293,10 @@
   of `target`."
   [target badge]
   (let [badge-parent  (.-offsetParent badge)
-        target-parent (.-offsetParent target)]
-    (if (and target-parent (table-element? target-parent))
-      (when-not (= badge-parent (.-body js/document))
-        (.remove badge)
-        (.appendChild (.-body js/document) badge))
-      (when-not (= badge-parent target-parent)
-        (when-let [parent (.-parent badge)]
-          (.removeChild parent badge))
-        (if (nil? target-parent)
-          (.appendChild (. js/document -body) badge)
-          (.appendChild (.-offsetParent target) badge))))
+        target-parent (find-non-table-offset-parent target)]
+    (when-not (= badge-parent target-parent)
+      (.remove badge)
+      (.appendChild target-parent badge))
     (position-ampie-badge target badge)
     (set-badge-color target badge)))
 
@@ -317,40 +353,56 @@
 
 (defn- process-page-update
   "Accepts the update event from MutationObserver
-  and updates the badges accordingly."
-  [update target-ids next-target-id]
-  (case (.-type update)
-    "childList"
-    (let [added-nodes   (->> (array-seq (.-addedNodes update))
-                          (filter #(not (ampie-badge? %))))
-          removed-nodes (->> (array-seq (.-removedNodes update))
-                          (filter #(not (ampie-badge? %))))
-          target        (.-target update)]
-      (when (and
-              (or (seq added-nodes) (seq removed-nodes))
-              (= (.-nodeType target) 1)
-              (.-offsetParent target))
-        (update-child-badges (.-offsetParent target)))
-      (when (seq added-nodes)
-        (doseq [added-node added-nodes
-                ;; Filter out text nodes
-                :when      (= (.-nodeType added-node) 1)]
-          (process-child-links added-node target-ids next-target-id)))
-      (when (seq removed-nodes)
-        (doseq [removed-node removed-nodes
-                ;; Filter out text nodes
-                :when        (= (.-nodeType removed-node) 1)]
-          (remove-child-badges removed-node target-ids))))
-    (log/error "Unknown mutation type" (.-type update))))
+  and updates the badges accordingly.
+  Calls the argument `badge-redraw` when the page may need
+  updating."
+  [update target-ids next-target-id badge-redraw]
+  (when (not (ampie-badge? (.-target update)))
+    (case (.-type update)
+      "childList"
+      (let [added-nodes   (->> (array-seq (.-addedNodes update))
+                            (filter #(not (ampie-badge? %))))
+            removed-nodes (->> (array-seq (.-removedNodes update))
+                            (filter #(not (ampie-badge? %))))
+            target        (.-target update)]
+        (when (and
+                (or (seq added-nodes) (seq removed-nodes))
+                (= (.-nodeType target) 1)
+                (.-offsetParent target))
+          (badge-redraw)
+          #_(update-child-badges (.-offsetParent target)))
+        (when (seq added-nodes)
+          (doseq [added-node added-nodes
+                  ;; Filter out text nodes
+                  :when      (= (.-nodeType added-node) 1)]
+            (process-child-links added-node target-ids next-target-id)))
+        (when (seq removed-nodes)
+          (doseq [removed-node removed-nodes
+                  ;; Filter out text nodes
+                  :when        (= (.-nodeType removed-node) 1)]
+            (remove-child-badges removed-node target-ids))))
+      (log/error "Unknown mutation type" (.-type update)))))
 
 (defn start []
-  (let [target-ids        (atom #{})
-        next-target-id    (atom 0)
+  (let [target-ids           (atom #{})
+        next-target-id       (atom 0)
+        badge-redraw-timeout (atom nil)
+        badge-redraw
+        (fn []
+          (when-not @badge-redraw-timeout
+            (reset! badge-redraw-timeout
+              (js/setTimeout
+                (fn [] (reset! badge-redraw-timeout nil)
+                  (screen-update target-ids))
+                1000))))
+
+        page-update-timeout (atom nil)
         process-page-updates
         (fn [updates]
+          (log/info "Processing updates")
           (doseq [update (array-seq updates)]
-            (process-page-update update target-ids next-target-id)))
-        mutation-observer (js/MutationObserver. process-page-updates)
+            (process-page-update update target-ids next-target-id badge-redraw)))
+        mutation-observer   (js/MutationObserver. process-page-updates)
 
         resize-event-timeout (atom nil)
         on-resize

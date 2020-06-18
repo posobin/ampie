@@ -4,11 +4,12 @@
   (:require-macros [mount.core :refer [defstate]]))
 
 (defn init-db [db]
-  (-> (. db (version 1))
+  (-> (. db (version 2))
     (. stores
       #js {:visits     "&visitHash, normalizedUrl, firstOpened, url"
            :closedTabs "++objId"
-           :seenUrls   "&normalizedUrl"})))
+           :seenUrls   "&normalizedUrl"
+           :links      "&normalizedUrl"})))
 
 (defstate db
   :start (doto (Dexie. "AmpieDB") init-db)

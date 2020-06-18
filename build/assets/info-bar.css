@@ -1,11 +1,6 @@
-.info-bar-container {
-    height: 100vh;
-}
+.info-bar-container {height: 100vh;}
 
-.info-bar:hover {
-    opacity: 1;
-}
-
+.info-bar:hover {opacity: 1;}
 .info-bar {
     position: fixed;
     bottom: 0;

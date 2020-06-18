@@ -9,14 +9,16 @@
                   :browser-action {:init-fn ampie.popup/init}
 
                   :history-page  {:output-type :chrome/single-file
-                                  :init-fn     ampie.history-page/init}
+                                  :init-fn     ampie.pages.history/init}
                   :settings-page {:output-type :chrome/single-file
-                                  :init-fn     ampie.settings-page/init}}
+                                  :init-fn     ampie.pages.settings/init}}
 
  :permissions              ["webNavigation" "tabs"
-                            "cookies" "http://localhost/"]
+                            "storage" "cookies"
+                            "http://localhost/"]
  :web-accessible-resources ["assets/content-style.css"
-                            "assets/info-bar.css"]
+                            "assets/info-bar.css"
+                            "assets/message.css"]
  :content-scripts          [{:css     ["assets/content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}

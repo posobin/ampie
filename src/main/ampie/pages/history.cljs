@@ -1,4 +1,4 @@
-(ns ampie.history-page
+(ns ampie.pages.history
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
             [ampie.db :refer [db]]

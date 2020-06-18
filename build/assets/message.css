@@ -1,0 +1,9 @@
+.message {
+    background: white;
+    border: 2px solid blue;
+    font: 10pt Roboto;
+    padding: 0.3em 0.7em;
+}
+
+.message *:not(:first-child) {margin-top: 0.1em;}
+.buttons button:not(:first-child) {margin-left: 0.4em;}

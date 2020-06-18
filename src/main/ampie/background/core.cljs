@@ -1,6 +1,7 @@
 (ns ampie.background.core
   (:require [ampie.background.messaging :as background.messaging]
             [ampie.background.backend]
+            [ampie.background.link-cache-sync]
             [ampie.tabs.monitoring :as tabs.monitoring]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount]

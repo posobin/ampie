@@ -77,4 +77,5 @@
         (.-BulkError Dexie)
         (fn [e]
           (log/error "Couldn't add" (.. e -failures -length)
-            "entries to seenUrls"))))))
+            "entries to seenUrls, e.g."
+            (js->clj (aget (.-failures e) 0))))))))

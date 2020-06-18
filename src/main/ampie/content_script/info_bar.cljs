@@ -91,8 +91,8 @@
         children-info  (repeat (count children) (r/atom {}))
         update-heights (fn [index direction delta]
                          (if (= index (dec (count children)))
-                           ;; Propagate the scroll event
-                           true
+                           ;; Don't propagate the scroll event
+                           false
                            ((:update-height
                              @(nth children-info (inc index)))
                             (if (= direction :up)
@@ -110,7 +110,6 @@
          :keys [normalized-url reference-counts]} @page-info]
     [:div.info-bar
      [elements-stack
-      [seen-at seen]
       [seen-at seen]]
      [bottom-row normalized-url reference-counts]]))
 
@@ -140,8 +139,10 @@
         shadow-style   (. js/document createElement "link")
         page-info      (r/atom {})]
     (set! (.-rel shadow-style) "stylesheet")
+    (set! (.-style shadow-root-el) "display: none;")
+    (set! (.-onload shadow-style) #(set! (.-style shadow-root-el) ""))
     (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/info-bar.css")))
-    (set! (.-className shadow-root-el) "ampie-info-bar-holder")
+    (set! (.-className shadow-root-el) "ampie-info-bar-holder ampie-hidden")
     (set! (.-className info-bar-div) "info-bar-container")
     (update-current-page-info! page-info)
     (rdom/render [info-bar {:page-info page-info}] info-bar-div)

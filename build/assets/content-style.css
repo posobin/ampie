@@ -13,7 +13,6 @@
 }
 
 .ampie-badge-tooltip {
-    /* display: none; */
     position: absolute;
     padding: 5px 5px;
     top: 0;
@@ -27,9 +26,6 @@
     overflow-y: scroll;
     z-index: 99999;
 }
-
-/* .ampie-badge-tooltip-align-right .ampie-badge-tooltip {left: initial; right: 5px;} */
-/* .ampie-badge-tooltip-align-bottom .ampie-badge-tooltip {top: initial; bottom: -10px;} */
 
 .ampie-badge-tooltip-fixed {position: fixed;}
 .ampie-badge-tooltip, .ampie-badge-tooltip * {
@@ -57,4 +53,13 @@
     bottom: -2px;
     right: -2px;
     pointer-events: none;
+}
+.ampie-info-bar-holder .ampie-hidden {display: none;}
+
+.ampie-message-holder {
+    z-index: 100001;
+    position: fixed;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
 }

@@ -40,9 +40,8 @@
       (.bulkGet (i/clj->js unique-urls))
       (.then
         (fn [previously-seen]
-          (let [previously-seen
-                (map #(-> % (i/js->clj) :seen-at)
-                  previously-seen)
+          (let [previously-seen (map #(-> % (i/js->clj) :seen-at)
+                                  previously-seen)
                 ;; Function that adds the new visit hash to the saved ones,
                 ;; truncating if there are more than 10 links.
                 add-visit

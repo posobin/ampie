@@ -12,7 +12,7 @@
 (defn parent-event? [evt] (= (.-parentFrameId evt) -1))
 (defn preprocess-navigation-evt [navigation-evt]
   (let [evt (i/js->clj navigation-evt)]
-    (assoc evt :normalized-url (url/clean-up (:url evt)))))
+    (assoc evt :normalized-url (url/normalize (:url evt)))))
 
 
 ;; The main event handlers will dispatch to these functions
@@ -150,13 +150,18 @@
 (defn reloaded-tab [_])
 
 (defn tab-updated [tab-id change-info tab-info]
-  (let [{title :title :as p} (i/js->clj change-info)
-        {url :url}           (i/js->clj tab-info)
-        normalized-url       (url/clean-up url)]
+  (let [{title :title new-url :url} (i/js->clj change-info)
+        {url :url}                  (i/js->clj tab-info)
+        normalized-url              (url/normalize url)]
     ;; Only fire when the title was updated
     (when title
       (log/info "Title of" url "updated to" title)
-      (tabs/update-tab-title tab-id title url))))
+      (tabs/update-tab-title tab-id title url))
+
+    (when new-url
+      (log/info "Url of tab" tab-id "changed to" new-url)
+      (.. browser -tabs (sendMessage tab-id (clj->js {:type :url-updated
+                                                      :url  new-url}))))))
 
 ;; Listeners for the webNavigation events that pre-process events and
 ;; dispatch to the functions above

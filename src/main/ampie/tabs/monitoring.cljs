@@ -25,7 +25,7 @@
   (let [tabs (i/js->clj tabs)]
     (doseq [{:keys [id url title] :as tab} tabs]
       (let [evt {:tab-id     id
-                 :url        (url/clean-up url)
+                 :url        (url/normalize url)
                  :title      title
                  :time-stamp (.getTime (js/Date.))}]
         (if (contains? @@open-tabs id)

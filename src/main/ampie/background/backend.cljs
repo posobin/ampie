@@ -130,6 +130,7 @@
               (.bulkPut
                 (i/clj->js
                   (map (fn [[nurl sources]] {:normalized-url nurl
+                                             :count          (count sources)
                                              :seen-at        sources})
                     nurl->seen-at)))
               (.catch (.-BulkError Dexie)
@@ -205,3 +206,33 @@
                          (set (clj->js {(str "link-cache-" (name cache-key))
                                         {:last-updated (js/Date.now)
                                          :etag         new-etag}}))))))))))))
+
+(defn link-ids-to-info
+  "Queries the server with the given link ids and returns a Promise that
+  resolves with the information about each one. `links` has to be a seq of pairs
+  [link-id origin] in the format that the backend's
+  `ampie-backend.links/get-links-info` understands."
+  [links]
+  (js/Promise.
+    (fn [resolve]
+      (POST (endpoint "links/get-links-info")
+        (assoc (base-request-options)
+          :params {:links links}
+          :handler #(resolve (js->clj % :keywordize-keys true)))))))
+
+(defn get-tweets
+  "Returns the hydrated tweet objects as returned by twitter.
+  `ids` should contain tweet ids."
+  [ids]
+  (.then
+    (js/Promise.all
+      (for [ids (partition 100 100 nil ids)]
+        (js/Promise.
+          (fn [resolve]
+            (POST (endpoint "twitter/get-tweets-by-ids")
+              (assoc (base-request-options)
+                :params {:ids ids}
+                :handler #(resolve (-> %
+                                     (js->clj :keywordize-keys true)
+                                     :tweets))))))))
+    #(apply concat %)))

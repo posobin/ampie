@@ -74,6 +74,7 @@
   (swap! @open-tabs assoc tab-id tab-info))
 
 (defn update-tab! [tab-id tab-info]
+  (log/info "Updating tab" tab-id tab-info)
   (swap! @open-tabs assoc tab-id tab-info))
 
 (defn close-tab! [tab-id]

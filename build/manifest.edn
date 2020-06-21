@@ -16,9 +16,7 @@
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"
                             "http://localhost/"]
- :web-accessible-resources ["assets/content-style.css"
-                            "assets/info-bar.css"
-                            "assets/message.css"]
+ :web-accessible-resources ["assets/*"]
  :content-scripts          [{:css     ["assets/content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}

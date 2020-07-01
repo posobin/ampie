@@ -20,7 +20,6 @@
                                  :page-url (.. js/window -location -href)})))
       (.then
         (fn [urls-info]
-          (js/console.log urls-info)
           (let [urls-info    (js->clj urls-info :keywordize-keys true)
                 current-nurl (url/normalize (.. js/window -location -href))
                 cleaned-up   (->> urls-info
@@ -28,13 +27,12 @@
                                           (or (seq (:twitter %)) (seq (:hn %)))))
                                (map #(vector (:url %) %))
                                (into {}))]
-            (log/info "After cleaning up" cleaned-up)
             (response-handler cleaned-up)))))))
 
 (defn- get-z-index
   "Compute z-index of the given element."
   [element]
-  (let [style   (.. js/document -defaultView (getComputedStyle element))
+  (let [style   (. js/window getComputedStyle element)
         z-index (.getPropertyValue style "z-index")]
     (when-not (= z-index "auto")
       (int z-index))))
@@ -42,7 +40,7 @@
 (defn- is-visible?
   "Check if the element is displayed on the page, `element` has to be not null."
   [element]
-  (let [style     (. js/window getComputedStyle element false)
+  (let [style     (. js/window getComputedStyle element)
         transform (= (. style getPropertyValue "transform")
                     "matrix(1, 0, 0, 0, 0, 0)")
         hidden    (= (. style getPropertyValue "visibility") "hidden")
@@ -177,15 +175,25 @@
       (recur (.-offsetParent parent))
       (or parent (.-body js/document)))))
 
+(defn get-target-url
+  "Returns the non-normalized url of the `target` element. May not match
+  (.-href target) when we can easily figure out the redirect, e.g. for twitter."
+  [target]
+  (let [href  (.-href target)
+        title (.-title target)]
+    (if (and (string/starts-with? href "https://t.co/")
+          (string/starts-with? title "http"))
+      title
+      href)))
+
 (defn add-ampie-badge [target target-id target-info on-badge-click]
   (let [badge-div  (. js/document createElement "div")
         badge-icon (. js/document createElement "div")
         tooltip    (generate-tooltip target-info)]
     (set! (.-className badge-div) "ampie-badge")
-    (set! (.-onclick badge-div) #(on-badge-click (.. target -href)))
-    (set! (.-onclick tooltip) #(on-badge-click (.. target -href)))
+    (set! (.-onclick badge-div) #(on-badge-click (get-target-url target)))
+    (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
     (set! (.-className badge-icon) "ampie-badge-icon")
-    (set! (.-textContent badge-icon) "&")
     (.appendChild badge-div badge-icon)
     (.setAttribute badge-div "ampie-badge-id" target-id)
     (let [mouse-out? (atom false)
@@ -196,7 +204,6 @@
       (.addEventListener badge-div "mouseover"
         (fn []
           (reset! mouse-out? false)
-          (js/console.log target-info)
           (show-tooltip badge-div tooltip)))
       (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
       (.addEventListener badge-div "mouseout" on-mouse-out)
@@ -258,7 +265,7 @@
        (when (seq chunks)
          (let [chunk         (first chunks)
                urls-to-query (->> chunk
-                               (map #(.-href %))
+                               (map get-target-url)
                                (filter url/should-store-url?))]
            (send-urls-to-background
              urls-to-query
@@ -267,7 +274,7 @@
                      (+ badges-added
                        (count
                          (for [target chunk
-                               :let   [target-url (.-href target)
+                               :let   [target-url (get-target-url target)
                                        target-seen-at (url->seen-at target-url)]
                                :when  (and target-seen-at
                                         (not= (url/normalize target-url)
@@ -280,9 +287,9 @@
                              (swap! target-ids conj target-id)))))]
                  (if (and (< badges-added 250)
                        (>= updated-badges-added 250))
-                   (go (when (<! (show-too-many-badges-message))
-                         (process-links-in-chunks (rest chunks)
-                           updated-badges-added)))
+                   (go (when true #_(<! (show-too-many-badges-message))
+                             (process-links-in-chunks (rest chunks)
+                               updated-badges-added)))
                    (process-links-in-chunks (rest chunks)
                      updated-badges-added))))))))
      (partition 100 100 nil unprocessed-links) 0)))
@@ -315,75 +322,6 @@
             (swap! target-ids disj target-id))
         (update-badge target badge)))))
 
-(defn- get-child-targets-badges
-  "Returns a seq of `{:target :badge :id}` - all the children targets
-  of `element`, their corresponding badge elements, and their ids."
-  [element]
-  (let [targets (array-seq
-                  (. element querySelectorAll "a[href][processed-by-ampie]"))
-        ids     (map #(.getAttribute % "processed-by-ampie") targets)
-        badges  (map #(. js/document querySelector
-                        (str "[ampie-badge-id=\"" % "\"]"))
-                  ids)]
-    (map #(hash-map :target %1 :badge %2 :id %3)
-      targets badges ids)))
-
-(defn update-child-badges
-  "Goes through all the links in the subtree of `element` that have been
-  processed by ampie and updates their position/hides them/shows them."
-  [element]
-  (doseq [{:keys [target badge]} (get-child-targets-badges element)
-          :when                  badge]
-    (update-badge target badge)))
-
-(defn remove-child-badges
-  "Goes through all the links in the subtree of `element` that have been
-  processed by ampie and removes the associated badges from the DOM and
-  their ids from the `target-ids` atom."
-  [element target-ids]
-  (doseq [{:keys [target badge id]} (get-child-targets-badges element)]
-    (swap! target-ids disj id)
-    (when badge
-      (.remove badge))
-    (.removeAttribute target "processed-by-ampie")))
-
-(defn- ampie-badge? [element]
-  (and (string? (.-className element))
-    (string/includes? (.-className element) "ampie-badge")))
-
-(defn- process-page-update
-  "Accepts the update event from MutationObserver
-  and updates the badges accordingly.
-  Calls the argument `badge-redraw` when the page may need
-  updating."
-  [update target-ids next-target-id badge-redraw on-badge-click]
-  (when (not (ampie-badge? (.-target update)))
-    (case (.-type update)
-      "childList"
-      (let [added-nodes   (->> (array-seq (.-addedNodes update))
-                            (filter #(not (ampie-badge? %))))
-            removed-nodes (->> (array-seq (.-removedNodes update))
-                            (filter #(not (ampie-badge? %))))
-            target        (.-target update)]
-        (when (and
-                (or (seq added-nodes) (seq removed-nodes))
-                (= (.-nodeType target) 1)
-                (.-offsetParent target))
-          (badge-redraw)
-          #_(update-child-badges (.-offsetParent target)))
-        (when (seq added-nodes)
-          (doseq [added-node added-nodes
-                  ;; Filter out text nodes
-                  :when      (= (.-nodeType added-node) 1)]
-            (process-child-links added-node target-ids next-target-id
-              on-badge-click)))
-        (when (seq removed-nodes)
-          (doseq [removed-node removed-nodes
-                  ;; Filter out text nodes
-                  :when        (= (.-nodeType removed-node) 1)]
-            (remove-child-badges removed-node target-ids))))
-      (log/error "Unknown mutation type" (.-type update)))))
-
 (defn start [on-badge-click]
   (let [target-ids           (atom #{})
         next-target-id       (atom 0)
@@ -395,16 +333,17 @@
               (js/setTimeout
                 (fn [] (reset! badge-redraw-timeout nil)
                   (screen-update target-ids))
-                1000))))
+                5000))))
 
-        page-update-timeout (atom nil)
-        process-page-updates
-        (fn [updates]
-          (log/info "Processing updates")
-          (doseq [update (array-seq updates)]
-            (process-page-update update target-ids next-target-id badge-redraw
-              on-badge-click)))
-        mutation-observer   (js/MutationObserver. process-page-updates)
+        update-cancelled (atom false)
+        update-page
+        (fn update-page [update-cancelled]
+          (when-not @update-cancelled
+            (when-not (.-hidden js/document)
+              (process-child-links js/document.body target-ids next-target-id
+                on-badge-click)
+              (badge-redraw))
+            (js/setTimeout #(update-page update-cancelled) 1000)))
 
         resize-event-timeout (atom nil)
         on-resize
@@ -412,15 +351,14 @@
           (js/clearTimeout @resize-event-timeout)
           (reset! resize-event-timeout
             (js/setTimeout #(screen-update target-ids) 25)))]
-    (.observe mutation-observer js/document.body #js {:childList true
-                                                      :subtree   true})
     (. js/window addEventListener "resize" on-resize)
     (process-child-links js/document.body target-ids next-target-id on-badge-click)
-    {:next-target-id    next-target-id
-     :target-ids        target-ids
-     :mutation-observer mutation-observer
-     :on-resize         on-resize}))
+    (js/setTimeout #(update-page update-cancelled) 2000)
+    {:next-target-id   next-target-id
+     :target-ids       target-ids
+     :update-cancelled update-cancelled
+     :on-resize        on-resize}))
 
-(defn stop [{:keys [next-target-id target-ids mutation-observer on-resize]}]
-  (.disconnect mutation-observer)
+(defn stop [{:keys [next-target-id target-ids update-cancelled on-resize]}]
+  (reset! update-cancelled true)
   (.removeEventListener js/window "resize" on-resize))

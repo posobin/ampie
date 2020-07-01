@@ -4,6 +4,7 @@
   (:require ["webextension-polyfill" :as browser]
             [ampie.tabs.core :as tabs :refer [open-tabs]]
             [ampie.visits :as visits]
+            [ampie.visits.db :as visits.db]
             [ampie.tabs.event-handlers :as evt]
             [ampie.interop :as i]
             [ampie.url :as url]
@@ -32,6 +33,29 @@
           (evt/went-back-or-fwd-in-tab evt)
           (evt/restored-tab evt))))))
 
+(defn update-all-tab-titles []
+  (.then
+    (.. browser -tabs (query #js {}))
+    (fn [tabs]
+      (let [tabs          (->> (i/js->clj tabs)
+                            (group-by :id))
+            open-tabs     @@open-tabs
+            latest-titles (for [[tab-id {visit-hash :visit-hash}]
+                                open-tabs
+                                :let  [{:keys [title url]} (first (tabs tab-id))]
+                                :when title]
+                            {:visit-hash visit-hash :title title :url url})]
+        (.then (visits.db/get-visits-info (map :visit-hash latest-titles))
+          (fn [visits]
+            (doseq [[{current-url   :url
+                      current-title :title
+                      visit-hash    :visit-hash}
+                     {url :url title :title}] (map vector visits latest-titles)
+                    :when
+                    (and (not (= current-title title))
+                      (= (url/remove-anchor current-url) (url/remove-anchor url)))]
+              (visits.db/set-visit-title! visit-hash title))))))))
+
 (defn stop []
   (.. browser -tabs -onUpdated
     (removeListener evt/tab-updated))
@@ -58,7 +82,10 @@
   (.. browser -webNavigation -onCommitted
     (addListener evt/committed))
   (.. browser -webNavigation -onCreatedNavigationTarget
-    (addListener evt/created-navigation-target)))
+    (addListener evt/created-navigation-target))
+  (js/setInterval update-all-tab-titles 1000))
 
 (defstate service
-  :start (start) :stop (stop))
+  :start (start)
+  :stop (do (js/clearInterval @service)
+            (stop)))

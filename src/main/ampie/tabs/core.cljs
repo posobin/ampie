@@ -19,15 +19,19 @@
 
 (defn add-new-visit-to-tab [tab-info visit-hash]
   (let [history     (:history-back tab-info)
+        origin-hash (:origin-hash tab-info)
         new-history (conj history visit-hash)]
     {:visit-hash   visit-hash
+     :origin-hash  origin-hash
      :history-back new-history
      :history-fwd  ()}))
 
 (defn generate-new-tab
-  ([visit-hash] (generate-new-tab visit-hash (list visit-hash) ()))
-  ([visit-hash history-back history-fwd]
+  ([visit-hash origin-hash]
+   (generate-new-tab visit-hash origin-hash (list visit-hash) ()))
+  ([visit-hash origin-hash history-back history-fwd]
    {:visit-hash   visit-hash
+    :origin-hash  origin-hash
     :history-back history-back
     :history-fwd  history-fwd}))
 
@@ -48,10 +52,12 @@
   [tab-id title url]
   (let [{[current-hash prev-hash] :history-back} (@@open-tabs tab-id)]
     (.then
-      (.all
-        js/Promise
-        [(visits.db/get-visit-by-hash current-hash)
-         (visits.db/get-visit-by-hash prev-hash)])
+      (js/Promise.all
+        (if prev-hash
+          (array
+            (visits.db/get-visit-by-hash current-hash)
+            (visits.db/get-visit-by-hash prev-hash))
+          (array (visits.db/get-visit-by-hash current-hash))))
       (fn [results-js]
         (let [[{current-url :url} {prev-url :url}] (i/js->clj results-js)]
           (cond
@@ -126,3 +132,17 @@
                     (.where "objId") (.equals closed-tab-id)
                     (.delete)))
                 (some? visit)))))))))
+
+(defn update-visit-url!
+  "Function to be called when the visit url changes, probably because
+  of redirect (otherwise create a new child visit!). Updates `open-tabs`
+  and the `visits` db to reflect the new url, also sets the title if
+  there is a title update pending in `stored-title` in the tab."
+  [tab-id visit-hash new-url]
+  (let [{:keys [stored-title] :as tab-info} (@@open-tabs tab-id)]
+    (log/info tab-info)
+    (log/info tab-id visit-hash stored-title)
+    (visits.db/set-visit-url! visit-hash new-url)
+    (when (= (:url stored-title) new-url)
+      (visits.db/set-visit-title! visit-hash (:title stored-title)))
+    (swap! @open-tabs update tab-id dissoc :stored-title)))

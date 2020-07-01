@@ -15,5 +15,8 @@
           {:target           :chrome-extension
            :extension-dir    "./build/"
            :js-options       {:output-feature-set :es6}
+           :devtools         {:watch-dir "build/assets"}
            :compiler-options {:closure-output-charset "US-ASCII"
-                              :source-map-inline      true}}}}
+                              :source-map-inline      true
+                              :optimizations          :advanced
+                              :infer-externs          :auto}}}}

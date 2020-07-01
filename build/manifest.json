@@ -1,7 +1,8 @@
 {"description":"Social web browsing",
  "permissions":
- ["webNavigation", "tabs", "storage", "cookies", "http://localhost/"],
- "browser_action":{"default_popup":"popup.html"},
+ ["webNavigation", "tabs", "storage", "cookies", "unlimitedStorage",
+  "http://localhost/", "http://localhost:5000/",
+  "https://*.ampie.app/"],
  "name":"Ampie",
  "background":
  {"scripts":
@@ -222,7 +223,7 @@
    "out/cljs-runtime/goog.net.xhrmanager.js",
    "out/cljs-runtime/ajax.xhrio.js",
    "out/cljs-runtime/ajax.xml_http_request.js",
-   "out/cljs-runtime/ajax.core.js",
+   "out/cljs-runtime/ajax.core.js", "out/cljs-runtime/ampie.time.js",
    "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
    "out/cljs-runtime/ampie.db.js",
    "out/cljs-runtime/ampie.visits.db.js",
@@ -467,7 +468,7 @@
     "out/cljs-runtime/goog.net.xhrmanager.js",
     "out/cljs-runtime/ajax.xhrio.js",
     "out/cljs-runtime/ajax.xml_http_request.js",
-    "out/cljs-runtime/ajax.core.js",
+    "out/cljs-runtime/ajax.core.js", "out/cljs-runtime/ampie.time.js",
     "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
     "out/cljs-runtime/ampie.db.js",
     "out/cljs-runtime/ampie.visits.db.js",

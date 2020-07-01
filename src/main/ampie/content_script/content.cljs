@@ -25,15 +25,8 @@
             (badge/stop @page-service)
             (remove-info-bar)))
 
-(defn ^:dev/after-load reloaded []
+(defn ^:dev/after-load init []
   (mount/start))
-
-(defn refreshed []
-  (reloaded))
-
-(defn init []
-  (refreshed)
-  #_(js/setTimeout refresh-source 500))
 
 (defn ^:dev/before-load before-load []
   (mount/stop))

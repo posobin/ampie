@@ -39,7 +39,7 @@
   (when @@auth-token (f))
   (add-watch @auth-token key
     (fn [_ _ old new]
-      (when new (f)))))
+      (when (and new (not= old new)) (f)))))
 (defn remove-on-logged-in [key]
   (remove-watch @auth-token key))
 
@@ -57,14 +57,14 @@
     (GET (endpoint "user-info")
       (assoc (base-request-options)
         :handler (fn [user-info]
-                   (swap! user-info-atom user-info)
+                   (reset! user-info-atom user-info)
                    (.. browser -storage -local
                      (set (clj->js {:user-info user-info}))))
         :error-handler
         (fn [{:keys [status] :as e}]
           (when (= status 401)
-            (swap! @auth-token nil)
-            (swap! user-info-atom nil))
+            (reset! @auth-token nil)
+            (reset! user-info-atom nil))
           (log/error "Couldn't get user's info"
             e))))))
 
@@ -80,7 +80,7 @@
 
 (defstate user-info :start (doto (r/atom nil) (load-user-info)))
 
-(defn cookie-change-listener [change-info]
+(defn cookie-change-listener [^js change-info]
   (let [removed (.-removed change-info)
         cause   (.-cause change-info)
         value   (.. change-info -cookie -value)
@@ -88,6 +88,7 @@
         domain  (.. change-info -cookie -domain)]
     (when (and (= name "auth-token") (or (when goog.DEBUG (= domain "localhost"))
                                        (= domain "ampie.app")
+                                       (= domain "api.ampie.app")
                                        (= domain ".ampie.app")))
       (if (and removed (not= cause "overwrite"))
         (reset! @auth-token nil)
@@ -126,6 +127,7 @@
                                  result)))
                            {} new-nurl->seen-at))))))
           (save-links [nurl->seen-at]
+            (log/info "Saving" (count nurl->seen-at) "links")
             (-> (.-links @db)
               (.bulkPut
                 (i/clj->js
@@ -135,8 +137,9 @@
                     nurl->seen-at)))
               (.catch (.-BulkError Dexie)
                 (fn [e]
+                  (js/console.log e)
                   (log/error "Couldn't add" (.. e -failures -length)
-                    "entries to urls, e.g."
+                    "entries to urls for cache" cache-key ", e.g."
                     (js->clj (aget (.-failures e) 0)))))))
           ;; Transform the plain vector cache as downloaded into a map
           ;; normalized url -> [[id source]+]
@@ -157,14 +160,19 @@
            ;; events.
            :handler
            (fn [cache]
-             (let [nurl->seen-at (cache->map cache)]
+             (let [nurl->seen-at (cache->map cache)
+                   recursive-chain
+                   (fn recursive-chain [parts-nurl->seen-at]
+                     (-> (get-updated-entries
+                           (first parts-nurl->seen-at))
+                       (.then save-links)
+                       (.then
+                         (fn [_]
+                           (if (seq (rest parts-nurl->seen-at))
+                             (recursive-chain (rest parts-nurl->seen-at))
+                             (resolve))))))]
                (log/info "Received cache" cache-key "saving")
-               (.then
-                 (js/Promise.all
-                   (for [nurl->seen-at (partition 10000 10000 nil nurl->seen-at)]
-                     (-> (get-updated-entries nurl->seen-at)
-                       (.then save-links))))
-                 (fn [_] (resolve)))))})))))
+               (recursive-chain (partition 1000 1000 nil nurl->seen-at))))})))))
 
 (defn check-and-update-link-caches
   "Queries the server to get latest cache urls, gets their etags and if they
@@ -179,19 +187,20 @@
     (.then (fn [server-caches]
              (doseq [[cache-key url] server-caches]
                (-> (js/Promise.all
-                     [(let [storage-key (str "link-cache-" (name cache-key))]
-                        (.then (.. browser -storage -local (get storage-key))
-                          #(-> (js->clj % :keywordize-keys true)
-                             ((keyword storage-key)))))
-                      (js/Promise.
-                        (fn [resolve]
-                          (HEAD url
-                            {:response-format identity
-                             :handler
-                             (fn [response]
-                               (resolve (-> (.getResponseHeaders response)
-                                          (js->clj :keywordize-keys true)
-                                          :etag)))})))])
+                     (array
+                       (let [storage-key (str "link-cache-" (name cache-key))]
+                         (.then (.. browser -storage -local (get storage-key))
+                           #(-> (js->clj % :keywordize-keys true)
+                              ((keyword storage-key)))))
+                       (js/Promise.
+                         (fn [resolve]
+                           (HEAD url
+                             {:response-format identity
+                              :handler
+                              (fn [^js response]
+                                (resolve (-> (.getResponseHeaders response)
+                                           (js->clj :keywordize-keys true)
+                                           :etag)))})))))
                  (.then
                    (fn [[previous-info new-etag]]
                      (when-not (= (:etag previous-info) new-etag)
@@ -201,7 +210,7 @@
                  (.then
                    (fn [new-etag]
                      (when new-etag
-                       (log/info "Cache saved to the local DB")
+                       (log/info "Cache" cache-key "saved to the local DB")
                        (.. browser -storage -local
                          (set (clj->js {(str "link-cache-" (name cache-key))
                                         {:last-updated (js/Date.now)

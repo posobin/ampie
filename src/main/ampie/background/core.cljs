@@ -21,7 +21,6 @@
 
 
 (defn ^:dev/after-load init []
-  (log/info "Hello from the background world!")
   (mount/start)
 
   #_(.. browser -tabs (create #js {:url "history.html"}))

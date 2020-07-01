@@ -7,24 +7,13 @@
             [ampie.interop :as i]
             [taoensso.timbre :as log]
             [ajax.core :refer [GET]]
-            [goog.string :as gstring]
-            [goog.string.format]))
+            [clojure.string :as string]
+            [ampie.time]))
 
 (defn ahref-opts [href]
   {:href   href
    :target "_blank"
    :rel    "noreferrer noopener"})
-
-(defn timestamp->date [timestamp]
-  (let [date  (js/Date. timestamp)
-        day   (.getDate date)
-        month (.getMonth date)
-        month-name
-        (["January" "February" "March" "April" "May" "June" "July" "August"
-          "September" "October" "November" "December"]
-         month)
-        year  (.getFullYear date)]
-    (gstring/format "%s %d, %d" month-name day year)))
 
 (defn tweet [{{:keys [screen_name]} :user
               {urls :urls}          :entities
@@ -48,7 +37,7 @@
     [:div.author screen_name]
     [:a.date
      (ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
-     (timestamp->date (js/Date.parse created_at))]]])
+     (ampie.time/timestamp->date (js/Date.parse created_at))]]])
 
 (defn tweets [tweets-info]
   [:div.tweets.pane
@@ -65,7 +54,7 @@
    [:div.info
     [:div.author by] [:div.n-comments (str descendants " comments")]
     [:div.score (str score " points")]
-    [:div.date (timestamp->date (* time 1000))]]])
+    [:div.date (ampie.time/timestamp->date (* time 1000))]]])
 
 (defn hn-stories [hn-stories-info]
   [:div.hn-stories.pane
@@ -85,7 +74,7 @@
         [:a.title (ahref-opts url) title]
         [:div.info
          [:div.domain (url/get-domain url)]
-         [:div.date (timestamp->date first-opened)]]])]))
+         [:div.date (ampie.time/timestamp->date first-opened)]]])]))
 
 #_(defn mini-tags [reference-counts]
     (for [[source-name count] reference-counts]
@@ -97,44 +86,58 @@
 (defn bottom-row
   [{:keys [normalized-url prefixes-info close-page-info
            show-prefix-info]}]
-  (log/info prefixes-info)
-  [:div.bottom-row
-   (into [:div.url]
-     (apply concat
-       (for [[idx start end] (url/get-parts-normalized normalized-url)
-             :let
-             [substr (subs normalized-url start end)
-              info (nth prefixes-info idx)
-              links (second info)
-              prev-info (when (pos? idx)
-                          (nth prefixes-info (dec idx)))
-              prev-links (second prev-info)
-              after (subs normalized-url end (inc end))
-              highlight?
-              (or (> (count links) 1)
-                (and (= (count links) 1)
-                  (not= normalized-url
-                    (-> links first :normalized-url))))]]
-         (do (log/info idx info highlight?)
-             ;; TODO reproduce the bug with the lambda function being cached
-             ;; even though highlight? changes if not including highlight?
-             ;; into the key.
-             [#^{:key (str start highlight?)}
-              [:span.part
-               (when highlight?
-                 {:on-click #(show-prefix-info info)
-                  :class    "highlight"})
-               substr]
-              (when-not (empty? after) after)]))))
-   [:div.close {:on-click close-page-info}
-    [:span.icon.close-icon]]])
+  (let [domain-len         (string/index-of normalized-url "/")
+        url-parts          (url/get-parts-normalized normalized-url)
+        url-parts          (map #(update % 0 dec)
+                             (cons [1 0 (-> url-parts second last)]
+                               (drop 2 url-parts)))
+        domain-parts       (take-while #(<= (last %) domain-len) url-parts)
+        reversed-url-parts (concat
+                             (map (fn [[idx start end]]
+                                    [idx (- domain-len end) (- domain-len start)])
+                               (reverse domain-parts))
+                             (drop (count domain-parts) url-parts))
+        reversed-normalized-url
+        (url/reverse-lower-domain normalized-url)]
+    [:div.bottom-row
+     (into [:div.url]
+       (apply concat
+         (for [[idx start end] reversed-url-parts
+               :let
+               [substr (subs reversed-normalized-url start end)
+                info (nth prefixes-info idx)
+                links (second info)
+                prev-info (when (pos? idx)
+                            (nth prefixes-info (dec idx)))
+                prev-links (second prev-info)
+                after (cond
+                        (< end domain-len) "."
+                        (= end domain-len) "/"
+                        :else              (subs normalized-url end (inc end)))
+                highlight?
+                (or (> (count links) 1)
+                  (and (= (count links) 1)
+                    (not= normalized-url
+                      (-> links first :normalized-url))))]]
+           ;; TODO reproduce the bug with the lambda function being cached
+           ;; even though highlight? changes if not including highlight?
+           ;; into the key.
+           [#^{:key (str start highlight?)}
+            [:span.part
+             (when highlight?
+               {:on-click #(show-prefix-info info)
+                :class    "highlight"})
+             (js/decodeURI substr)]
+            (when-not (empty? after) after)])))
+     [:div.close {:on-click close-page-info}
+      [:span.icon.close-icon]]]))
 
 (defn window [{:keys [overscroll-handler window-atom]}]
   (letfn [(change-height [el delta-y]
             (let [current-height    (js/parseFloat
                                       (. (js/getComputedStyle el)
                                         getPropertyValue "height"))
-                  min-height        30
+                  min-height        28
                   lowest-child-rect (.. el -lastElementChild
                                       getBoundingClientRect)
                   children-height   (- (+ (. lowest-child-rect -y)
@@ -194,28 +197,33 @@
     [:div.mini-tag]))
 
 (defn adjacent-link-row [{:keys [normalized-url seen-at]} prefix load-page-info]
-  [:div.row.adjacent-link
-   [:div.url
-    (into
-      [:a (ahref-opts (str "http://" normalized-url))]
-      (if-let [index (clojure.string/index-of normalized-url prefix)]
-        (let [start (subs normalized-url 0 index)
-              end   (subs normalized-url (+ index (count prefix)))]
-          [start [:span.prefix prefix] end])
-        [normalized-url]))]
-   (let [grouped (group-by second seen-at)
-         history (grouped "history")
-         hn      (concat (grouped "hnc") (grouped "hn"))
-         twitter (concat (grouped "tf") (grouped "tl"))]
-     [:div.inline-mini-tags {:on-click #(load-page-info normalized-url)}
-      [mini-tag :history (count history)]
-      [mini-tag :hn (count hn)]
-      [mini-tag :twitter (count twitter)]])])
+  (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)
+        reversed-prefix         (url/reverse-lower-domain prefix)]
+    [:div.row.adjacent-link
+     [:div.url
+      (into
+        [:a (ahref-opts (str "http://" reversed-normalized-url))]
+        (if-let [index (clojure.string/index-of reversed-normalized-url
+                         reversed-prefix)]
+          (let [start (subs reversed-normalized-url 0 index)
+                end   (subs reversed-normalized-url (+ index (count prefix)))]
+            [(js/decodeURI start)
+             [:span.prefix (js/decodeURI reversed-prefix)]
+             (js/decodeURI end)])
+          [reversed-normalized-url]))]
+     (let [grouped (group-by second seen-at)
+           history (grouped "history")
+           hn      (concat (grouped "hnc") (grouped "hn"))
+           twitter (concat (grouped "tf") (grouped "tl"))]
+       [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
+        [mini-tag :history (count history)]
+        [mini-tag :hn (count hn)]
+        [mini-tag :twitter (count twitter)]])]))
 
 (defn adjacent-links [[normalized-url links] load-page-info]
   [:div.adjacent-links.pane
    [:div.header [:span.icon.domain-links-icon]
-    "Links at " normalized-url]
+    "Links at " (url/reverse-lower-domain normalized-url)]
    (for [{link-url :normalized-url :as link} links]
      ^{:key link-url}
      [adjacent-link-row link normalized-url load-page-info])])
@@ -286,7 +294,8 @@
                  :handler         #(resolve %)}))))))))
 
 (defn load-page-info [url pages-info]
-  (letfn [(get-prefixes-info [idx]
+  (log/info url)
+  (letfn [(get-prefixes-info []
             (.then (.. browser -runtime
                      (sendMessage (clj->js {:type :get-prefixes-info
                                             :url  url})))
@@ -307,14 +316,18 @@
                                 :hn      (count hn)}}]
           (let [idx (-> (swap! pages-info update :info-bars conj new-page-info)
                       :info-bars count dec)]
-            (.then (get-prefixes-info idx)
+            (log/info idx url (:info-bars @pages-info))
+            (.then (get-prefixes-info)
               (fn [prefixes-info]
                 (swap! pages-info assoc-in
                   [:info-bars idx :prefixes-info] prefixes-info)
-                (let [domain-info (->> (remove #(clojure.string/includes?
+                (let [;; Find the entry for the domain among prefixes
+                      domain-info (->> (remove #(clojure.string/includes?
                                                   (first %) "/") prefixes-info)
                                     last)
                       links       (second domain-info)]
+                  ;; Show only if there are links besides the one the user is reading
+                  ;; about
                   (when (or (> (count links) 1)
                           (and (= (count links) 1)
                             (not= (url/normalize url)
@@ -346,7 +359,6 @@
                                               update :info-bars pop))
                     :show-prefix-info
                     (fn [prefix-info]
-                      (log/info "wowzee" prefix-info)
                       (swap! pages-info
                         update :info-bars
                         (fn [info-bars]
@@ -400,8 +412,8 @@
         shadow-style   (. js/document createElement "link")
         pages-info     (r/atom {})]
     (set! (.-rel shadow-style) "stylesheet")
-    (set! (.-style shadow-root-el) "display: none;")
-    (set! (.-onload shadow-style) #(set! (.-style shadow-root-el) ""))
+    (.setAttribute shadow-root-el "style"  "display: none;")
+    (set! (.-onload shadow-style) #(.setAttribute shadow-root-el "style" ""))
     (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/info-bar.css")))
     (set! (.-className shadow-root-el) "ampie-info-bar-holder")
     (set! (.-className info-bar-div) "info-bar-container")

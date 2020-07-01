@@ -58,9 +58,16 @@ a {text-decoration: none; color: inherit;} a:hover {text-decoration: underline;}
 .adjacent-link.row {display: flex; justify-content: space-between;}
 .adjacent-link.row .url {word-break: break-all;}
 .adjacent-link.row .url .prefix {color: grey;}
-.inline-mini-tags {cursor: pointer; flex: 0 0 auto;}
-.inline-mini-tags .mini-tag {width: 2.5em; display: inline-block;}
+.inline-mini-tags {cursor: pointer; flex: 0 0 auto; z-index: 1; margin-right:4px;}
+.inline-mini-tags .mini-tag {width: 2.5em; display: inline-block; position: relative;}
 .inline-mini-tags .mini-tag .icon {width: 14px; height: 14px;}
+.inline-mini-tags .mini-tag > * {z-index: 1;}
+.inline-mini-tags:hover .mini-tag:not(:empty)::after {
+    content:""; position:absolute; left:-5px; top:-6px; width:calc(100% + 5px); height:calc(100% + 12px);
+    background: #ffeffe; border-radius: 3px;
+    box-shadow: 0 0 3px #ffeffe;
+    z-index: -1;
+}
 
 .mini-tags {
     cursor: pointer;
@@ -79,3 +86,4 @@ a {text-decoration: none; color: inherit;} a:hover {text-decoration: underline;}
 .mini-tags .close {display: inline-block; margin-left:8px; font-size:9pt;}
 .mini-tags .close .icon {margin-right: 0;}
 .mini-tag .icon {margin-right: 2px;}
+

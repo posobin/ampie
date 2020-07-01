@@ -8,27 +8,19 @@
             [ampie.settings :refer [settings]]))
 
 (defn login-notice []
-  [:div.login-notice
-   "You need to log in at "
-   [:a {:href "https://ampie.app"}
-    "ampie.app"]])
+  [:div.login-notice "You need to log in at "
+   [:a {:href "https://ampie.app"} "ampie.app"]])
 
 (defn greeting []
-  [:div.greeting
-   (str "Hi " (:username @@backend/user-info))])
+  [:div.greeting (str "Hi " (:username @@backend/user-info))])
 
 (defn show-badges []
   (let [show-badges (:show-badges @@settings)]
     [:div.show-badges
-     [:a {:href "#"
-          :on-click
-          (fn [evt]
-            (.preventDefault evt)
-            (swap! @settings update :show-badges not))}
-      (if show-badges
-        "Disable"
-        "Enable")]
-     " badges"
+     [:a {:href "#" :on-click (fn [evt]
+                                (.preventDefault evt)
+                                (swap! @settings update :show-badges not))}
+      (if show-badges "Disable" "Enable")] " badges"
      (when show-badges
        [:div.ampie-badge.demo-badge
         [:div.ampie-badge-icon "&"]])]))

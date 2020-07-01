@@ -11,7 +11,7 @@
   "Returns a Promise that resolves with a vector of vectors of visits,
   one vector for each given normalized url - visits during which saw that url."
   [normalized-urls]
-  (log/trace "find-where-saw-nurls" normalized-urls)
+  #_(log/trace "find-where-saw-nurls" normalized-urls)
   (-> (.-seenUrls @db)
     (.bulkGet (i/clj->js normalized-urls))
     (.then
@@ -24,7 +24,7 @@
             (.bulkGet (i/clj->js merged-hashes))
             (.then
               (fn [visits]
-                (log/info "Got visits" (i/js->clj visits))
+                #_(log/info "Got visits" (i/js->clj visits))
                 (let [visits (reduce
                                #(assoc %1 (:visit-hash %2) %2)
                                {}

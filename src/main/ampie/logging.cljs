@@ -23,8 +23,8 @@
    (fn [data]
      (let [{:keys [level ?ns-str vargs_]} data
            vargs                          (list* (str ?ns-str ":") (force vargs_))
-           f                              (devtools-level-to-fn level js/console.log)]
-       (.apply f js/console (to-array vargs))))})
+           f                              (get devtools-level-to-fn level js/console.log)]
+       (f (to-array vargs))))})
 
 #_(when (= "Google Inc." js/navigator.vendor)
     (set! log/*config*

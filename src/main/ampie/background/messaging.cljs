@@ -37,9 +37,10 @@
                 (when (seq twitter) {:twitter twitter}))))]
     (.then
       (js/Promise.all
-        [(-> (links/get-links-with-nurls normalized-urls)
-           (.then #(map transform-seen-at %)))
-         (seen-urls/find-where-saw-nurls normalized-urls)])
+        (array
+          (-> (links/get-links-with-nurls normalized-urls)
+            (.then #(map transform-seen-at %)))
+          (seen-urls/find-where-saw-nurls normalized-urls)))
       (fn [[seen-at-seq history]]
         (map #(assoc %1 :history %2) seen-at-seq history)))))
 
@@ -50,34 +51,40 @@
   in the request where it was seen before, of the form
   {:url url :twitter twitter-links :normalized-url nurl :hn hn}."
   [{:keys [urls page-url] :as request} sender]
-  (let [sender          (i/js->clj sender)
-        tab-id          (-> sender :tab :id)
-        visit-hash      (:visit-hash (@@tabs/open-tabs tab-id))
-        domain          (url/get-top-domain page-url)
-        normalized-urls (map url/normalize urls)]
-    (log/trace "add-seen-urls for" page-url)
+  (let [sender              (i/js->clj sender)
+        tab-id              (-> sender :tab :id)
+        visit-hash          (:visit-hash (@@tabs/open-tabs tab-id))
+        normalized-page-url (url/normalize page-url)
+        domain              (url/get-top-domain-normalized normalized-page-url)
+        normalized-urls     (map url/normalize urls)]
+    #_(log/trace "add-seen-urls for" page-url)
     (when page-url
-      (let [filtered-urls (filter #(not= domain (url/get-top-domain %))
+      (let [filtered-urls (filter #(not= domain (url/get-top-domain-normalized %))
                             normalized-urls)]
         (-> (visits.db/get-visit-by-hash visit-hash)
           (.then
-            (fn [{url :url timestamp :first-opened :as rr}]
+            (fn [{url :url timestamp :first-opened}]
               (if (= url page-url)
                 (seen-urls/add-seen-nurls filtered-urls visit-hash timestamp)
                 (log/error "Couldn't add seen-urls because page-url"
                   "didn't match: expected" url "got" page-url)))))))
     ;; The result that the promise returns will be sent to the sender.
     (.then
-      (get-nurls-info normalized-urls)
-      (fn [infos]
-        (->> (map #(assoc %1 :url %2 :normalized-url %3)
-               infos urls normalized-urls)
-          (map (fn [info]
-                 (update info :history
-                   (fn [history]
-                     (filter #(not= visit-hash (:visit-hash %))
-                       history)))))
-          clj->js)))))
+      (.. browser -storage -local (get "show-badges"))
+      (fn [show-badges]
+        (if (or (not show-badges) (aget show-badges "show-badges"))
+          (.then
+            (get-nurls-info normalized-urls)
+            (fn [infos]
+              (->> (map #(assoc %1 :url %2 :normalized-url %3)
+                     infos urls normalized-urls)
+                (map (fn [info]
+                       (update info :history
+                         (fn [history]
+                           (filter #(not= visit-hash (:visit-hash %))
+                             history)))))
+                clj->js)))
+          (clj->js (map (constantly {}) normalized-urls)))))))
 
 (defn get-url-info
   "Returns a Promise that resolves to a js map :source -> [info+]."
@@ -85,20 +92,21 @@
   (let [normalized-url (url/normalize url)]
     (.then
       (js/Promise.all
-        [(seen-urls/find-where-saw-nurls [normalized-url])
-         (if include-links-info
-           (.then (links/get-links-with-nurl normalized-url)
-             links/link-ids-to-info)
-           (-> (links/get-links-with-nurl normalized-url)
-             (.then
-               (fn [seen-at]
-                 (let [grouped (group-by second seen-at)
-                       hn      (concat (grouped "hnc") (grouped "hn"))
-                       twitter (concat (grouped "tf") (grouped "tl"))]
-                   (merge (when (seq hn) {:hn hn})
-                     (when (seq twitter) {:twitter twitter})))))))])
+        (array
+          (seen-urls/find-where-saw-nurls [normalized-url])
+          (if include-links-info
+            (.then (links/get-links-with-nurl normalized-url)
+              links/link-ids-to-info)
+            (-> (links/get-links-with-nurl normalized-url)
+              (.then
+                (fn [seen-at]
+                  (let [grouped (group-by second seen-at)
+                        hn      (concat (grouped "hnc") (grouped "hn"))
+                        twitter (concat (grouped "tf") (grouped "tl"))]
+                    (merge (when (seq hn) {:hn hn})
+                      (when (seq twitter) {:twitter twitter})))))))))
       (fn [[seen links]]
-        (log/info links)
+        #_(log/info links)
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
@@ -107,7 +115,9 @@
 
 (defn get-prefixes-info [{url :url} sender]
   (let [normalized-url (url/normalize url)
-        prefixes       (take 10 (url/get-prefixes-normalized normalized-url))]
+        prefixes       (rest
+                         (take 100
+                           (url/get-prefixes-normalized normalized-url)))]
     (.then (js/Promise.all
              (for [prefix prefixes]
                (links/get-links-starting-with prefix)))
@@ -117,7 +127,7 @@
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
-    (log/info request)
+    #_(log/info request)
     (case (keyword request-type)
       :get-past-visits-parents (get-past-visits-parents request sender)
       :add-seen-urls           (add-seen-urls request sender)

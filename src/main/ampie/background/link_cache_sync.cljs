@@ -10,10 +10,12 @@
                    (-> (backend/check-and-update-link-caches)
                      (.finally
                        (fn [_]
+                         (log/info "Cache check complete")
                          (let [timeout (js/setTimeout run-cache-check time time)]
                            (reset! @link-cache-sync timeout))))))]
-           (backend/on-logged-in :link-cache-sync
-             #(run-cache-check (* 30 60 1000)))
+           (when-not false ;;goog.DEBUG
+             (backend/on-logged-in :link-cache-sync
+               #(run-cache-check (* 30 60 1000))))
            (atom nil))
   :stop (do (when @@link-cache-sync
               (js/clearTimeout @@link-cache-sync)

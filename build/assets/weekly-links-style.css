@@ -1,0 +1,100 @@
+:root {--secondary-font-color: #4a3d43;}
+.content {display: flex;}
+.weekly-links-form, .past-links {flex: 1;}
+.past-links { margin-right: 2em;}
+.weekly-links-form {
+    position: sticky; top: 0;
+    display: flex; flex-direction: column; justify-content: flex-start; align-self: start;
+}
+h3 {margin-bottom: 0;}
+
+.url-form {margin: 8px 0; display: flex; background: rgb(246, 246, 250); border-radius: 4px;}
+.url-form input[type="text"], .url-form textarea {
+    border: none; border-radius: 4px 0 0 4px;
+    line-height: 1.3em; padding: 8px 8px; width: 100%; display: block; box-sizing: border-box;
+    font: inherit; letter-spacing: 0.03em;
+    background: transparent;
+}
+.url-form input[type="text"]:focus, .url-form textarea:focus {outline: none;}
+.add {
+    padding: 8px; color: var(--green);
+    user-select: none; cursor: pointer;
+}
+
+.weekly-links-form > .url-form, .past-links > *:not(:first-child) {margin-top: 16px;}
+
+.additional-info {position: relative;}
+.time-spent.long-visit, .time-spent.extra-long-visit {background: none;}
+.weekly-links-selection .weekly-link {
+    flex: 1; padding: 16px 0 0 0; margin-top: 0; box-sizing: border-box;
+    width: calc(100% + 120px);
+}
+.weekly-link textarea {
+    border: none; padding: 0; resize: none; width: 100%; display: block;
+    font: inherit; color: inherit; background: transparent;
+}
+.weekly-link textarea:focus {outline: none;}
+.weekly-link .title {position: relative; width: calc(100% - 128px);}
+.weekly-link .title:hover {text-decoration: none;}
+.weekly-link .editable:hover:before {
+    position: absolute; right: calc(100% + 8px); content: "click to edit"; color: var(--font-color); user-select: none;
+    background: white; padding: 2px; margin: -2px; box-shadow: 0 0 2px lightgrey; border-radius: 2px;
+    white-space: nowrap;
+}
+.weekly-link .additional-info {position: relative; width: calc(100% - 128px);}
+.weekly-link {position: relative;}
+.weekly-link .dragging-space {
+    visibility: hidden;
+    position: absolute; right: 120px; top: 16px; width: 8px; height: calc(100% - 16px);
+    background-image: radial-gradient(grey 0.7px, transparent 0); background-size: 3px 3px;
+    cursor: grab;
+}
+.weekly-link:hover .dragging-space {visibility: visible;}
+.weekly-link:active .dragging-space {cursor: grabbing;}
+.weekly-link.dropping:before {
+    content: ""; position: absolute; width: calc(100% - 120px); top: 6px; height: 4px;
+    background: var(--green); opacity: 30%;
+}
+.weekly-link textarea[disabled] {background: transparent;}
+.weekly-link.empty-link {
+    margin-top: 16px;
+    width: 100%; text-align: center; padding: 10px; box-sizing: border-box; color: lightgrey; font-size: 18pt;
+    border: 2px dashed lightgrey; border-radius: 10px;
+    transition-property: box-shadow, color; transition-duration: 0.15s; transition-timing-function: ease;
+    user-select: none;
+}
+
+.weekly-link .buttons {visibility: hidden; position: absolute; left: calc(100% - 112px); top: 16px;}
+.weekly-link:hover .buttons {visibility: visible;}
+.weekly-link .buttons button:not(:first-child) {margin-top: 4px;}
+.weekly-link .buttons button {padding: 2px 4px;}
+.weekly-link .buttons button:not(:hover) {box-shadow: none;}
+button.add-comment:hover {box-shadow: 0 0 3px grey;}
+.weekly-link .comment {margin-left: 8px; padding-left: 6px; border-left: 2px solid lightgreen; margin-top: 4px; width: calc(100% - 16px - 128px);}
+
+.empty-link.invisible {visibility: hidden;}
+.empty-link.dropping:before {content: none;}
+.empty-link.dropping {box-shadow: 0 1px 7px var(--green); color: var(--green);}
+
+.past-links .links-list {margin: 8px 0 0 -8px;}
+.links-list .empty {margin: 8px 0 0 8px; width: 300px;}
+.visit-entry {cursor: grab;}
+.visit-entry:active {cursor: grabbing;}
+
+.submission-form {width: 100%; margin-top: 32px; border-top: 1px solid var(--green); padding: 8px 0; display: flex; justify-content: flex-end;}
+.submission-form .notice {width: 250px; text-align: right; margin-right: 1em; line-height: 1.2em; color: grey;}
+.submission-form .submit {
+    font: inherit; font-size: 12pt;
+    float: right; background: black; height: 32px; width: 96px; color: white;
+    box-shadow: 0 0 5px var(--green);
+    transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
+}
+.submission-form .submit:hover {box-shadow: 0 4px 10px var(--green);}
+.submission-form .submit[disabled] {background: grey; font-color: lightgrey;}
+.submission-form .submit[disabled]:hover {box-shadow: 0 0 5px var(--green);}
+.error {
+    position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+    max-width: 400px; border-radius: 5px; padding: 4px 8px;
+    background: white; box-shadow: 0 1px 5px red; border: 1px solid red;
+    cursor: pointer;
+}

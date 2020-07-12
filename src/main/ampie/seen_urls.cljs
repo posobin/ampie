@@ -29,7 +29,8 @@
                                #(assoc %1 (:visit-hash %2) %2)
                                {}
                                (i/js->clj visits))]
-                  (map #(map visits %) visit-hashes))))))))))
+                  (map #(->> (map visits %) (filterv some?))
+                    visit-hashes))))))))))
 
 (defn add-seen-nurls
   "Adds the normalized urls from the `normalized-urls` seq to the set of links

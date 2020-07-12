@@ -52,11 +52,13 @@
                       visit-hash    :visit-hash}
                      {url :url title :title}] (map vector visits latest-titles)
                     :when
-                    (and (not (= current-title title))
+                    (and visit-hash
+                      (not (= current-title title))
                       (= (url/remove-anchor current-url) (url/remove-anchor url)))]
               (visits.db/set-visit-title! visit-hash title))))))))
 
 (defn stop []
+  (js/clearInterval update-all-tab-titles 1000)
   (.. browser -tabs -onUpdated
     (removeListener evt/tab-updated))
   (.. browser -windows -onFocusChanged

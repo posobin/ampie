@@ -1,0 +1,4 @@
+seenUrls
+visits
+links
+closedTabs

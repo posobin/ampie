@@ -49,3 +49,20 @@
       (reset! current-visit-info
         {:visit-hash new-visit-hash
          :start-time (.getTime (js/Date.))}))))
+
+(defn load-children-visits
+  [state-atom visit-path]
+  (let [visit           (get-in @state-atom visit-path)
+        children-hashes (get-in @state-atom (conj visit-path :children))]
+    (swap! state-atom update :n-loading inc)
+    (-> (visits.db/get-visits-info children-hashes)
+      (.then
+        (fn [children]
+          (swap! state-atom assoc-in (conj visit-path :children) children)
+          (doseq [[index child] (map-indexed vector children)]
+            (load-children-visits state-atom (conj visit-path :children index)))))
+      (.catch
+        (fn [error]
+          (log/error "Couldn't load history:" error "for visit" visit)))
+      (.finally
+        #(swap! state-atom update :n-loading dec)))))

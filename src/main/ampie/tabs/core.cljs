@@ -73,7 +73,7 @@
                :title title})
 
             :else
-            (log/error "Got a title update event for a non-existent tab"
+            (log/info "Got a title update event for a non-existent tab"
               tab-id)))))))
 
 (defn open-tab! [tab-id tab-info]

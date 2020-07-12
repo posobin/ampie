@@ -2,9 +2,9 @@
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
             [taoensso.timbre :as log]
-            [ampie.url :as url]
+            [ampie.components.visit :as components.visit]
             [ampie.db :refer [db]]
-            [ampie.time :as time]
+            [ampie.visits :as visits]
             [ampie.visits.db :as visits.db]))
 
 (defn delete-visit-subtree! [visit]
@@ -13,69 +13,21 @@
       (visits.db/delete-visit-keeping-children! visit)
       (recur (into (or rest []) (:children visit))))))
 
-(defn visit-entry [_]
-  (let [current-date (-> (js/Date.) (.getTime) (time/timestamp->date))
-        mouse-in     (r/atom false)
-        deleted      (r/atom false)]
-    (fn [{:keys [title first-opened url normalized-url children time-spent]
-          :as   visit}]
-      (let [visit-date (time/timestamp->date first-opened)
-            visit-time (time/timestamp->time first-opened)]
-        (when-not @deleted
-          [:div.visit-entry {:class (when @mouse-in "to-delete")}
-           [:div.visit-info
-            [:a.title {:href url} (or title url)]
-            [:div.additional-info
-             [:span.domain (url/get-domain url)]
-             [:span.time-spent time-spent]
-             (into
-               [:span.first-opened]
-               (if (= current-date visit-date)
-                 ["opened at " [:span.time visit-time]]
-                 ["opened on " [:span.date visit-date]
-                  ", " [:span.time visit-time]]))
-             [:button.delete {:on-click      (fn []
-                                               (delete-visit-subtree! visit)
-                                               (reset! deleted true))
-                              :on-mouse-out  #(reset! mouse-in false)
-                              :on-mouse-over #(reset! mouse-in true)}
-              "Delete subtree"]]]
-           [:div.child-visits
-            (for [child children :when (not (int? child))]
-              ^{:key (:visit-hash child)} [visit-entry child])]])))))
-
 (defn history-page [history]
-  [:div.history-page
+  [:div.history-page.content
    [:div.header [:h1 "Browsing history"]
     [:div.notice
-     "Ampie doesn't support deleting the urls seen on the deleted page "
-     "when deleting from history yet. E.g. if you delete "
-     [:code "example.org"]" entry below, and on that website there was a link to "
-     [:code "ampie.app"]", the "
-     [:div.icon.history-icon]
-     " indicator on "[:code "ampie.app"]" will still show the same number as before. "
-     "But the "[:code "example.org"]" visit won't be present when viewing "
-     "where the url "[:code "ampie.app"]" was seen."]]
+     "This history is unrelated to the browser's history: for now you have "
+     "to delete entries from both this page and the browser's history page "
+     "if you want to delete them completely. "
+     "This history is stored locally on your computer, it will not be shared with "
+     "ampie without your approval."]]
    [:div.history-container
     (for [visit (:origin-visits @history)]
-      ^{:key (:visit-hash visit)} [visit-entry visit])]])
-
-(defn load-children-visits
-  [history visit-path]
-  (let [visit           (get-in @history visit-path)
-        children-hashes (get-in @history (conj visit-path :children))]
-    (swap! history update :n-loading inc)
-    (-> (visits.db/get-visits-info children-hashes)
-      (.then
-        (fn [children]
-          (swap! history assoc-in (conj visit-path :children) children)
-          (doseq [[index child] (map-indexed vector children)]
-            (load-children-visits history (conj visit-path :children index)))))
-      (.catch
-        (fn [error]
-          (log/error "Couldn't load history:" error "for visit" visit)))
-      (.finally
-        #(swap! history update :n-loading dec)))))
+      ^{:key (:visit-hash visit)}
+      [components.visit/visit
+       {:visit     visit
+        :on-delete delete-visit-subtree!}])]])
 
 (def scroll-listener (atom nil))
 
@@ -103,7 +55,8 @@
                       len (- (count new-origin-visits) (count origin-visits))]
                   (swap! history assoc :last-timestamp last-timestamp)
                   (doseq [[index visit] (map-indexed vector origin-visits)]
-                    (load-children-visits history [:origin-visits (+ len index)])))
+                    (visits/load-children-visits history
+                      [:origin-visits (+ len index)])))
                 (swap! history update :n-loading dec)))
             (.catch
               (fn [error]

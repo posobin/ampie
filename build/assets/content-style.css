@@ -4,13 +4,17 @@
 .ampie-badge-fixed {position: fixed;}
 
 .ampie-badge-icon {
-    font-size: 10px;
+    font-size: 11px;
     /* background: rgba(255, 255, 255, 0.5); */
     cursor: pointer;
     opacity: 70%;
     font-family: "Crimson Text";
     user-select: none;
     text-align: center;
+}
+.ampie-badge-bold .ampie-badge-icon {
+    font-weight: bold;
+    font-size: 13px;
 }
 
 .ampie-badge-icon:after {content: "&";}

@@ -1,8 +1,9 @@
-{"description":"Social web browsing",
+{"description":"Social navigator for the web",
  "permissions":
  ["webNavigation", "tabs", "storage", "cookies", "unlimitedStorage",
   "http://localhost/", "http://localhost:5000/",
   "https://*.ampie.app/"],
+ "browser_action":{"default_popup":"popup.html"},
  "name":"Ampie",
  "background":
  {"scripts":
@@ -223,13 +224,17 @@
    "out/cljs-runtime/goog.net.xhrmanager.js",
    "out/cljs-runtime/ajax.xhrio.js",
    "out/cljs-runtime/ajax.xml_http_request.js",
-   "out/cljs-runtime/ajax.core.js", "out/cljs-runtime/ampie.time.js",
+   "out/cljs-runtime/ajax.core.js",
+   "out/cljs-runtime/ampie.components.basics.js",
+   "out/cljs-runtime/ampie.time.js",
    "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
    "out/cljs-runtime/ampie.db.js",
    "out/cljs-runtime/ampie.visits.db.js",
-   "out/cljs-runtime/ampie.background.backend.js",
-   "out/cljs-runtime/shadow.module.bg-shared.append.js",
    "out/cljs-runtime/ampie.visits.js",
+   "out/cljs-runtime/ampie.background.backend.js",
+   "out/cljs-runtime/ampie.components.visit.js",
+   "out/cljs-runtime/ampie.settings.js",
+   "out/cljs-runtime/shadow.module.bg-shared.append.js",
    "out/cljs-runtime/ampie.tabs.core.js",
    "out/cljs-runtime/ampie.seen_urls.js",
    "out/cljs-runtime/ampie.links.js",
@@ -241,13 +246,18 @@
    "out/cljs-runtime/ampie.background.core.js",
    "out/cljs-runtime/shadow.module.background.append.js"],
   "persistent":false},
+ "icons":
+ {"32":"icons/ampie-32.png",
+  "48":"icons/ampie-48.png",
+  "96":"icons/ampie-96.png",
+  "128":"icons/ampie-128.png"},
  "web_accessible_resources":["assets/*"],
- "options_page":"settings.html",
  "manifest_version":2,
- "content_security_policy":
- "default-src 'self'; script-src 'self' 'unsafe-eval'; connect-src * data: blob: filesystem:; style-src 'self' data: chrome-extension-resource: 'unsafe-inline'; img-src 'self' data: chrome-extension-resource:; frame-src 'self' http://localhost:* data: chrome-extension-resource:; font-src 'self' data: chrome-extension-resource:; media-src * data: blob: filesystem:;",
+ "content_security_policy":"default-src 'self'; connect-src *;",
  "content_scripts":
- [{"css":["assets/content-style.css"], "matches":["<all_urls>"]},
+ [{"css":
+   ["assets/content-style.css", "assets/fonts-content-style.css"],
+   "matches":["<all_urls>"]},
   {"js":
    ["out/content-script.js", "out/cljs-runtime/goog.debug.error.js",
     "out/cljs-runtime/goog.dom.nodetype.js",
@@ -468,11 +478,16 @@
     "out/cljs-runtime/goog.net.xhrmanager.js",
     "out/cljs-runtime/ajax.xhrio.js",
     "out/cljs-runtime/ajax.xml_http_request.js",
-    "out/cljs-runtime/ajax.core.js", "out/cljs-runtime/ampie.time.js",
+    "out/cljs-runtime/ajax.core.js",
+    "out/cljs-runtime/ampie.components.basics.js",
+    "out/cljs-runtime/ampie.time.js",
     "out/cljs-runtime/module$node_modules$dexie$dist$dexie.js",
     "out/cljs-runtime/ampie.db.js",
     "out/cljs-runtime/ampie.visits.db.js",
+    "out/cljs-runtime/ampie.visits.js",
     "out/cljs-runtime/ampie.background.backend.js",
+    "out/cljs-runtime/ampie.components.visit.js",
+    "out/cljs-runtime/ampie.settings.js",
     "out/cljs-runtime/shadow.module.bg-shared.append.js",
     "out/cljs-runtime/ampie.content_script.badge.js",
     "out/cljs-runtime/module$node_modules$react_shadow_dom_retarget_events$index.js",
@@ -480,4 +495,4 @@
     "out/cljs-runtime/ampie.content_script.content.js",
     "out/cljs-runtime/shadow.module.content-script.append.js"],
    "matches":["<all_urls>"]}],
- "version":"1.0"}
+ "version":"2.0"}

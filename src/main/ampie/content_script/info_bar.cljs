@@ -8,12 +8,8 @@
             [taoensso.timbre :as log]
             [ajax.core :refer [GET]]
             [clojure.string :as string]
+            [ampie.components.basics :as b]
             [ampie.time]))
-
-(defn ahref-opts [href]
-  {:href   href
-   :target "_blank"
-   :rel    "noreferrer noopener"})
 
 (defn tweet [{{:keys [screen_name]} :user
               {urls :urls}          :entities
@@ -28,7 +24,7 @@
                          (map (fn [[start end]] (subs full_text start end))))
           links        (map-indexed
                          (fn [idx {:keys [expanded_url display_url]}]
-                           ^{:key idx} [:a (ahref-opts expanded_url) display_url])
+                           ^{:key idx} [:a (b/ahref-opts expanded_url) display_url])
                          urls)
           result       (concat [(first text-substrs)]
                          (interleave links (rest text-substrs)))]
@@ -36,7 +32,7 @@
    [:div.info
     [:div.author screen_name]
     [:a.date
-     (ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
+     (b/ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
      (ampie.time/timestamp->date (js/Date.parse created_at))]]])
 
 (defn tweets [tweets-info]
@@ -50,7 +46,7 @@
 (defn hn-story [{:keys [by title time score descendants id]
                  :as   story-info}]
   [:div.hn-story.row
-   [:a.title (ahref-opts (str "https://news.ycombinator.com/item?id=" id)) title]
+   [:a.title (b/ahref-opts (str "https://news.ycombinator.com/item?id=" id)) title]
    [:div.info
     [:div.author by] [:div.n-comments (str descendants " comments")]
     [:div.score (str score " points")]
@@ -71,7 +67,7 @@
      (for [{:keys [url visit-hash first-opened title] :as info} sources]
        ^{:key visit-hash}
        [:div.previous-sighting.row
-        [:a.title (ahref-opts url) title]
+        [:a.title (b/ahref-opts url) title]
         [:div.info
          [:div.domain (url/get-domain url)]
          [:div.date (ampie.time/timestamp->date first-opened)]]])]))
@@ -202,7 +198,7 @@
     [:div.row.adjacent-link
      [:div.url
       (into
-        [:a (ahref-opts (str "http://" reversed-normalized-url))]
+        [:a (b/ahref-opts (str "http://" reversed-normalized-url))]
         (if-let [index (clojure.string/index-of reversed-normalized-url
                          reversed-prefix)]
           (let [start (subs reversed-normalized-url 0 index)
@@ -249,10 +245,17 @@
        :show-prefix-info show-prefix-info}]]))
 
 (defn mini-tags [{{domain-links :on-this-domain
-                   :keys        [counts normalized-url]} :page-info
+                   :keys        [counts normalized-url show-weekly]} :page-info
                   :keys
                   [open-info-bar close-mini-tags]}]
   [:div.mini-tags {:on-click open-info-bar}
+   (when show-weekly
+     [:div.weekly
+      {:on-click (fn [evt]
+                   (.stopPropagation evt)
+                   (.. browser -runtime
+                     (sendMessage (clj->js {:type :open-weekly-links}))))}
+      "Share the weekly links!"])
    (for [[source-key count] counts
          :when              (pos? count)]
      ^{:key source-key}
@@ -283,15 +286,14 @@
 
 (defn hydrate-hn [hn-stories]
   (let [stories-ids (map (comp :item-id :info) hn-stories)]
-    (.then
-      (js/Promise.all
-        (for [story-id stories-ids]
-          (js/Promise.
-            (fn [resolve]
-              (GET (hn-item-url story-id)
-                {:response-format :json
-                 :keywords?       true
-                 :handler         #(resolve %)}))))))))
+    (js/Promise.all
+      (for [story-id stories-ids]
+        (js/Promise.
+          (fn [resolve]
+            (GET (hn-item-url story-id)
+              {:response-format :json
+               :keywords?       true
+               :handler         #(resolve %)})))))))
 
 (defn load-page-info [url pages-info]
   (log/info url)
@@ -338,8 +340,10 @@
               (.then (hydrate-tweets twitter)
                 #(swap! pages-info assoc-in [:info-bars idx :seen-at :twitter] %)))
             (when (seq hn)
-              (.then (hydrate-hn hn)
-                #(swap! pages-info assoc-in [:info-bars idx :seen-at :hn] %)))))))))
+              (-> (hydrate-hn hn)
+                (.then (fn [x] (js/console.log x) x))
+                (.then
+                  #(swap! pages-info assoc-in [:info-bars idx :seen-at :hn] %))))))))))
 
 (defn info-bars-and-mini-tags [{:keys [pages-info close-info-bar]}]
   (into [:div.info-bars-and-mini-tags]
@@ -375,6 +379,9 @@
     (reset! pages-info {:mini-tags {:url            current-url
                                     :normalized-url (url/normalize current-url)}
                         :info-bars []})
+    (.then (.. browser -runtime
+             (sendMessage (clj->js {:type :should-show-weekly?})))
+      #(swap! pages-info assoc-in [:mini-tags :show-weekly] %))
     (.then (.. browser -runtime
              (sendMessage (clj->js {:type :get-local-url-info
                                     :url  current-url})))

@@ -1,5 +1,6 @@
 (ns ampie.background.core
   (:require [ampie.background.messaging :as background.messaging]
+            [ampie.links]
             [ampie.background.backend]
             [ampie.background.link-cache-sync]
             [ampie.tabs.monitoring :as tabs.monitoring]
@@ -23,7 +24,12 @@
 (defn ^:dev/after-load init []
   (mount/start)
 
-  #_(.. browser -tabs (create #js {:url "history.html"}))
+  (.. browser -runtime -onInstalled
+    (addListener
+      (fn [^js details]
+        (when (= (.-reason details) "install")
+          (.. browser -tabs
+            (create #js {:url (.. browser -runtime (getURL "hello.html"))}))))))
 
   #_(.. browser -tabs
       (query #js {} process-already-open-tabs))

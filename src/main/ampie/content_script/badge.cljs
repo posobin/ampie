@@ -189,8 +189,11 @@
 (defn add-ampie-badge [target target-id target-info on-badge-click]
   (let [badge-div  (. js/document createElement "div")
         badge-icon (. js/document createElement "div")
-        tooltip    (generate-tooltip target-info)]
-    (set! (.-className badge-div) "ampie-badge")
+        tooltip    (generate-tooltip target-info)
+        bold       (or (>= (count (:hn target-info)) 3)
+                     (>= (count (:twitter target-info)) 5))]
+    (set! (.-className badge-div)
+      (str "ampie-badge" (when bold " ampie-badge-bold")))
     (set! (.-onclick badge-div) #(on-badge-click (get-target-url target)))
     (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
     (set! (.-className badge-icon) "ampie-badge-icon")

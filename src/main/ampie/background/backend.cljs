@@ -9,9 +9,11 @@
             [ampie.db :refer [db]]
             [ampie.interop :as i]
             [clojure.set :as set]
-            ["dexie" :default Dexie])
+            ["dexie" :default Dexie]
+            [ampie.time :as time])
   (:require-macros [mount.core :refer [defstate]]))
 
+(def ampie-version (.. browser -runtime (getManifest) -version))
 (def api-url (if goog.DEBUG "http://localhost:5000" "https://api.ampie.app"))
 (defn endpoint [& params] (string/join "/" (concat [api-url] params)))
 
@@ -22,9 +24,10 @@
   (.then
     (if (.-cookies browser)
       (.. browser -cookies
-        (get #js {:name "auth-token" :url (if goog.DEBUG
-                                            "http://localhost/"
-                                            "https://api.ampie.app")}))
+        (get #js {:name "auth-token" :url
+                  (if goog.DEBUG
+                    "http://localhost/"
+                    "https://api.ampie.app")}))
       (js/Promise.resolve nil))
     #(js->clj % :keywordize-keys true)))
 
@@ -44,7 +47,8 @@
   (remove-watch @auth-token key))
 
 (defn base-request-options []
-  {:headers          {:Authorization (str "Token " @@auth-token)}
+  {:headers          {:Authorization (str "Token " @@auth-token)
+                      :Ampie-version ampie-version}
    :with-credentials true
    :format           :json
    :response-format  :json
@@ -54,19 +58,23 @@
   "Get user info from the ampie backend."
   [user-info-atom]
   (when (logged-in?)
-    (GET (endpoint "user-info")
-      (assoc (base-request-options)
-        :handler (fn [user-info]
-                   (reset! user-info-atom user-info)
-                   (.. browser -storage -local
-                     (set (clj->js {:user-info user-info}))))
-        :error-handler
-        (fn [{:keys [status] :as e}]
-          (when (= status 401)
-            (reset! @auth-token nil)
-            (reset! user-info-atom nil))
-          (log/error "Couldn't get user's info"
-            e))))))
+    (js/Promise.
+      (fn [resolve reject]
+        (GET (endpoint "user-info")
+          (assoc (base-request-options)
+            :handler (fn [user-info]
+                       (reset! user-info-atom user-info)
+                       (.then
+                         (.. browser -storage -local
+                           (set (clj->js {:user-info user-info})))
+                         #(resolve user-info)))
+            :error-handler
+            (fn [{:keys [status] :as e}]
+              (when (= status 401)
+                (reset! @auth-token nil)
+                (reset! user-info-atom nil))
+              (log/error "Couldn't get user's info" e)
+              (reject e))))))))
 
 (defn load-user-info [user-info-atom]
   (.then
@@ -74,7 +82,6 @@
     (fn [user-info]
       (let [user-info (-> (js->clj user-info :keywordize-keys true)
                         :user-info)]
-        (log/info user-info)
         (when user-info (reset! user-info-atom user-info))
         (on-logged-in :user-info-atom #(request-user-info user-info-atom))))))
 
@@ -156,11 +163,18 @@
       (fn [resolve]
         (GET cache-url
           {:response-format :json :keywords? true
+           :error-handler
+           (fn [{:keys [status status-text]}]
+             (.. browser -storage -local
+               (set #js {:link-cache-status
+                         (str "Coudn't download cache " cache-key
+                           ": " status-text " Will try again in 30 minutes.")})))
            ;; Not using :progress-handler because it works only for upload
            ;; events.
            :handler
            (fn [cache]
              (let [nurl->seen-at (cache->map cache)
+                   total-count   (count nurl->seen-at)
                    recursive-chain
                    (fn recursive-chain [parts-nurl->seen-at]
                      (-> (get-updated-entries
@@ -168,11 +182,18 @@
                        (.then save-links)
                        (.then
                          (fn [_]
+                           (.. browser -storage -local
+                             (set #js {:link-cache-status
+                                       (str "Unpacked "
+                                         (- (quot total-count 1000)
+                                           (count parts-nurl->seen-at))
+                                         "/" (quot total-count 1000) " of "
+                                         cache-key)}))
                            (if (seq (rest parts-nurl->seen-at))
                              (recursive-chain (rest parts-nurl->seen-at))
                              (resolve))))))]
                (log/info "Received cache" cache-key "saving")
-               (recursive-chain (partition 1000 1000 nil nurl->seen-at))))})))))
+               (recursive-chain (partition-all 1000 nurl->seen-at))))})))))
 
 (defn check-and-update-link-caches
   "Queries the server to get latest cache urls, gets their etags and if they
@@ -184,37 +205,58 @@
           (GET (endpoint "links/get-cache-urls")
             (assoc (base-request-options)
               :handler #(resolve (js->clj % :keywordize-keys true))))))
-    (.then (fn [server-caches]
-             (doseq [[cache-key url] server-caches]
-               (-> (js/Promise.all
-                     (array
-                       (let [storage-key (str "link-cache-" (name cache-key))]
-                         (.then (.. browser -storage -local (get storage-key))
-                           #(-> (js->clj % :keywordize-keys true)
-                              ((keyword storage-key)))))
-                       (js/Promise.
-                         (fn [resolve]
-                           (HEAD url
-                             {:response-format identity
-                              :handler
-                              (fn [^js response]
-                                (resolve (-> (.getResponseHeaders response)
-                                           (js->clj :keywordize-keys true)
-                                           :etag)))})))))
-                 (.then
-                   (fn [[previous-info new-etag]]
-                     (when-not (= (:etag previous-info) new-etag)
-                       (log/info "Downloading cache" cache-key "from" url)
-                       (.then (update-link-cache cache-key url)
-                         (constantly new-etag)))))
-                 (.then
-                   (fn [new-etag]
-                     (when new-etag
-                       (log/info "Cache" cache-key "saved to the local DB")
-                       (.. browser -storage -local
-                         (set (clj->js {(str "link-cache-" (name cache-key))
-                                        {:last-updated (js/Date.now)
-                                         :etag         new-etag}}))))))))))))
+    (.then
+      (fn [server-caches]
+        (-> (if (:reset-link-caches server-caches)
+              (js/Promise.all
+                (array
+                  (-> (.. browser -storage -local (get nil))
+                    (.then js->clj)
+                    (.then
+                      (fn [caches]
+                        (doseq [[name value] caches
+                                :when        (string/starts-with?
+                                               name "link-cache-")]
+                          (.. browser -storage -local (remove name))))))
+                  (-> (.-links @db) (.clear))))
+              (js/Promise.resolve))
+          (.then
+            (constantly (dissoc server-caches :reset-link-caches))))))
+    (.then
+      (fn [server-caches]
+        (doseq [[cache-key url] (dissoc server-caches :reset-link-cache)]
+          (-> (js/Promise.all
+                (array
+                  (let [storage-key (str "link-cache-" (name cache-key))]
+                    (.then (.. browser -storage -local (get storage-key))
+                      #(-> (js->clj % :keywordize-keys true)
+                         ((keyword storage-key)))))
+                  (js/Promise.
+                    (fn [resolve]
+                      (HEAD url
+                        {:response-format identity
+                         :handler
+                         (fn [^js response]
+                           (resolve (-> (.getResponseHeaders response)
+                                      (js->clj :keywordize-keys true)
+                                      :etag)))})))))
+            (.then
+              (fn [[previous-info new-etag]]
+                (when-not (= (:etag previous-info) new-etag)
+                  (log/info "Downloading cache" cache-key "from" url)
+                  (.. browser -storage -local
+                    (set #js {:link-cache-status (str "Downloading cache " cache-key)}))
+                  (.then (update-link-cache cache-key url)
+                    (constantly new-etag)))))
+            (.then
+              (fn [new-etag]
+                (when new-etag
+                  (.. browser -storage -local (remove "link-cache-status"))
+                  (log/info "Cache" cache-key "saved to the local DB")
+                  (.. browser -storage -local
+                    (set (clj->js {(str "link-cache-" (name cache-key))
+                                   {:last-updated (js/Date.now)
+                                    :etag         new-etag}}))))))))))))
 
 (defn link-ids-to-info
   "Queries the server with the given link ids and returns a Promise that
@@ -223,11 +265,12 @@
   `ampie-backend.links/get-links-info` understands."
   [links]
   (js/Promise.
-    (fn [resolve]
+    (fn [resolve reject]
       (POST (endpoint "links/get-links-info")
         (assoc (base-request-options)
           :params {:links links}
-          :handler #(resolve (js->clj % :keywordize-keys true)))))))
+          :handler #(resolve (js->clj % :keywordize-keys true))
+          :error-handler reject)))))
 
 (defn get-tweets
   "Returns the hydrated tweet objects as returned by twitter.
@@ -245,3 +288,52 @@
                                      (js->clj :keywordize-keys true)
                                      :tweets))))))))
     #(apply concat %)))
+
+(defn load-url-info
+  "Requests url info from the ampie server, returns a Promise
+  that resolves with a map {:property-name value},
+  for now only the :title property is returned."
+  [url]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "load-url-info")
+        (assoc (base-request-options)
+          :params {:url url}
+          :handler #(resolve (js->clj % :keywordize-keys true))
+          :error-handler
+          (fn [e]
+            (let [{:keys [status response]} (js->clj e :keywordize-keys true)]
+              (reject (assoc response :fail true)))))))))
+
+(defn send-weekly-links
+  "Sends the given links to the backend to create a weekly links post.
+  Returns a Promise that resolves with the url of the resulting page,
+  or with a map describing the error."
+  [links week-of]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "weekly-links")
+        (assoc (base-request-options)
+          :params {:links links :week-of week-of}
+          :handler
+          (fn [result]
+            (let [week-of (-> result (js->clj :keywordize-keys true) :week-of)]
+              (js/console.log result)
+              (log/info week-of)
+              (resolve
+                (str "https://ampie.app/weekly/"
+                  (:username @@user-info) "/" week-of))))
+          :error-handler
+          (fn [e]
+            (let [{:keys [status response]} (js->clj e :keywordize-keys true)]
+              (reject (assoc response :fail true)))))))))
+
+(defn can-complete-weekly? []
+  (let [dow              (.getDay (js/Date.))
+        current-week     (-> (js/Date.)
+                           time/get-start-of-week
+                           time/js-date->yyyy-MM-dd)
+        last-filled-week (first (:weekly-links-posts @@user-info))]
+    (and @@user-info
+      (not= current-week last-filled-week)
+      (zero? dow))))

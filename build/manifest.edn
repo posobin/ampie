@@ -1,17 +1,24 @@
 {:name             "Ampie"
- :version          "1.0"
- :description      "Social web browsing"
+ :version          "2.0"
+ :description      "Social navigator for the web"
  :manifest-version 2
+ :icons            {:32  "icons/ampie-32.png"
+                    :48  "icons/ampie-48.png"
+                    :96  "icons/ampie-96.png"
+                    :128 "icons/ampie-128.png"}
 
- :shadow/outputs {:content-script     {:init-fn        ampie.content-script.content/init
-                                       :chrome/options {:matches ["<all_urls>"]}}
-                  :background         {:init-fn ampie.background.core/init}
-                  #_#_:browser-action {:init-fn ampie.popup/init}
+ :shadow/outputs {:content-script {:init-fn        ampie.content-script.content/init
+                                   :chrome/options {:matches ["<all_urls>"]}}
+                  :background     {:init-fn ampie.background.core/init}
 
-                  :history-page  {:output-type :chrome/single-file
-                                  :init-fn     ampie.pages.history/init}
-                  :settings-page {:output-type :chrome/single-file
-                                  :init-fn     ampie.pages.settings/init}}
+                  :popup-page        {:output-type :chrome/single-file
+                                      :init-fn     ampie.pages.popup/init}
+                  :weekly-links-page {:output-type :chrome/single-file
+                                      :init-fn     ampie.pages.weekly-links/init}
+                  :history-page      {:output-type :chrome/single-file
+                                      :init-fn     ampie.pages.history/init}
+                  :hello-page        {:output-type :chrome/single-file
+                                      :init-fn     ampie.pages.hello/init}}
 
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"
@@ -20,21 +27,20 @@
                             "http://localhost:5000/"
                             "https://*.ampie.app/"]
  :web-accessible-resources ["assets/*"]
- :content-scripts          [{:css     ["assets/content-style.css"]
+ :content-scripts          [{:css     ["assets/content-style.css" "assets/fonts-content-style.css"]
                              :matches ["<all_urls>"]}]
- #_#_:browser-action       {:default-popup "popup.html"}
- :options-page             "settings.html"
+ :browser-action           {:default-popup "popup.html"}
 
  :content-security-policy ["default-src 'self';"
-                           ;;"connect-src *;"
-                           ;;"script-src 'self';"
-                           ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
-                           "script-src 'self' 'unsafe-eval';"
-                           "connect-src * data: blob: filesystem:;"
-                           "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
-                           "img-src 'self' data: chrome-extension-resource:;"
-                           ;; FIXME: localhost only? don't want to allow any origin though
-                           "frame-src 'self' http://localhost:* data: chrome-extension-resource:;"
-                           "font-src 'self' data: chrome-extension-resource:;"
-                           "media-src * data: blob: filesystem:;"
+                           "connect-src *;"
+                           ;; ;;"script-src 'self';"
+                           ;; ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
+                           ;; "script-src 'self' 'unsafe-eval';"
+                           ;; "connect-src * data: blob: filesystem:;"
+                           ;; "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
+                           ;; "img-src 'self' data: chrome-extension-resource:;"
+                           ;; ;; FIXME: localhost only? don't want to allow any origin though
+                           ;; "frame-src 'self' http://localhost:* data: chrome-extension-resource:;"
+                           ;; "font-src 'self' data: chrome-extension-resource:;"
+                           ;; "media-src * data: blob: filesystem:;"
                            ]}

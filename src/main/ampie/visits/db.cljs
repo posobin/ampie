@@ -110,7 +110,7 @@
     (.equals url)
     (.reverse)
     (.limit n)
-    (.toArray)))
+    (.toArray i/js->clj)))
 
 ;; Update the entry for the given visit in the @db by incrementing
 ;; its timeSpent by time-delta.
@@ -152,3 +152,13 @@
             clj->js)))))
   (-> (.-visits @db)
     (.delete visit-hash)))
+
+
+(defn get-long-visits-since [timestamp min-duration]
+  (-> (.-visits @db)
+    (.where "firstOpened")
+    (.above timestamp)
+    (.filter #(>= (.-timeSpent ^js %) min-duration))
+    (.reverse)
+    (.sortBy "timeSpent")
+    (.then i/js->clj)))

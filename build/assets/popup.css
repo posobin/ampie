@@ -1,0 +1,15 @@
+html, body {width: 500px;}
+.history-container {margin-left: -8px;}
+.visit-info {box-sizing: border-box;}
+.content {width: 100%; margin-bottom: 32px; padding: 0 8px; box-sizing: border-box;}
+.content.large-footer {margin-bottom: 64px;}
+.ampie-badge-icon {cursor: initial;}
+.footer {position: fixed; bottom: 0;  background: white; padding: 4px 8px;
+         border-top: 1px solid var(--green); width: 100%;}
+.footer > .row:not(:first-child) {margin-top: 4px;}
+.footer .row {display: flex;}
+.footer .row > *:not(:first-child) {margin-left: 12px;}
+h3 {margin: 12px 0 0 0;}
+
+.login-notice {position: fixed; top: 8px; right: 8px; background: white; padding: 4px 8px;
+               border-radius: 5px; box-shadow: 0 0 5px grey;}

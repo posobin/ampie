@@ -3,6 +3,8 @@
     --accent-color: #1344cc;
     --accent-color-shadow: #1344cc80;
     --font-color: #332222;
+    --link-color: #2e2eb0;
+    --secondary-font-color: #4a3d43;
     --background: var(--accent-color);
     /* --background: linear-gradient(to bottom left, rgb(171, 40, 45), var(--accent-color)); */
     pointer-events: none;
@@ -26,7 +28,7 @@
 .window {height: 5em; overflow-y: hidden; box-sizing: border-box; padding: 8px 8px;}
 .bottom-row {padding: 5px 8px; box-sizing: border-box; font-weight: 500; display:flex; justify-content:space-between;}
 
-a {text-decoration: none; color: inherit;} a:hover {text-decoration: underline;}
+a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: underline;}
 
 .bottom-row .url {max-width: calc(100% - 30px); word-break: break-word;}
 .bottom-row .url .part.highlight
@@ -38,7 +40,7 @@ a {text-decoration: none; color: inherit;} a:hover {text-decoration: underline;}
 .pane .header {font-weight: 500;}
 .pane .header + .row {margin-top: 0.3em;}
 .pane .row {margin-top: 0.5em;}
-.pane .row .info {color: grey;}
+.pane .row .info {color: var(--secondary-font-color);}
 .pane .row .info * {display: inline;}
 .pane .row .info *:not(:first-child) {margin-left: 0.5em;}
 
@@ -87,3 +89,5 @@ a {text-decoration: none; color: inherit;} a:hover {text-decoration: underline;}
 .mini-tags .close .icon {margin-right: 0;}
 .mini-tag .icon {margin-right: 2px;}
 
+.mini-tags .weekly {cursor: pointer;}
+.mini-tags .weekly:hover {text-decoration: underline;}

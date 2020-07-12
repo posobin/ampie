@@ -1,0 +1,25 @@
+:root {--accent-color-shadow: #1344cc80;}
+body, html {font-size: 18px; line-height: 1.3em;}
+b {font-weight: 500;}
+.header h1 {margin-bottom: 0;}
+.header {padding-bottom: 0px; width: 600px; margin: auto;}
+.hello-container {width: 600px; margin: auto;}
+img.mini-tags {height: 28px; margin-top: 4px;}
+img.history {height: 314px;}
+h3 {margin-top: 32px; margin-bottom: 16px; font-weight: 500;}
+
+.ampie-mini-tag-icon {margin-right: 0;}
+.domain-links-icon::before {content: "/..."; letter-spacing: -0.1em; font-weight: 600;}
+
+ul {list-style: none; padding: 0 0 0 16px; margin-top: 8px;}
+ul li:not(:first-child) {margin-top: 8px;}
+img {box-shadow: 0 0 6px var(--accent-color-shadow); border-radius: 6px; display: block; margin: 8px 0;}
+img.mini-tags {box-shadow: none; border-radius: 0;}
+
+.ampie-badge {margin-top: -5px;}
+.blown-up {font-size: 32px;}
+.blown-up .ampie-badge {margin-top: -10px;}
+.blown-up .ampie-badge-icon {font-size: 20px;}
+
+p {position: relative;}
+.margin-note {position: absolute; top: 0; right: 0; transform: translateX(100%); color: grey; width: 150px; font-size: 14px; line-height: 1em;}

@@ -1,42 +1,7 @@
-:root {--font-color: #332222;}
-html, body {font: 11pt Roboto; margin: 0; color: var(--font-color);}
-code {font: 11pt "Roboto Mono";}
+.history-container {margin: 0 0 80px -8px; width: 900px;}
 
-.history-container {margin: 0em auto; width: 900px; margin-bottom: 80px;}
-
-.visit-entry .visit-entry {margin-left: 10px;}
-:not(.visit-entry) > .visit-entry > .visit-entry:last-child {margin-bottom: 1em;}
-.visit-entry .visit-entry {box-shadow: -1px 0 0 lightgrey;}
-.visit-info {position: relative;}
-.visit-entry:hover > .visit-info:before {
-    content: ""; position: absolute; left: 0; top: 0;
-    height: 100%; width: 3px; background: green;
-}
-.visit-entry.to-delete .visit-info:before {
-    content: ""; position: absolute; left: 0; top: 0;
-    height: 100%; width: 3px; background: red;
-}
-
-.visit-info {
-    width: 100%; padding: 10px 10px;
-    overflow: hidden;
-}
-.additional-info {color: grey;}
-.additional-info .time-spent:before {content: "spent ";}
-.additional-info .time-spent:after {content: "s";}
-.additional-info > *:not(:first-child) {margin-left: 1em;}
-.additional-info > .first-opened > *:not(:first-child) {margin-left: 1em;}
-
-.header {padding: 1em 0; width: 900px; margin: auto;}
-.header h1 {font-size: 18pt; font-weight: bold;}
-.header .notice {width: 500px;}
-
-button.delete {background: transparent; border: none;
-    color: red;
-    display: none;
-    cursor: pointer;
-}
 .visit-info:hover button.delete {display: inline-block;}
+.visit-info button.delete {display: none;}
 
 .icon {width: 1.2em; height: 1.2em; vertical-align: text-top; display: inline-block;}
 .history-icon {background: no-repeat url("icons/history.svg") center/contain;}

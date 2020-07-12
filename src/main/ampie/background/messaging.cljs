@@ -16,8 +16,7 @@
   (-> (visits.db/get-past-visits-to-the-url url 5)
     (.then
       (fn [past-visits]
-        (->> (i/js->clj past-visits)
-          (map :parent)
+        (->> (map :parent)
           (filter some?)
           visits.db/get-visits-info)))
     (.then
@@ -95,8 +94,9 @@
         (array
           (seen-urls/find-where-saw-nurls [normalized-url])
           (if include-links-info
-            (.then (links/get-links-with-nurl normalized-url)
-              links/link-ids-to-info)
+            (-> (links/get-links-with-nurl normalized-url)
+              (.then links/link-ids-to-info)
+              (.catch (fn [e] [])))
             (-> (links/get-links-with-nurl normalized-url)
               (.then
                 (fn [seen-at]
@@ -124,6 +124,13 @@
       (fn [prefixes-info]
         (clj->js (map #(vector %1 %2) prefixes prefixes-info))))))
 
+(defn open-weekly-links []
+  (.. browser -tabs
+    (create #js {:url (.. browser -runtime (getURL "weekly-links.html"))})))
+
+(defn should-show-weekly? [] (js/Promise.resolve (backend/can-complete-weekly?)))
+(defn update-user-info [] (backend/request-user-info @backend/user-info))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -135,6 +142,9 @@
       :get-local-url-info      (get-url-info request sender false)
       :get-tweets              (get-tweets request sender)
       :get-prefixes-info       (get-prefixes-info request sender)
+      :open-weekly-links       (open-weekly-links)
+      :should-show-weekly?     (should-show-weekly?)
+      :update-user-info        (update-user-info)
 
       (log/error "Unknown request type" request-type))))
 

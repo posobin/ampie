@@ -42,6 +42,15 @@
      [:li [:div.ampie-mini-tag-icon.domain-links-icon] " " [:b "Links on this domain"]
       ": the number of pages on the same domain that have appeared in your "
       "twitter feed or on hacker news."]]
+    [:p "Click the bar to get more details about the page and the domain. "
+     "Keep in mind that this sends a request to ampie's server with the current URL "
+     "if there are tweets or HN submissions with that URL."]
+
+    [:h3 "What about privacy?"]
+    [:p "Your browsing history is not sent anywhere. "
+     "The extension sends the URL of the page you are on to the server "
+     "only when you click the bar in the bottom right corner of the page or "
+     "click an ampie ampersand near a link."]
 
     [:h3 "Browsing history"]
     [:p "Click on the ampie icon in the toolbar to the right of the browser address bar, "
@@ -66,12 +75,6 @@
      "They don't have to be text posts: "
      "anything goes, as long as you "
      "find it interesting, important, and you might want to revisit it months or years later. "]
-
-    [:h3 "What about privacy?"]
-    [:p "Your browsing history is not sent anywhere. "
-     "The extension sends the URL of the page you are on to the server "
-     "only when you click the bar in the bottom right corner of the page or "
-     "click an ampie ampersand near a link."]
 
     [:h3 "What now?"]
     [:p "Click on the ampie icon in the toolbar to keep track of whether it is "

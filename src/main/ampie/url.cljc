@@ -124,8 +124,10 @@
         path         (get-path-normalized normalized-url)
         domain-parts (->> (clojure.string/split domain #"\.")
                        (reductions #(str %1 "." %2)))
-        path-parts   (->> (clojure.string/split path #"/|\?")
-                       (reductions #(str %1 "/" %2)))]
+        path-parts   (when (seq path)
+                       ;; Needed to deal with a trailing slash after the domain
+                       (->> (clojure.string/split path #"/|\?")
+                         (reductions #(str %1 "/" %2))))]
     (concat domain-parts (map #(str domain "/" %) path-parts))))
 
 (defn get-parts-normalized

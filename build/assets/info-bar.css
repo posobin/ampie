@@ -26,6 +26,7 @@
 .stack {margin-top: 2px;}
 .stack:empty {margin-top: 1px;}
 .window {height: 5em; overflow-y: hidden; box-sizing: border-box; padding: 8px 8px;}
+.window.tight {height: initial;}
 .bottom-row {padding: 5px 8px; box-sizing: border-box; font-weight: 500; display:flex; justify-content:space-between;}
 
 a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: underline;}
@@ -36,7 +37,6 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
  transition-property: border-bottom; transition-duration: 0.15s; transition-timing-function: ease;}
 .bottom-row .url .part.highlight:hover {border-bottom: 1px solid var(--accent-color);}
 
-.pane {padding-bottom: 1em;}
 .pane .header {font-weight: 500;}
 .pane .header + .row {margin-top: 0.3em;}
 .pane .row {margin-top: 0.5em;}
@@ -44,26 +44,45 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .pane .row .info * {display: inline;}
 .pane .row .info *:not(:first-child) {margin-left: 0.5em;}
 
+.this-page-preview {cursor: pointer;}
+.this-page-preview .header {display: inline;}
+.this-page-preview .inline-mini-tags {float: right;}
+.notice p {margin-top: 4px; margin-bottom: 0;}
+.notice p:first-child {margin-top: 0;}
+
 .seen-at .row .info *:not(:first-child) {margin-left: initial;}
 .seen-at .row .info .domain:after {content: ", visited on ";}
 
-.icon {width: 1em; height: 1em; vertical-align: text-top; display: inline-block; margin-right: 4px;}
+.icon {width: 10px; height: 10px; padding:2px; margin:-2px; vertical-align: baseline; display: inline-block; margin-right: 4px;}
 .twitter-icon {background: no-repeat url("icons/twitter.svg") center/contain;}
 .hn-icon {background: no-repeat url("icons/hn.svg") center/contain;}
 .history-icon {background: no-repeat url("icons/history.svg") center/contain;}
-.close-icon {background: no-repeat url("icons/close.svg") center/contain;}
-.domain-links-icon::before {content: "/..."; letter-spacing: -0.1em; font-weight: 600;}
+.close-icon {width: calc(1em - 2px); height: calc(1em - 2px); background: no-repeat url("icons/close.svg") center/contain;}
+.mini-tags .domain-links-icon {margin-left: -4px;}
+.domain-links-icon::before {content: "/..."; letter-spacing: -0.1em; font-weight: 600; white-space: nowrap;}
 
-.bottom-row .close {margin-right: 6px;}
-.close {cursor: pointer;}
+.bottom-row .close {margin-right: 10px; margin-top: 2px;}
+.close {cursor: pointer; display: block; position: relative; height: min-content; width: min-content; z-index: 0;}
+.close .close-icon {padding: 0; margin: 0;}
+.mini-tags .close .close-icon {margin-bottom: -1px; margin-top: 1px;}
+.close::after {transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;}
+.close:hover::after {
+    content:""; position:absolute; left:-4px; top:-4px; width:calc(100% + 8px); height:calc(100% + 8px);
+    background: #ffeffe; border-radius: 4px;
+    z-index: -1;
+}
+.mini-tags .close:hover::after {top: -3px;}
+
+.header .icon {margin-left: 0; margin-right: 3px;}
 
 .adjacent-link.row {display: flex; justify-content: space-between;}
 .adjacent-link.row .url {word-break: break-all;}
 .adjacent-link.row .url .prefix {color: grey;}
 .inline-mini-tags {cursor: pointer; flex: 0 0 auto; z-index: 1; margin-right:4px;}
-.inline-mini-tags .mini-tag {width: 2.5em; display: inline-block; position: relative;}
-.inline-mini-tags .mini-tag .icon {width: 14px; height: 14px;}
+.inline-mini-tags .mini-tag {width: 2.5em; display: inline-block; position: relative; padding-left: 4px; z-index: 0;}
+.inline-mini-tags .mini-tag .icon {margin-right: 3px;}
 .inline-mini-tags .mini-tag > * {z-index: 1;}
+.this-page-preview:hover .inline-mini-tags .mini-tag:not(:empty)::after,
 .inline-mini-tags:hover .mini-tag:not(:empty)::after {
     content:""; position:absolute; left:-5px; top:-6px; width:calc(100% + 5px); height:calc(100% + 12px);
     background: #ffeffe; border-radius: 3px;
@@ -74,7 +93,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags {
     cursor: pointer;
     color: var(--font-color); font: 10pt Roboto, sans-serif; text-align: left; letter-spacing: 0;
-    position: fixed; bottom: 0; right: 50px; padding: 6px;
+    position: fixed; bottom: 0; right: 50px; padding: 6px 8px;
     border: 1px solid var(--accent-color); border-bottom: none;
     transition-property: box-shadow, padding-bottom; transition-duration: 0.15s; transition-timing-function: ease;
     background: white;
@@ -84,8 +103,8 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags:hover {box-shadow: 0 0 5px var(--accent-color-shadow); padding-bottom: 7px;}
 
 .mini-tags > * {display: inline-block;}
-.mini-tags > *:not(:first-child) {margin-left: 8px;}
-.mini-tags .close {display: inline-block; margin-left:8px; font-size:9pt;}
+.mini-tags > *:not(:first-child) {margin-left: 10px;}
+.mini-tags .close {display: inline-block; margin-left:8px;}
 .mini-tags .close .icon {margin-right: 0;}
 .mini-tag .icon {margin-right: 2px;}
 

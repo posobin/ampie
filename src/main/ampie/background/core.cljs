@@ -6,6 +6,7 @@
             [ampie.tabs.monitoring :as tabs.monitoring]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount]
+            [clojure.string :as string]
             [taoensso.timbre :as log]))
 
 (defonce active-tab-interval-id (atom nil))
@@ -27,7 +28,9 @@
   (.. browser -runtime -onInstalled
     (addListener
       (fn [^js details]
-        (when (= (.-reason details) "install")
+        (when (or (= (.-reason details) "install")
+                (and (= (.-reason details) "update")
+                  (string/starts-with? (.-previousVersion details) "1")))
           (.. browser -tabs
             (create #js {:url (.. browser -runtime (getURL "hello.html"))}))))))
 

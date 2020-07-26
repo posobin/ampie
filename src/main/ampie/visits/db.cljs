@@ -37,9 +37,10 @@
       (let [visit-with-hash (assoc visit :visit-hash visit-hash)]
         (.. @db -visits (add (i/clj->js visit-with-hash)))))))
 
-;; Returns a clojure sequence of visits corresponding to visit-hashes.
-;; Done in one request to the database.
-(defn get-visits-info [visit-hashes]
+(defn get-visits-info
+  "Returns a clojure sequence of visits corresponding to visit-hashes.
+  Done in one request to the database."
+  [visit-hashes]
   (-> (.-visits @db)
     (.where "visitHash")
     (.anyOf (i/clj->js visit-hashes))
@@ -100,23 +101,35 @@
        (.then (fn [result] {:origin-visits  result
                             :last-timestamp @last-timestamp}))))))
 
-;; Returns a js promise that resolves with the clojure list of
-;; visit hashes of length at most n, identifying the last n visits
-;; to the given url.
-(defn get-past-visits-to-the-url [url n]
-  (->
-    (.-visits @db)
+(defn get-past-visits-to-the-url
+  "Returns a js promise that resolves with the clojure list of
+  visit hashes of length at most n, identifying the last n visits
+  to the given url."
+  [url n]
+  (-> (.-visits @db)
     (.where "url")
     (.equals url)
     (.reverse)
     (.limit n)
     (.toArray i/js->clj)))
 
-;; Update the entry for the given visit in the @db by incrementing
-;; its timeSpent by time-delta.
-(defn increase-visit-time! [visit-hash time-delta]
-  (->
-    (.-visits @db)
+(defn get-past-visits-to-the-nurl
+  "Returns a js promise that resolves with the clojure list of
+  visit hashes of length at most n, identifying the last n visits
+  to the given normalized url."
+  [nurl n]
+  (-> (.-visits @db)
+    (.where "normalizedUrl")
+    (.equals nurl)
+    (.reverse)
+    (.limit n)
+    (.toArray i/js->clj)))
+
+(defn increase-visit-time!
+  "Update the entry for the given visit in the @db by incrementing
+  its timeSpent by time-delta. "
+  [visit-hash time-delta]
+  (-> (.-visits @db)
     (.where "visitHash")
     (.equals visit-hash)
     (.modify
@@ -125,8 +138,7 @@
           (set! (.-timeSpent visit) (+ current-time time-delta)))))))
 
 (defn set-visit-title! [visit-hash title]
-  (->
-    (.-visits @db)
+  (-> (.-visits @db)
     (.update visit-hash #js {:title title})))
 
 (defn set-visit-url! [visit-hash url]
@@ -153,7 +165,6 @@
   (-> (.-visits @db)
     (.delete visit-hash)))
 
-
 (defn get-long-visits-since [timestamp min-duration]
   (-> (.-visits @db)
     (.where "firstOpened")
@@ -162,3 +173,10 @@
     (.reverse)
     (.sortBy "timeSpent")
     (.then i/js->clj)))
+
+(defn get-visits-with-nprefix [nprefix limit]
+  (-> (.-visits @db)
+    (.where "normalizedUrl")
+    (.startsWith nprefix)
+    (.limit limit)
+    (.toArray i/js->clj)))

@@ -47,12 +47,13 @@
   (remove-watch @auth-token key))
 
 (defn base-request-options []
-  {:headers          {:Authorization (str "Token " @@auth-token)
-                      :Ampie-version ampie-version}
-   :with-credentials true
-   :format           :json
-   :response-format  :json
-   :keywords?        true})
+  (log/spy
+    {:headers          {:Authorization (str "Token " @@auth-token)
+                        :Ampie-version ampie-version}
+     :with-credentials true
+     :format           :json
+     :response-format  :json
+     :keywords?        true}))
 
 (defn request-user-info
   "Get user info from the ampie backend."

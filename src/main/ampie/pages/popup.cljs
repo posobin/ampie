@@ -30,6 +30,16 @@
        [:div.ampie-badge.demo-badge
         [:div.ampie-badge-icon]])]))
 
+(defn auto-show-domain-links []
+  (let [show-domain-links (:auto-show-domain-links @@settings)]
+    [:div.show-domain-links
+     [:a {:href     "#"
+          :on-click (fn [evt]
+                      (.preventDefault evt)
+                      (swap! @settings update :auto-show-domain-links not))}
+      (if show-domain-links "Don't show" "Show")] " interesting links "
+     "on a new domain."]))
+
 (defn blacklisted-urls []
   [:div.blacklisted-urls])
 (defn blacklisted-domains [])
@@ -37,37 +47,40 @@
 (defn settings-form []
   [:div.settings-form
    [show-badges]
-   [blacklisted-urls]
-   [blacklisted-domains]])
-
-(defn cache-status []
-  [:div.cache-status])
+   [auto-show-domain-links]])
 
 (defn settings-page []
   [:div.settings
-   [cache-status]
+   [:h3 "Settings"]
    [settings-form]])
 
 (defn popup-page []
-  [:div.popup-page
-   (when-not (backend/logged-in?)
-     [login-notice])
-   [:div.content {:class (when (:link-cache-status @state) "large-footer")}
-    [:h3 "This page in history"]
-    [:div.history-container
-     (for [visit (:past-visits-origins @state)]
-       ^{:key (:visit-hash visit)}
-       [components.visit/visit {:visit visit}])]]
-   [:div.footer
-    (when-let [link-cache-status (:link-cache-status @state)]
-      [:div.row link-cache-status])
-    [:div.row
-     [:a.href (b/ahref-opts (.. browser -runtime (getURL "history.html")))
-      "History"]
-     (when (backend/can-complete-weekly?)
-       [:a.href (b/ahref-opts (.. browser -runtime (getURL "weekly-links.html")))
-        "Weekly links"])
-     [settings-page]]]])
+  (let [page (@state :page :home)]
+    [:div.popup-page
+     (when-not (backend/logged-in?)
+       [login-notice])
+     [:div.content {:class (when (:link-cache-status @state) "large-footer")}
+      (case page
+        :home
+        [:<> [:h3 "This page in history"]
+         [:div.history-container
+          (for [visit (:past-visits-origins @state)]
+            ^{:key (:visit-hash visit)}
+            [components.visit/visit {:visit visit}])]]
+        :settings
+        [settings-page])]
+     [:div.footer
+      (when-let [link-cache-status (:link-cache-status @state)]
+        [:div.row link-cache-status])
+      [:div.row
+       [:a (b/ahref-opts (.. browser -runtime (getURL "history.html")))
+        "History"]
+       (when (backend/can-complete-weekly?)
+         [:a.href (b/ahref-opts (.. browser -runtime (getURL "weekly-links.html")))
+          "Weekly links"])
+       [:a {:href "#" :on-click #(swap! state assoc :page
+                                   (case page :settings :home :home :settings))}
+        (case page :home "Settings" :settings "Back")]]]]))
 
 (defn load-origin-visits []
   (->

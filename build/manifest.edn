@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.0"
+ :version          "2.1.0"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"
@@ -23,8 +23,10 @@
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"
                             "unlimitedStorage"
-                            "http://localhost/"
-                            "http://localhost:5000/"
+                            #_"http://localhost/"
+                            #_"http://localhost:5000/"
+                            "https://ampie.s3.amazonaws.com/"
+                            "https://hacker-news.firebaseio.com/"
                             "https://*.ampie.app/"]
  :web-accessible-resources ["assets/*"]
  :content-scripts          [{:css     ["assets/content-style.css" "assets/fonts-content-style.css"]
@@ -33,7 +35,8 @@
 
  :content-security-policy ["default-src 'self';"
                            "connect-src *;"
-                           ;; ;;"script-src 'self';"
+                           "script-src 'self';"
+                           ;; "default-src 'self' 'unsafe-eval';"
                            ;; ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
                            ;; "script-src 'self' 'unsafe-eval';"
                            ;; "connect-src * data: blob: filesystem:;"

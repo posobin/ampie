@@ -79,6 +79,12 @@
        [(keyword (str "i.icon." (name source-name)))]
        count]))
 
+(defn other-links-with-prefix? [links normalized-url]
+  (or (> (count links) 1)
+    (and (= (count links) 1)
+      (not= normalized-url
+        (-> links first :normalized-url)))))
+
 (defn bottom-row
   [{:keys [normalized-url prefixes-info close-page-info
            show-prefix-info]}]
@@ -111,14 +117,11 @@
                         (= end domain-len) "/"
                         :else              (subs normalized-url end (inc end)))
                 highlight?
-                (or (> (count links) 1)
-                  (and (= (count links) 1)
-                    (not= normalized-url
-                      (-> links first :normalized-url))))]]
+                (other-links-with-prefix? links normalized-url)]]
            ;; TODO reproduce the bug with the lambda function being cached
            ;; even though highlight? changes if not including highlight?
            ;; into the key.
-           [#^{:key (str start highlight?)}
+           [^{:key (str start highlight?)}
             [:span.part
              (when highlight?
                {:on-click #(show-prefix-info info)
@@ -128,8 +131,8 @@
      [:div.close {:on-click close-page-info}
       [:span.icon.close-icon]]]))
 
-(defn window [{:keys [overscroll-handler window-atom]}]
-  (letfn [(change-height [el delta-y]
+(defn window [{:keys [overscroll-handler window-atom tight]}]
+  (letfn [(change-height [el propagate delta-y]
             (let [current-height    (js/parseFloat
                                       (. (js/getComputedStyle el)
                                         getPropertyValue "height"))
@@ -139,31 +142,34 @@
                   children-height   (- (+ (. lowest-child-rect -y)
                                          (. lowest-child-rect -height))
                                       (.. el getBoundingClientRect -y))
-                  max-height        children-height
+                  max-height        (+ children-height 8) ;; 8 for bottom padding
                   new-height        (+ current-height
                                       delta-y)]
               (cond
                 (< new-height min-height)
                 (do (set! (.. el -style -height) (str min-height "px"))
-                    (overscroll-handler :down (- min-height new-height)))
+                    (when propagate
+                      (overscroll-handler :down (- min-height new-height))))
 
                 (> new-height max-height)
                 (do (set! (.. el -style -height) (str max-height "px"))
-                    (overscroll-handler :up (- new-height max-height)))
+                    (when propagate
+                      (overscroll-handler :up (- new-height max-height))))
 
                 :else
                 (do (set! (.. el -style -height) (str new-height "px"))
                     ;; Return false not to propagate the scroll
                     false))))]
     (into [:div.window
-           {:ref
+           {:class (when tight "tight")
+            :ref
             (fn [el]
               (when el
                 (swap! window-atom assoc :ref el)
                 (swap! window-atom assoc
-                  :update-height (partial change-height el))
+                  :update-height (partial change-height el true))
                 (set! (.-onwheel el)
-                  (fn [evt] (change-height el (. evt -deltaY))))))}]
+                  (fn [evt] (change-height el true (. evt -deltaY))))))}]
       (r/children (r/current-component)))))
 
 (defn elements-stack []
@@ -181,6 +187,7 @@
     (into [:div.stack]
       (map #(vector window
               {:window-atom        %2
+               :tight              (-> %1 meta :tight)
                :overscroll-handler (partial update-heights %3)}
               %1)
         (r/children (r/current-component)) children-info (range)))))
@@ -224,20 +231,56 @@
      ^{:key link-url}
      [adjacent-link-row link normalized-url load-page-info])])
 
+(defn this-page-preview [normalized-url counts load-page-info]
+  (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)]
+    [:div.this-page-preview.pane
+     {:on-click #(load-page-info reversed-normalized-url)}
+     [:div.header
+      [:a "Load mentions of this page"]]
+     [:div.inline-mini-tags
+      [mini-tag :hn (:hn counts)]
+      [mini-tag :twitter (:twitter counts)]]]))
+
+(defn domain-links-notice []
+  [:div.notice.pane
+   [:div.header "Blimey, why did this thing pop up?!"]
+   [:p "This popup appears on a domain you "
+    "haven't visited before to show you interesting links. "
+    "The data comes from your local cache, so your browsing history "
+    "is your secret to keep. When you click on the twitter or HN icon "
+    "next to a link, ampie queries its server for previous discussions of that link. "
+    "To hide these popups, click on the ampie icon in the extensions toolbar and go to settings."]])
+(defn subdomains-notice []
+  [:div.notice.pane
+   [:p "Try clicking the underlined parts of the URL below."]])
+
 (defn info-bar [{:keys [page-info close-page-info show-prefix-info load-page-info]}]
   (let [{{:keys [history hn twitter]} :seen-at
          :keys
-         [normalized-url prefixes-info prefix-info]}
+         [normalized-url prefixes-info prefix-info only-local-data counts
+          show-auto-open-notice show-subdomains-notice]}
         page-info]
     [:div.info-bar
      (into
        [elements-stack]
        (filter identity
-         [(when history ^{:key :seen-at} [seen-at history])
+         [(when (and only-local-data
+                  show-auto-open-notice
+                  (or (pos? (:hn counts))
+                    (pos? (:twitter counts))))
+            ^{:key :domain-links-notice :tight true}
+            [domain-links-notice])
+          (when (and only-local-data (or (pos? (:hn counts))
+                                       (pos? (:twitter counts))))
+            ^{:key :this-page-preview :tight true}
+            [this-page-preview normalized-url counts load-page-info])
+          (when history ^{:key :seen-at} [seen-at history])
           (when twitter ^{:key :tweets} [tweets twitter])
           (when hn ^{:key :hn-stories} [hn-stories hn])
           (when (and prefix-info (seq (second prefix-info)))
-            ^{:key :prefix-info} [adjacent-links prefix-info load-page-info])]))
+            ^{:key :prefix-info} [adjacent-links prefix-info load-page-info])
+          (when show-subdomains-notice
+            ^{:key :subdomains-notice :tight true} [subdomains-notice])]))
      [bottom-row
       {:normalized-url   normalized-url
        :prefixes-info    prefixes-info
@@ -295,32 +338,58 @@
                :keywords?       true
                :handler         #(resolve %)})))))))
 
-(defn load-page-info [url pages-info]
-  (log/info url)
+(defn load-page-info [url pages-info only-local-data]
   (letfn [(get-prefixes-info []
             (.then (.. browser -runtime
                      (sendMessage (clj->js {:type :get-prefixes-info
                                             :url  url})))
               #(js->clj % :keywordize-keys true)))]
     (.then (.. browser -runtime
-             (sendMessage (clj->js {:type :get-url-info :url url})))
+             (sendMessage (clj->js {:type (if only-local-data
+                                            :get-local-url-info
+                                            :get-url-info)
+                                    :url  url})))
       (fn [js-url->where-seen]
         (let [{:keys [hn twitter history] :as seen-at}
               (js->clj js-url->where-seen :keywordize-keys true)
               new-page-info
-              {:url            url
-               :normalized-url (url/normalize url)
-               :seen-at        {:history (seq history)
-                                :twitter (when (pos? (count twitter)) :loading)
-                                :hn      (when (pos? (count hn)) :loading)}
-               :counts         {:history (count history)
-                                :twitter (count twitter)
-                                :hn      (count hn)}}]
-          (let [idx (-> (swap! pages-info update :info-bars conj new-page-info)
-                      :info-bars count dec)]
+              {:url             url
+               :normalized-url  (url/normalize url)
+               :only-local-data only-local-data
+               :seen-at
+               (merge
+                 {:history (seq history)}
+                 (when-not only-local-data
+                   {:twitter (when (pos? (count twitter)) :loading)
+                    :hn      (when (pos? (count hn)) :loading)}))
+               :counts          {:history (count history)
+                                 :twitter (count twitter)
+                                 :hn      (count hn)}}]
+          (let [idx            (-> (swap! pages-info update :info-bars conj new-page-info)
+                                 :info-bars count dec)
+                normalized-url (url/normalize url)]
             (log/info idx url (:info-bars @pages-info))
+            (when only-local-data
+              (.then (.. browser -runtime
+                       (sendMessage (clj->js {:type :show-domain-links-notice?})))
+                (fn [show?]
+                  (js/console.log show?)
+                  (swap! pages-info assoc-in
+                    [:info-bars idx :show-auto-open-notice] show?))))
             (.then (get-prefixes-info)
               (fn [prefixes-info]
+                (log/info prefixes-info)
+                (let [filtered (filter
+                                 (fn [[_ links]]
+                                   (other-links-with-prefix?
+                                     links normalized-url))
+                                 prefixes-info)]
+                  (when (> (count filtered) 1)
+                    (.then (.. browser -runtime
+                             (sendMessage
+                               (clj->js {:type :subdomains-notice?})))
+                      #(swap! pages-info assoc-in
+                         [:info-bars idx :show-subdomains-notice] %))))
                 (swap! pages-info assoc-in
                   [:info-bars idx :prefixes-info] prefixes-info)
                 (let [;; Find the entry for the domain among prefixes
@@ -330,18 +399,14 @@
                       links       (second domain-info)]
                   ;; Show only if there are links besides the one the user is reading
                   ;; about
-                  (when (or (> (count links) 1)
-                          (and (= (count links) 1)
-                            (not= (url/normalize url)
-                              (-> links first :normalized-url))))
+                  (when (other-links-with-prefix? links (url/normalize url))
                     (swap! pages-info assoc-in
                       [:info-bars idx :prefix-info] domain-info)))))
-            (when (seq twitter)
+            (when (and (not only-local-data) (seq twitter))
               (.then (hydrate-tweets twitter)
                 #(swap! pages-info assoc-in [:info-bars idx :seen-at :twitter] %)))
-            (when (seq hn)
+            (when (and (not only-local-data) (seq hn))
               (-> (hydrate-hn hn)
-                (.then (fn [x] (js/console.log x) x))
                 (.then
                   #(swap! pages-info assoc-in [:info-bars idx :seen-at :hn] %))))))))))
 
@@ -352,13 +417,14 @@
              [mini-tags {:page-info       (:mini-tags @pages-info)
                          :open-info-bar   #(load-page-info
                                              (.. js/document -location -href)
-                                             pages-info)
+                                             pages-info
+                                             false)
                          :close-mini-tags #(swap! pages-info
                                              assoc-in [:mini-tags :open] false)}])]
       (when (seq (:info-bars @pages-info))
         [^{:key (count (:info-bars @pages-info))}
          [info-bar {:page-info       (last (:info-bars @pages-info))
-                    :load-page-info  (fn [url] (load-page-info url pages-info))
+                    :load-page-info  (fn [url] (load-page-info url pages-info false))
                     :close-page-info (fn [] (swap! pages-info
                                               update :info-bars pop))
                     :show-prefix-info
@@ -366,6 +432,13 @@
                       (swap! pages-info
                         update :info-bars
                         (fn [info-bars]
+                          (let [current
+                                (get-in info-bars
+                                  [(dec (count info-bars)) :prefix-info])]
+                            (when-not (= current prefix-info)
+                              (.. browser -runtime
+                                (sendMessage (clj->js
+                                               {:type :clicked-subdomain})))))
                           (assoc-in info-bars
                             [(dec (count info-bars)) :prefix-info]
                             prefix-info))))}]]))))
@@ -406,7 +479,12 @@
                               second)]
           (swap! pages-info assoc-in [:mini-tags :on-this-domain] domain-links)
           (when (pos? (count domain-links))
-            (swap! pages-info assoc-in [:mini-tags :open] true)))))))
+            (swap! pages-info assoc-in [:mini-tags :open] true)
+            (-> (.. browser -runtime
+                  (sendMessage (clj->js {:type :should-show-domain-links?
+                                         :url  current-url})))
+              (.then
+                #(when % (load-page-info current-url pages-info true))))))))))
 
 (defn display-info-bar
   "Mount the info bar element,
@@ -433,4 +511,4 @@
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.
     {:reset-page (fn [] (reset-current-page-info! pages-info))
-     :show-info  (fn [page-url] (load-page-info page-url pages-info))}))
+     :show-info  (fn [page-url] (load-page-info page-url pages-info false))}))

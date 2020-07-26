@@ -7,6 +7,7 @@
             [ampie.interop :as i]
             [ampie.logging]
             [taoensso.timbre :as log]
+            [clojure.string :as string]
             ["webextension-polyfill" :as browser]))
 
 (defn parent-event? [^js evt] (= (.-parentFrameId evt) -1))
@@ -212,9 +213,11 @@
           (fn [current-visit]
             (log/info (:url current-visit))
             (cond
-              ;; Ignore the new tab page
+              ;; Ignore the new tab page and all extension pages
               (or (= url "chrome-search://local-ntp/local-ntp.html")
-                (= url "chrome://newtab/"))
+                (= url "chrome://newtab/")
+                (string/starts-with? url "chrome-extension://")
+                (string/starts-with? url "moz-extension://"))
               :ignore
 
               (= (:url current-visit) url) ; Nothing changed, treat as reload

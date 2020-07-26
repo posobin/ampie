@@ -61,15 +61,18 @@
 .ampie-hn-icon {
     background:
         no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/hn.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/hn.svg') center/contain,
         no-repeat url('assets/icons/hn.svg') center/contain;
 }
 .ampie-twitter-icon {
     background:
         no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/twitter.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/twitter.svg') center/contain,
         no-repeat url('assets/icons/twitter.svg') center/contain;
 }
 .ampie-history-icon {
     background:
         no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
         no-repeat url('assets/icons/history.svg') center/contain;
 }

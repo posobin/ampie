@@ -27,16 +27,18 @@
   and returns a Promise that resolves to a seq of corresponding
   links info: tweet urls and hn stories/comments urls."
   [links]
-  (let [local-link->server-format
-        (fn [[link-id source]]
-          {:id link-id :origin (case source
-                                 "hn"  :hn_story
-                                 "hnc" :hn_comment
-                                 "tf"  :tf
-                                 "tl"  :tl
-                                 nil)})
-        links (map local-link->server-format links)]
-    (backend/link-ids-to-info links)))
+  (if (seq links)
+    (let [local-link->server-format
+          (fn [[link-id source]]
+            {:id link-id :origin (case source
+                                   "hn"  :hn_story
+                                   "hnc" :hn_comment
+                                   "tf"  :tf
+                                   "tl"  :tl
+                                   nil)})
+          links (map local-link->server-format links)]
+      (backend/link-ids-to-info links))
+    (js/Promise.resolve {:hn nil :twitter nil})))
 
 (defn get-links-starting-with
   ([normalized-url-prefix]

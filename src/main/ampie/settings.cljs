@@ -6,23 +6,21 @@
             [mount.core])
   (:require-macros [mount.core :refer [defstate]]))
 
-(def default-settings {:show-badges         true
-                       :blacklisted-urls    []
-                       :blacklisted-domains []})
+(def default-settings {:show-badges               true
+                       :auto-show-domain-links    true
+                       :seen-domain-links-notice  false
+                       :tried-clicking-subdomains false
+                       :blacklisted-urls          []
+                       :blacklisted-domains       []})
 (def settings-keys (set (keys default-settings)))
-
-(defn init-settings [settings-atom]
-  (reset! settings-atom default-settings)
-  (doseq [[key value] @settings-atom]
-    (.. browser -storage -local (set (clj->js {key value})))))
 
 (defn load-settings [settings-atom]
   (.then
     (.get (.. browser -storage -local) (clj->js settings-keys))
     (fn [settings]
-      (if (seq (js->clj settings))
-        (reset! settings-atom (js->clj settings :keywordize-keys true))
-        (init-settings settings-atom)))))
+      (reset! settings-atom (merge default-settings
+                              (js->clj settings :keywordize-keys true)))
+      (.. browser -storage -local (set (clj->js @settings-atom))))))
 
 (defstate settings :start (doto (r/atom {}) (load-settings)))
 

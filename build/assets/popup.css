@@ -13,3 +13,7 @@ h3 {margin: 12px 0 0 0;}
 
 .login-notice {position: fixed; top: 8px; right: 8px; background: white; padding: 4px 8px;
                border-radius: 5px; box-shadow: 0 0 5px grey;}
+
+.settings {padding-bottom: 8px;}
+.settings-form {margin-top: 8px;}
+.settings-form > *:not(:first-child) {margin-top: 4px;}

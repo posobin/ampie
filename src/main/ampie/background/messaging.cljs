@@ -6,6 +6,7 @@
             [ampie.interop :as i]
             [ampie.links :as links]
             [ampie.background.backend :as backend]
+            [ampie.settings :refer [settings]]
             [clojure.set]
             [taoensso.timbre :as log]
             ["webextension-polyfill" :as browser]
@@ -128,23 +129,57 @@
   (.. browser -tabs
     (create #js {:url (.. browser -runtime (getURL "weekly-links.html"))})))
 
+(defn should-show-domain-links?
+  "Resolves to a boolean: whether should automatically open the \"links at\"
+  section for the given url."
+  [{url :url} sender]
+  (if (:auto-show-domain-links @@settings)
+    (let [normalized-url (url/normalize url)
+          domain         (url/get-domain-normalized normalized-url)
+          tab-id         (-> sender i/js->clj :tab :id)]
+      (-> (js/Promise.all
+            (array
+              (visits.db/get-visits-with-nprefix (str domain "/") 2)
+              (visits.db/get-past-visits-to-the-nurl domain 2)))
+        (.then
+          (fn [[visits-prefix visits-url]]
+            (let [union      (concat visits-prefix visits-url)
+                  hashes     (keys (group-by :visit-hash union))
+                  visit-hash (:visit-hash (@@tabs/open-tabs tab-id))]
+              (or (and (nil? visit-hash) (<= (count hashes) 1))
+                (every? #(= visit-hash %) hashes)))))))
+    (js/Promise.resolve false)))
+(defn should-show-domain-links-notice? []
+  (let [result (:seen-domain-links-notice @@settings)]
+    (swap! @settings assoc :seen-domain-links-notice true)
+    (js/Promise.resolve (not result))))
+
 (defn should-show-weekly? [] (js/Promise.resolve (backend/can-complete-weekly?)))
 (defn update-user-info [] (backend/request-user-info @backend/user-info))
+
+(defn should-show-subdomains-notice? []
+  (js/Promise.resolve (not (:tried-clicking-subdomains @@settings))))
+(defn clicked-subdomain []
+  (swap! @settings assoc :tried-clicking-subdomains true))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
     #_(log/info request)
     (case (keyword request-type)
-      :get-past-visits-parents (get-past-visits-parents request sender)
-      :add-seen-urls           (add-seen-urls request sender)
-      :get-url-info            (get-url-info request sender true)
-      :get-local-url-info      (get-url-info request sender false)
-      :get-tweets              (get-tweets request sender)
-      :get-prefixes-info       (get-prefixes-info request sender)
-      :open-weekly-links       (open-weekly-links)
-      :should-show-weekly?     (should-show-weekly?)
-      :update-user-info        (update-user-info)
+      :get-past-visits-parents   (get-past-visits-parents request sender)
+      :add-seen-urls             (add-seen-urls request sender)
+      :get-url-info              (get-url-info request sender true)
+      :get-local-url-info        (get-url-info request sender false)
+      :get-tweets                (get-tweets request sender)
+      :get-prefixes-info         (get-prefixes-info request sender)
+      :show-domain-links-notice? (should-show-domain-links-notice?)
+      :should-show-domain-links? (should-show-domain-links? request sender)
+      :subdomains-notice?        (should-show-subdomains-notice?)
+      :clicked-subdomain         (clicked-subdomain)
+      :open-weekly-links         (open-weekly-links)
+      :should-show-weekly?       (should-show-weekly?)
+      :update-user-info          (update-user-info)
 
       (log/error "Unknown request type" request-type))))
 

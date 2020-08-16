@@ -180,3 +180,10 @@
     (.startsWith nprefix)
     (.limit limit)
     (.toArray i/js->clj)))
+
+(defn get-time-spent-on-url
+  "Returns a lower bound on the time spent by the user on the given url,
+  in seconds."
+  [url]
+  (-> (get-past-visits-to-the-url url 10)
+    (.then (fn [visits] (reduce #(+ %1 (:time-spent %2)) 0 visits)))))

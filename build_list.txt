@@ -10,6 +10,7 @@ popup.html
 hello.html
 history.html
 weekly-links.html
+icons/ampie-no-shadow.svg
 icons/ampie-128.png
 icons/ampie-32.png
 icons/ampie-96.png

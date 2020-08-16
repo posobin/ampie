@@ -364,4 +364,7 @@
 
 (defn stop [{:keys [next-target-id target-ids update-cancelled on-resize]}]
   (reset! update-cancelled true)
+  (.. js/document (querySelectorAll ".ampie-badge") (forEach #(.remove %)))
+  (.. js/document (querySelectorAll "[processed-by-ampie]")
+    (forEach #(.removeAttribute % "processed-by-ampie")))
   (.removeEventListener js/window "resize" on-resize))

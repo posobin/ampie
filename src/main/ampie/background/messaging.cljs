@@ -96,8 +96,7 @@
           (seen-urls/find-where-saw-nurls [normalized-url])
           (if include-links-info
             (-> (links/get-links-with-nurl normalized-url)
-              (.then links/link-ids-to-info)
-              (.catch (fn [e] [])))
+              (.then links/link-ids-to-info))
             (-> (links/get-links-with-nurl normalized-url)
               (.then
                 (fn [seen-at]
@@ -119,6 +118,7 @@
         prefixes       (rest
                          (take 100
                            (url/get-prefixes-normalized normalized-url)))]
+    (js/console.log prefixes)
     (.then (js/Promise.all
              (for [prefix prefixes]
                (links/get-links-starting-with prefix)))
@@ -162,6 +162,31 @@
 (defn clicked-subdomain []
   (swap! @settings assoc :tried-clicking-subdomains true))
 
+(defn amplify-page [sender]
+  (let [tab-info (-> sender i/js->clj :tab)]
+    (js/console.log tab-info (select-keys tab-info [:url :fav-icon-url :title]))
+    (-> (backend/amplify-page (select-keys tab-info [:url :fav-icon-url :title]))
+      (.then clj->js)
+      (.catch clj->js))))
+
+(defn update-amplified-page [request sender]
+  (let [tab-info (-> sender i/js->clj :tab)]
+    (-> (backend/update-amplified-page
+          (merge (select-keys tab-info [:url :fav-icon-url :title])
+            (select-keys request [:submission-tag :comment :reaction])))
+      (.then clj->js)
+      (.catch clj->js))))
+
+(defn delete-amplified-page [{:keys [submission-tag]} sender]
+  (let [tab-info (-> sender i/js->clj :tab)]
+    (-> (backend/delete-amplified-page submission-tag)
+      (.then clj->js)
+      (.catch clj->js))))
+
+(defn get-time-spent-on-url [request sender]
+  (let [url (-> sender i/js->clj :tab :url)]
+    (visits.db/get-time-spent-on-url url)))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -173,6 +198,7 @@
       :get-local-url-info        (get-url-info request sender false)
       :get-tweets                (get-tweets request sender)
       :get-prefixes-info         (get-prefixes-info request sender)
+      :get-time-spent-on-url     (get-time-spent-on-url request sender)
       :show-domain-links-notice? (should-show-domain-links-notice?)
       :should-show-domain-links? (should-show-domain-links? request sender)
       :subdomains-notice?        (should-show-subdomains-notice?)
@@ -180,6 +206,9 @@
       :open-weekly-links         (open-weekly-links)
       :should-show-weekly?       (should-show-weekly?)
       :update-user-info          (update-user-info)
+      :amplify-page              (amplify-page sender)
+      :update-amplified-page     (update-amplified-page request sender)
+      :delete-amplified-page     (delete-amplified-page request sender)
 
       (log/error "Unknown request type" request-type))))
 
@@ -190,3 +219,13 @@
   (.. browser -runtime -onMessage (addListener message-received)))
 
 (defstate messages-handler :start (start) :stop (stop))
+
+(defn amplify-current-tab []
+  (-> (.. browser -tabs (query #js {:active true :currentWindow true}))
+    (.then #(js->clj % :keywordize-keys true))
+    (.then (fn [[{tab-id :id}]]
+             (js/console.log tab-id)
+             (when tab-id
+               (.. browser -tabs
+                 (sendMessage tab-id
+                   (clj->js {:type :amplify-page}))))))))

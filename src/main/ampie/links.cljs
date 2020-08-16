@@ -37,7 +37,9 @@
                                    "tl"  :tl
                                    nil)})
           links (map local-link->server-format links)]
-      (backend/link-ids-to-info links))
+      (.catch
+        (backend/link-ids-to-info links)
+        #(assoc % :hn nil :twitter nil)))
     (js/Promise.resolve {:hn nil :twitter nil})))
 
 (defn get-links-starting-with

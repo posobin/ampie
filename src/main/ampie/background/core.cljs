@@ -5,11 +5,22 @@
             [ampie.background.link-cache-sync]
             [ampie.tabs.monitoring :as tabs.monitoring]
             ["webextension-polyfill" :as browser]
-            [mount.core :as mount]
+            [mount.core :as mount :refer [defstate]]
             [clojure.string :as string]
             [taoensso.timbre :as log]))
 
 (defonce active-tab-interval-id (atom nil))
+
+(defn handle-shortcut [command]
+  (case command
+    "amplify_page"
+    (background.messaging/amplify-current-tab)))
+
+(defstate shortcut-handler
+  :start (.. browser -commands -onCommand
+           (addListener handle-shortcut))
+  :stop (.. browser -commands -onCommand
+          (removeListener handle-shortcut)))
 
 (defn ^:dev/before-load remove-listeners []
   (log/info "Removing listeners")

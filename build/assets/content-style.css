@@ -19,7 +19,7 @@
 
 .ampie-badge-icon:after {content: "&";}
 
-.ampie-info-bar-holder {z-index: 100000; position: fixed;}
+.ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 100000; position: fixed;}
 .ampie-info-bar-holder .ampie-hidden {display: none;}
 .ampie-message-holder {z-index: 100001; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
 

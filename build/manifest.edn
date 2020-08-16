@@ -1,4 +1,4 @@
-{:name             "Ampie"
+{:name             "Ampie (dev)"
  :version          "2.1.0"
  :description      "Social navigator for the web"
  :manifest-version 2
@@ -23,8 +23,9 @@
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"
                             "unlimitedStorage"
-                            #_"http://localhost/"
-                            #_"http://localhost:5000/"
+                            "http://localhost/"
+                            "http://localhost:5000/"
+                            "https://ampie-dev.s3.amazonaws.com/"
                             "https://ampie.s3.amazonaws.com/"
                             "https://hacker-news.firebaseio.com/"
                             "https://*.ampie.app/"]
@@ -32,18 +33,25 @@
  :content-scripts          [{:css     ["assets/content-style.css" "assets/fonts-content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}
+ :commands                 {;; Using underscore for clarity, because shadow
+                            ;; replaces hypen with underscore.
+                            "amplify_page"
+                            {:suggested_key
+                             {:default "Ctrl+Shift+A"
+                              :mac     "Command+Shift+A"}
+                             :description "Amplify the page you are on"}}
 
- :content-security-policy ["default-src 'self';"
-                           "connect-src *;"
-                           "script-src 'self';"
-                           ;; "default-src 'self' 'unsafe-eval';"
-                           ;; ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
-                           ;; "script-src 'self' 'unsafe-eval';"
-                           ;; "connect-src * data: blob: filesystem:;"
-                           ;; "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
-                           ;; "img-src 'self' data: chrome-extension-resource:;"
-                           ;; ;; FIXME: localhost only? don't want to allow any origin though
-                           ;; "frame-src 'self' http://localhost:* data: chrome-extension-resource:;"
-                           ;; "font-src 'self' data: chrome-extension-resource:;"
-                           ;; "media-src * data: blob: filesystem:;"
+ :content-security-policy [;; "default-src 'self';"
+                           ;; "connect-src *;"
+                           ;; "script-src 'self';"
+                           "default-src 'self' 'unsafe-eval';"
+                           ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
+                           "script-src 'self' 'unsafe-eval';"
+                           "connect-src * data: blob: filesystem:;"
+                           "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
+                           "img-src 'self' data: chrome-extension-resource:;"
+                           ;; FIXME: localhost only? don't want to allow any origin though
+                           "frame-src 'self' http://localhost:* data: chrome-extension-resource:;"
+                           "font-src 'self' data: chrome-extension-resource:;"
+                           "media-src * data: blob: filesystem:;"
                            ]}

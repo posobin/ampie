@@ -411,46 +411,44 @@
                   #(swap! pages-info assoc-in [:info-bars idx :seen-at :hn] %))))))))))
 
 (defn info-bars-and-mini-tags [{:keys [pages-info close-info-bar]}]
-  (into [:div.info-bars-and-mini-tags]
-    (into [(when (:open (:mini-tags @pages-info))
-             ^{:key :mini-tags}
-             [mini-tags {:page-info       (:mini-tags @pages-info)
-                         :open-info-bar   #(load-page-info
-                                             (.. js/document -location -href)
-                                             pages-info
-                                             false)
-                         :close-mini-tags #(swap! pages-info
-                                             assoc-in [:mini-tags :open] false)}])]
-      (when (seq (:info-bars @pages-info))
-        [^{:key (count (:info-bars @pages-info))}
-         [info-bar {:page-info       (last (:info-bars @pages-info))
-                    :load-page-info  (fn [url] (load-page-info url pages-info false))
-                    :close-page-info (fn [] (swap! pages-info
-                                              update :info-bars pop))
-                    :show-prefix-info
-                    (fn [prefix-info]
-                      (swap! pages-info
-                        update :info-bars
-                        (fn [info-bars]
-                          (let [current
-                                (get-in info-bars
-                                  [(dec (count info-bars)) :prefix-info])]
-                            (when-not (= current prefix-info)
-                              (.. browser -runtime
-                                (sendMessage (clj->js
-                                               {:type :clicked-subdomain})))))
-                          (assoc-in info-bars
-                            [(dec (count info-bars)) :prefix-info]
-                            prefix-info))))}]]))))
-
-(defn remove-info-bar []
-  (let [element (.. js/document -body (querySelector ".ampie-info-bar-holder"))]
-    (when element (.. js/document -body (removeChild element)))))
+  [:div.info-bars-and-mini-tags
+   [:<>
+    (when (:open (:mini-tags @pages-info))
+      ^{:key :mini-tags}
+      [mini-tags {:page-info       (:mini-tags @pages-info)
+                  :open-info-bar   #(load-page-info
+                                      (.. js/document -location -href)
+                                      pages-info
+                                      false)
+                  :close-mini-tags #(swap! pages-info
+                                      assoc-in [:mini-tags :open] false)}])
+    (when (seq (:info-bars @pages-info))
+      ^{:key (count (:info-bars @pages-info))}
+      [info-bar {:page-info       (last (:info-bars @pages-info))
+                 :load-page-info  (fn [url] (load-page-info url pages-info false))
+                 :close-page-info (fn [] (swap! pages-info
+                                           update :info-bars pop))
+                 :show-prefix-info
+                 (fn [prefix-info]
+                   (swap! pages-info
+                     update :info-bars
+                     (fn [info-bars]
+                       (let [current
+                             (get-in info-bars
+                               [(dec (count info-bars)) :prefix-info])]
+                         (when-not (= current prefix-info)
+                           (.. browser -runtime
+                             (sendMessage (clj->js
+                                            {:type :clicked-subdomain})))))
+                       (assoc-in info-bars
+                         [(dec (count info-bars)) :prefix-info]
+                         prefix-info))))}])]])
 
 (defn reset-current-page-info! [pages-info]
-  (let [current-url (.. js/window -location -href)]
+  (let [current-url    (.. js/window -location -href)
+        normalized-url (url/normalize current-url)]
     (reset! pages-info {:mini-tags {:url            current-url
-                                    :normalized-url (url/normalize current-url)}
+                                    :normalized-url normalized-url}
                         :info-bars []})
     (.then (.. browser -runtime
              (sendMessage (clj->js {:type :should-show-weekly?})))
@@ -486,6 +484,10 @@
               (.then
                 #(when % (load-page-info current-url pages-info true))))))))))
 
+(defn remove-info-bar []
+  (let [element (.. js/document -body (querySelector ".ampie-info-bar-holder"))]
+    (when element (.. js/document -body (removeChild element)))))
+
 (defn display-info-bar
   "Mount the info bar element,
   display the mini tags if necessary, return the function
@@ -512,3 +514,7 @@
     ;; bar for.
     {:reset-page (fn [] (reset-current-page-info! pages-info))
      :show-info  (fn [page-url] (load-page-info page-url pages-info false))}))
+
+(defstate info-bar-state
+  :start (display-info-bar)
+  :stop (remove-info-bar))

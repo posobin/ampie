@@ -3,7 +3,7 @@
   (:require ["webextension-polyfill" :as browser]
             [taoensso.timbre :as log]
             [reagent.core :as r]
-            [ajax.core :refer [GET POST HEAD]]
+            [ajax.core :refer [GET POST HEAD PUT DELETE]]
             [mount.core]
             [clojure.string :as string]
             [ampie.db :refer [db]]
@@ -47,13 +47,16 @@
   (remove-watch @auth-token key))
 
 (defn base-request-options []
-  (log/spy
-    {:headers          {:Authorization (str "Token " @@auth-token)
-                        :Ampie-version ampie-version}
-     :with-credentials true
-     :format           :json
-     :response-format  :json
-     :keywords?        true}))
+  {:headers          {:Authorization (str "Token " @@auth-token)
+                      :Ampie-version ampie-version}
+   :with-credentials true
+   :format           :json
+   :response-format  :json
+   :keywords?        true})
+
+(defn error->map [error]
+  (let [{:keys [status response]} (js->clj error :keywordize-keys true)]
+    (assoc response :fail true :status status)))
 
 (defn request-user-info
   "Get user info from the ampie backend."
@@ -158,7 +161,8 @@
                 (reduce
                   (fn [result link]
                     (update result (:normalized-url link)
-                      #(conj (or % #{}) [(:id link) (:seen-at link)])))
+                      #(conj (or % #{}) [(:id link) (:seen-at link)
+                                         ])))
                   {}))))]
     (js/Promise.
       (fn [resolve]
@@ -229,20 +233,24 @@
           (-> (js/Promise.all
                 (array
                   (let [storage-key (str "link-cache-" (name cache-key))]
-                    (.then (.. browser -storage -local (get storage-key))
-                      #(-> (js->clj % :keywordize-keys true)
-                         ((keyword storage-key)))))
+                    (-> (.. browser -storage -local (get storage-key))
+                      (.then
+                        #(-> (js->clj % :keywordize-keys true)
+                           ((keyword storage-key))))
+                      (.then #(do (log/info %) %))))
                   (js/Promise.
                     (fn [resolve]
                       (HEAD url
                         {:response-format identity
                          :handler
                          (fn [^js response]
+                           (js/console.log (.getResponseHeaders response))
                            (resolve (-> (.getResponseHeaders response)
                                       (js->clj :keywordize-keys true)
                                       :etag)))})))))
             (.then
               (fn [[previous-info new-etag]]
+                (log/info previous-info new-etag)
                 (when-not (= (:etag previous-info) new-etag)
                   (log/info "Downloading cache" cache-key "from" url)
                   (.. browser -storage -local
@@ -257,7 +265,8 @@
                   (.. browser -storage -local
                     (set (clj->js {(str "link-cache-" (name cache-key))
                                    {:last-updated (js/Date.now)
-                                    :etag         new-etag}}))))))))))))
+                                    :etag         new-etag}}))))))
+            (.catch #(log/error %))))))))
 
 (defn link-ids-to-info
   "Queries the server with the given link ids and returns a Promise that
@@ -271,7 +280,8 @@
         (assoc (base-request-options)
           :params {:links links}
           :handler #(resolve (js->clj % :keywordize-keys true))
-          :error-handler reject)))))
+          :error-handler
+          #(reject (error->map %)))))))
 
 (defn get-tweets
   "Returns the hydrated tweet objects as returned by twitter.
@@ -301,10 +311,7 @@
         (assoc (base-request-options)
           :params {:url url}
           :handler #(resolve (js->clj % :keywordize-keys true))
-          :error-handler
-          (fn [e]
-            (let [{:keys [status response]} (js->clj e :keywordize-keys true)]
-              (reject (assoc response :fail true)))))))))
+          :error-handler #(reject (error->map %)))))))
 
 (defn send-weekly-links
   "Sends the given links to the backend to create a weekly links post.
@@ -319,15 +326,10 @@
           :handler
           (fn [result]
             (let [week-of (-> result (js->clj :keywordize-keys true) :week-of)]
-              (js/console.log result)
-              (log/info week-of)
               (resolve
                 (str "https://ampie.app/weekly/"
                   (:username @@user-info) "/" week-of))))
-          :error-handler
-          (fn [e]
-            (let [{:keys [status response]} (js->clj e :keywordize-keys true)]
-              (reject (assoc response :fail true)))))))))
+          :error-handler #(reject (error->map %)))))))
 
 (defn can-complete-weekly? []
   (let [dow              (.getDay (js/Date.))
@@ -338,3 +340,35 @@
     (and @@user-info
       (not= current-week last-filled-week)
       (zero? dow))))
+
+(defn amplify-page [page-info]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "visit")
+        (assoc (base-request-options)
+          :params {:visit-info page-info}
+          :handler #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(defn update-amplified-page [{:keys [submission-tag] :as updated-page-info}]
+  (js/Promise.
+    (fn [resolve reject]
+      (if submission-tag
+        (PUT (endpoint "visit")
+          (assoc (base-request-options)
+            :params {:visit-info     updated-page-info
+                     :submission-tag submission-tag}
+            :handler #(resolve (js->clj % :keywordize-keys true))
+            :error-handler #(reject (error->map %))))
+        (reject {:fail true :message "Amplify the page before sending update queries."})))))
+
+(defn delete-amplified-page [submission-tag]
+  (js/Promise.
+    (fn [resolve reject]
+      (if submission-tag
+        (DELETE (endpoint "visit")
+          (assoc (base-request-options)
+            :params {:submission-tag submission-tag}
+            :handler #(resolve (js->clj % :keywordize-keys true))
+            :error-handler #(reject (error->map %))))
+        (reject {:fail true :message "Page hasn't been amplified yet."})))))

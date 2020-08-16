@@ -530,13 +530,14 @@
                   (seq (:info-bars @pages-info)))
             (.stopPropagation e)
             (swap! pages-info update :info-bars pop)))))
+    ;; Hiding the info bar when full screen and when focused in a text field
     (let [text-node-types
           #{"text" "password" "number" "email" "tel" "url" "search" "date"
             "datetime" "datetime-local" "time" "month" "week"}
           is-text-node?
           (fn is-text-node? [el]
             (let [tag-name (.. el -tagName (toLowerCase))]
-              (or (.-contentEditable el)
+              (or (= (.-contentEditable el) "true")
                 (= tag-name "textbox")
                 (and (= tag-name "input")
                   (contains? text-node-types (.. el -type (toLowerCase)))))))]
@@ -545,7 +546,12 @@
           (when (is-text-node? (.-activeElement js/document))
             (swap! pages-info assoc :hidden true))))
       (. js/document addEventListener "focusout"
-        (fn [e] (swap! pages-info assoc :hidden false))))
+        (fn [e] (swap! pages-info assoc :hidden false)))
+      (. js/document addEventListener "fullscreenchange"
+        (fn [e]
+          (if (.-fullscreenElement js/document)
+            (swap! pages-info assoc :hidden true)
+            (swap! pages-info assoc :hidden false)))))
     (.. js/document -body (appendChild shadow-root-el))
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.

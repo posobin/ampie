@@ -9,7 +9,9 @@
             [ajax.core :refer [GET]]
             [clojure.string :as string]
             [ampie.components.basics :as b]
-            [ampie.time]))
+            [ampie.time]
+            [ampie.content-script.amplify]
+            [mount.core :as mount :refer [defstate]]))
 
 (defn tweet [{{:keys [screen_name]} :user
               {urls :urls}          :entities
@@ -254,17 +256,25 @@
   [:div.notice.pane
    [:p "Try clicking the underlined parts of the URL below."]])
 
+(defn load-failed-message [fail-message]
+  [:div.notice.pane
+   [:p "Couldn't load data from the server. "
+    fail-message]])
+
 (defn info-bar [{:keys [page-info close-page-info show-prefix-info load-page-info]}]
   (let [{{:keys [history hn twitter]} :seen-at
          :keys
          [normalized-url prefixes-info prefix-info only-local-data counts
-          show-auto-open-notice show-subdomains-notice]}
+          show-auto-open-notice show-subdomains-notice fail fail-message]}
         page-info]
     [:div.info-bar
      (into
        [elements-stack]
        (filter identity
-         [(when (and only-local-data
+         [(when fail
+            ^{:key :fail-message :tight true}
+            [load-failed-message fail-message])
+          (when (and only-local-data
                   show-auto-open-notice
                   (or (pos? (:hn counts))
                     (pos? (:twitter counts))))
@@ -292,6 +302,11 @@
                   :keys
                   [open-info-bar close-mini-tags]}]
   [:div.mini-tags {:on-click open-info-bar}
+   #_[:div.sharing
+      [:div.buttons]
+      "Live"]
+   [:div.share {:on-click (fn [e] (.stopPropagation e))}
+    [:span.icon.share-icon]]
    (when show-weekly
      [:div.weekly
       {:on-click (fn [evt]
@@ -305,9 +320,7 @@
      [:div.mini-tag
       [:span.icon {:class (str (name source-key) "-icon")}]
       count])
-   (when (or (> (count domain-links) 1)
-           (and (pos? (count domain-links))
-             (not= (-> domain-links first :normalized-url) normalized-url)))
+   (when (other-links-with-prefix? domain-links normalized-url)
      [:div.mini-tag
       [:span.icon.domain-links-icon]
       (let [count (count domain-links)]
@@ -350,7 +363,7 @@
                                             :get-url-info)
                                     :url  url})))
       (fn [js-url->where-seen]
-        (let [{:keys [hn twitter history] :as seen-at}
+        (let [{:keys [hn twitter history fail message] :as seen-at}
               (js->clj js-url->where-seen :keywordize-keys true)
               new-page-info
               {:url             url
@@ -364,21 +377,20 @@
                     :hn      (when (pos? (count hn)) :loading)}))
                :counts          {:history (count history)
                                  :twitter (count twitter)
-                                 :hn      (count hn)}}]
+                                 :hn      (count hn)}
+               :fail            fail
+               :fail-message    message}]
           (let [idx            (-> (swap! pages-info update :info-bars conj new-page-info)
                                  :info-bars count dec)
                 normalized-url (url/normalize url)]
-            (log/info idx url (:info-bars @pages-info))
             (when only-local-data
               (.then (.. browser -runtime
                        (sendMessage (clj->js {:type :show-domain-links-notice?})))
                 (fn [show?]
-                  (js/console.log show?)
                   (swap! pages-info assoc-in
                     [:info-bars idx :show-auto-open-notice] show?))))
             (.then (get-prefixes-info)
               (fn [prefixes-info]
-                (log/info prefixes-info)
                 (let [filtered (filter
                                  (fn [[_ links]]
                                    (other-links-with-prefix?
@@ -476,7 +488,7 @@
                               last
                               second)]
           (swap! pages-info assoc-in [:mini-tags :on-this-domain] domain-links)
-          (when (pos? (count domain-links))
+          (when (other-links-with-prefix? domain-links normalized-url)
             (swap! pages-info assoc-in [:mini-tags :open] true)
             (-> (.. browser -runtime
                   (sendMessage (clj->js {:type :should-show-domain-links?
@@ -509,6 +521,13 @@
     (. shadow (appendChild shadow-style))
     (. shadow (appendChild info-bar-div))
     (retargetEvents shadow)
+    (. js/document
+      (addEventListener "keyup"
+        (fn [e]
+          (when (and (or (= (.-key e) "Escape") (= (.-key e) "Esc"))
+                  (seq (:info-bars @pages-info)))
+            (.stopPropagation e)
+            (swap! pages-info update :info-bars pop)))))
     (.. js/document -body (appendChild shadow-root-el))
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.

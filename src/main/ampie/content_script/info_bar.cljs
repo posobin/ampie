@@ -261,13 +261,13 @@
    [:p "Couldn't load data from the server. "
     fail-message]])
 
-(defn info-bar [{:keys [page-info close-page-info show-prefix-info load-page-info]}]
+(defn info-bar [{:keys [page-info close-page-info show-prefix-info load-page-info hidden]}]
   (let [{{:keys [history hn twitter]} :seen-at
          :keys
          [normalized-url prefixes-info prefix-info only-local-data counts
           show-auto-open-notice show-subdomains-notice fail fail-message]}
         page-info]
-    [:div.info-bar
+    [:div.info-bar {:class (when hidden "hidden")}
      (into
        [elements-stack]
        (filter identity
@@ -425,7 +425,8 @@
 (defn info-bars-and-mini-tags [{:keys [pages-info close-info-bar]}]
   [:div.info-bars-and-mini-tags
    [:<>
-    (when (:open (:mini-tags @pages-info))
+    (when (and (:open (:mini-tags @pages-info))
+            (not (:hidden @pages-info)))
       ^{:key :mini-tags}
       [mini-tags {:page-info       (:mini-tags @pages-info)
                   :open-info-bar   #(load-page-info
@@ -434,9 +435,10 @@
                                       false)
                   :close-mini-tags #(swap! pages-info
                                       assoc-in [:mini-tags :open] false)}])
-    (when (seq (:info-bars @pages-info))
-      ^{:key (count (:info-bars @pages-info))}
-      [info-bar {:page-info       (last (:info-bars @pages-info))
+    (for [[index page-info] (map-indexed vector (:info-bars @pages-info))]
+      ^{:key [index (:url page-info)]}
+      [info-bar {:page-info       page-info
+                 :hidden          (:hidden @pages-info)
                  :load-page-info  (fn [url] (load-page-info url pages-info false))
                  :close-page-info (fn [] (swap! pages-info
                                            update :info-bars pop))
@@ -528,6 +530,22 @@
                   (seq (:info-bars @pages-info)))
             (.stopPropagation e)
             (swap! pages-info update :info-bars pop)))))
+    (let [text-node-types
+          #{"text" "password" "number" "email" "tel" "url" "search" "date"
+            "datetime" "datetime-local" "time" "month" "week"}
+          is-text-node?
+          (fn is-text-node? [el]
+            (let [tag-name (.. el -tagName (toLowerCase))]
+              (or (.-contentEditable el)
+                (= tag-name "textbox")
+                (and (= tag-name "input")
+                  (contains? text-node-types (.. el -type (toLowerCase)))))))]
+      (. js/document addEventListener "focusin"
+        (fn [e]
+          (when (is-text-node? (.-activeElement js/document))
+            (swap! pages-info assoc :hidden true))))
+      (. js/document addEventListener "focusout"
+        (fn [e] (swap! pages-info assoc :hidden false))))
     (.. js/document -body (appendChild shadow-root-el))
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.

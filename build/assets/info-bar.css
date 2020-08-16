@@ -18,6 +18,7 @@
     background: var(--background);
     transition-property: opacity, box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
 }
+.info-bar.hidden {display: none;}
 
 .info-bar.left {right: initial; left: 0; padding-right: 2px;}
 

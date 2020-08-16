@@ -89,7 +89,7 @@
     (.. browser -tabs (query #js {:active true :currentWindow true}))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [[{url :url}]]
-             (visits.db/get-past-visits-to-the-url url 100)))
+             (visits.db/get-past-visits-to-the-url url 10)))
     (.then #(map :origin %))
     (.then #(visits.db/get-visits-info %))
     (.then

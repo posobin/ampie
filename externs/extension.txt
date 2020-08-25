@@ -2,3 +2,4 @@ seenUrls
 visits
 links
 closedTabs
+seenBadgeLinks

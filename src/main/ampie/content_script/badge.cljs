@@ -3,7 +3,7 @@
             [ampie.interop :as i]
             [ampie.url :as url]
             [taoensso.timbre :as log]
-            [mount.core]
+            [mount.core :refer [defstate]]
             [clojure.string :as string]
             [cljs.core.async :refer [go go-loop >! <! alts! chan]])
   (:require-macros [mount.core :refer [defstate]]))
@@ -187,6 +187,28 @@
       title
       href)))
 
+(def seen-badges-ids (atom #{}))
+(def intersection-observer
+  (js/IntersectionObserver.
+    (fn [^js evts]
+      (doseq [evt   (array-seq evts)
+              :let  [ratio (.-intersectionRatio evt)
+                     element (.-target evt)
+                     intersection-ratio (.-intersectionRatio evt)
+                     badge-id (.getAttribute element "ampie-badge-id")
+                     already-seen (contains? @seen-badges-ids badge-id)]
+              :when (and (> intersection-ratio 0)
+                      (not already-seen))
+              :let  [badge-target
+                     (. js/document querySelector
+                       (str "[processed-by-ampie=\"" badge-id "\"]"))
+                     target-url (get-target-url badge-target)]]
+        (swap! seen-badges-ids conj badge-id)
+        (.. browser -runtime
+          (sendMessage (clj->js {:type :inc-badge-sightings
+                                 :url  target-url})))))
+    #js {:threshold 1.0}))
+
 (defn add-ampie-badge [target target-id target-info on-badge-click]
   (let [badge-div  (. js/document createElement "div")
         badge-icon (. js/document createElement "div")
@@ -194,6 +216,7 @@
         bold       (or (>= (count (:hn target-info)) 3)
                      (>= (count (:twitter target-info)) 5)
                      (>= (count (:visits target-info) 1)))]
+    (.observe intersection-observer badge-div)
     (set! (.-className badge-div)
       (str "ampie-badge" (when bold " ampie-badge-bold")))
     (.setAttribute badge-div "role" "button")
@@ -211,8 +234,13 @@
         (fn []
           (reset! mouse-out? false)
           (show-tooltip badge-div tooltip)))
+      (.addEventListener target "mouseover"
+        (fn []
+          (reset! mouse-out? false)
+          (show-tooltip badge-div tooltip)))
       (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
       (.addEventListener badge-div "mouseout" on-mouse-out)
+      (.addEventListener target "mouseout" on-mouse-out)
       (.addEventListener tooltip "mouseout" on-mouse-out))
     (.appendChild (find-non-table-offset-parent target) badge-div)
     (position-ampie-badge target badge-div)
@@ -323,8 +351,9 @@
                    (str "[processed-by-ampie=\"" target-id "\"]"))
           badge  (. js/document querySelector
                    (str "[ampie-badge-id=\"" target-id "\"]"))]
-      (if (nil? target)
+      (if (or (nil? target) (nil? badge))
         (do (when badge (.remove badge))
+            (when target (.removeAttribute target "processed-by-ampie"))
             (swap! target-ids disj target-id))
         (update-badge target badge)))))
 

@@ -1,5 +1,5 @@
 :host {all: initial;}
-.ampie-badge {all: initial; position: absolute;}
+.ampie-badge {all: initial; position: absolute; width: min-content !important; padding: 0 !important; margin: 0 !important;}
 .ampie-badge-hidden {visibility: hidden; display: none;}
 .ampie-badge-fixed {position: fixed;}
 
@@ -19,9 +19,9 @@
 
 .ampie-badge-icon:after {content: "&";}
 
-.ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 100000; position: fixed;}
+.ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 2147483600; position: fixed;}
 .ampie-info-bar-holder .ampie-hidden {display: none;}
-.ampie-message-holder {z-index: 100001; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
+.ampie-message-holder {z-index: 2147483601; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
 
 .ampie-badge-tooltip {
     all: initial;
@@ -36,7 +36,7 @@
     max-width: 200px;
     /* border-radius: 3px; */
     border: 1px solid var(--accent-color);
-    z-index: 99999;
+    z-index: 2147483599;
     transition-property: box-shadow;
     transition-duration: 0.15s;
     transition-timing-function: ease;
@@ -57,6 +57,8 @@
 
 .ampie-badge-tooltip-visible .ampie-badge-tooltip {display: block;}
 
+.ampie-badge-mini-tag {border: none;}
+
 .ampie-mini-tag-icon {width: 1em; height: 1em; vertical-align: text-top; display: inline-block; margin-right: 2px;}
 .ampie-hn-icon {
     background:
@@ -75,4 +77,11 @@
         no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
         no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
         no-repeat url('assets/icons/history.svg') center/contain;
+}
+.ampie-visits-icon {
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/ampie-no-shadow.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/ampie-no-shadow.svg') center/contain,
+        no-repeat url('assets/icons/ampie-no-shadow.svg') center/contain;
+    margin-left: -2px;
 }

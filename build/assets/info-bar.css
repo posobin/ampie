@@ -5,6 +5,9 @@
     --font-color: #332222;
     --link-color: #2e2eb0;
     --secondary-font-color: #4a3d43;
+    --green: hsl(107,94%,35%);
+    --red: #d03e3e;
+    --red-shadow: #ff8888;
     --background: var(--accent-color);
     /* --background: linear-gradient(to bottom left, rgb(171, 40, 45), var(--accent-color)); */
     pointer-events: none;
@@ -51,6 +54,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .this-page-preview {cursor: pointer;}
 .this-page-preview .header {display: inline;}
 .this-page-preview .inline-mini-tags {float: right;}
+.share-page {cursor: pointer;}
 .notice p {margin-top: 4px; margin-bottom: 0;}
 .notice p:first-child {margin-top: 0;}
 
@@ -62,26 +66,20 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .hn-icon {background: no-repeat url("icons/hn.svg") center/contain;}
 .history-icon {background: no-repeat url("icons/history.svg") center/contain;}
 .close-icon {width: calc(1em - 2px); height: calc(1em - 2px); background: no-repeat url("icons/close.svg") center/contain;}
-.share-icon {background: no-repeat url("icons/ampie-no-shadow.svg") center/contain;}
+.ampie-icon, .visits-icon {background: no-repeat url("icons/ampie-no-shadow.svg") center/contain; margin-left: -4px;}
 .mini-tags .domain-links-icon {margin-left: -4px;}
 .domain-links-icon::before {content: "/..."; letter-spacing: -0.1em; font-weight: 600; white-space: nowrap;}
 
 .bottom-row .close {margin-right: 10px; margin-top: 2px;}
-.share, .close {cursor: pointer; display: block; position: relative; height: min-content; width: min-content; z-index: 0;}
+.close {cursor: pointer; display: block; position: relative; height: min-content; z-index: 0;}
 .close .close-icon {padding: 0; margin: 0; display: block;}
-.share .share-icon {display: block;}
 .mini-tags .close .close-icon {margin-bottom: -1px; margin-top: 1px;}
-.mini-tags .share .share-icon {margin-right: -2px;}
-.share::after, .close::after {transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;}
-.share:hover::after, .close:hover::after {
+.mini-tags::before {content: ""; position: absolute; top: -40px; left: -40px; width: calc(100% + 80px); pointer-events: none;}
+.close::after {transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;}
+.close:hover::after {
     content:""; position:absolute; left:-4px; top:-4px; width:calc(100% + 8px); height:calc(100% + 8px);
     background: #ffeffe; border-radius: 4px;
     z-index: -1;
-}
-.mini-tags .share:hover::before {
-    content: "Click to amplify"; position: absolute; left: 50%; top: 0; transform: translateX(-50%) translateY(calc(-100% - 2px));
-    padding: 2px 4px; background: grey; color: white; border-radius: 4px;
-    white-space: nowrap;
 }
 .info-bar .close:hover::before {
     content: "Press ESC"; position: absolute; left: 0; top: -4px; transform: translateX(calc(-100% - 8px));
@@ -110,6 +108,11 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
     z-index: -1;
 }
 
+.mini-tags-holder {
+    pointer-events: none;
+    padding: 40px;
+    border-radius: 40px;
+}
 .mini-tags {
     cursor: pointer;
     color: var(--font-color); font: 10pt Roboto, sans-serif; text-align: left; letter-spacing: 0;
@@ -149,3 +152,5 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 
 .mini-tags .weekly {cursor: pointer;}
 .mini-tags .weekly:hover {text-decoration: underline;}
+.ampie-visit .reaction.like {color: var(--green);}
+.ampie-visit .reaction.dislike {color: var(--red);}

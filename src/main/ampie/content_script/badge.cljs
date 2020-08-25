@@ -24,7 +24,8 @@
                 current-nurl (url/normalize (.. js/window -location -href))
                 cleaned-up   (->> urls-info
                                (filter #(and (not= (:normalized-url %) current-nurl)
-                                          (or (seq (:twitter %)) (seq (:hn %)))))
+                                          (or (seq (:twitter %)) (seq (:hn %))
+                                            (seq (:visits %)))))
                                (map #(vector (:url %) %))
                                (into {}))]
             (response-handler cleaned-up)))))))
@@ -126,7 +127,7 @@
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")]
     (set! (.-className tooltip-div) "ampie-badge-tooltip")
-    (doseq [source-tag [:history :hn :twitter]
+    (doseq [source-tag [:history :hn :twitter :visits]
             :when      (source-tag target-info)
             :let       [n-entries (count (source-tag target-info))]
             :when      (pos? n-entries)
@@ -191,9 +192,11 @@
         badge-icon (. js/document createElement "div")
         tooltip    (generate-tooltip target-info)
         bold       (or (>= (count (:hn target-info)) 3)
-                     (>= (count (:twitter target-info)) 5))]
+                     (>= (count (:twitter target-info)) 5)
+                     (>= (count (:visits target-info) 1)))]
     (set! (.-className badge-div)
       (str "ampie-badge" (when bold " ampie-badge-bold")))
+    (.setAttribute badge-div "role" "button")
     (set! (.-onclick badge-div) #(on-badge-click (get-target-url target)))
     (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
     (set! (.-className badge-icon) "ampie-badge-icon")

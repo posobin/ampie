@@ -10,7 +10,7 @@
             [clojure.string :as string]
             [ampie.components.basics :as b]
             [ampie.time]
-            [ampie.content-script.amplify]
+            [ampie.content-script.amplify :as amplify]
             [mount.core :as mount :refer [defstate]]))
 
 (defn tweet [{{:keys [screen_name]} :user
@@ -62,6 +62,22 @@
      (for [{:keys [id] :as story-info} hn-stories-info]
        ^{:key id} [hn-story story-info]))])
 
+(defn visit [{:keys [username comment reaction created-at] :as visit-info}]
+  (let [date (ampie.time/timestamp->date (* created-at 1000))]
+    [:div.ampie-visit.row
+     (when comment [:div.comment comment])
+     [:div.info
+      [:div.author username]
+      [:div.reaction {:class reaction}
+       (or reaction "amplified this page")]
+      [:div.date date]]]))
+
+(defn visits-component [visits]
+  [:div.hn-stories.pane
+   [:div.header [:span.icon.ampie-icon] "Ampie"]
+   (for [{:keys [id info]} (sort-by (comp :created-at :info) visits)]
+     ^{:key id} [visit info])])
+
 (defn seen-at [sources]
   (when (seq sources)
     [:div.seen-at.pane
@@ -73,13 +89,6 @@
         [:div.info
          [:div.domain (url/get-domain url)]
          [:div.date (ampie.time/timestamp->date first-opened)]]])]))
-
-#_(defn mini-tags [reference-counts]
-    (for [[source-name count] reference-counts]
-      ^{:key source-name}
-      [:div.mini-tag
-       [(keyword (str "i.icon." (name source-name)))]
-       count]))
 
 (defn other-links-with-prefix? [links normalized-url]
   (or (> (count links) 1)
@@ -127,10 +136,11 @@
             [:span.part
              (when highlight?
                {:on-click #(show-prefix-info info)
+                :role     "link"
                 :class    "highlight"})
              (js/decodeURI substr)]
             (when-not (empty? after) after)])))
-     [:div.close {:on-click close-page-info}
+     [:div.close {:on-click close-page-info :role "button"}
       [:span.icon.close-icon]]]))
 
 (defn window [{:keys [overscroll-handler window-atom tight]}]
@@ -197,7 +207,9 @@
 (defn mini-tag [source-key count]
   (if (pos? count)
     [:div.mini-tag
-     [:span.icon {:class (str (name source-key) "-icon")}]
+     [:span.icon {:class (str (if (= source-key :visits)
+                                "ampie"
+                                (name source-key)) "-icon")}]
      count]
     [:div.mini-tag]))
 
@@ -216,12 +228,9 @@
              [:span.prefix (js/decodeURI reversed-prefix)]
              (js/decodeURI end)])
           [reversed-normalized-url]))]
-     (let [grouped (group-by second seen-at)
-           history (grouped "history")
-           hn      (concat (grouped "hnc") (grouped "hn"))
-           twitter (concat (grouped "tf") (grouped "tl"))]
+     (let [{:keys [visits hn twitter]} seen-at]
        [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
-        [mini-tag :history (count history)]
+        [mini-tag :visits (count visits)]
         [mini-tag :hn (count hn)]
         [mini-tag :twitter (count twitter)]])]))
 
@@ -261,17 +270,28 @@
    [:p "Couldn't load data from the server. "
     fail-message]])
 
-(defn info-bar [{:keys [page-info close-page-info show-prefix-info load-page-info hidden]}]
-  (let [{{:keys [history hn twitter]} :seen-at
+(defn share-page-notice []
+  [:div.share-page.pane
+   [:div.header {:on-click (fn [e] (.stopPropagation e)
+                             ((:amplify-page @amplify/amplify)))}
+    [:a "Amplify this page"]]])
+
+(defn info-bar [{:keys [page-info close-page-info show-prefix-info
+                        load-page-info hidden opacity]}]
+  (let [{{:keys [history hn twitter visits]} :seen-at
          :keys
          [normalized-url prefixes-info prefix-info only-local-data counts
           show-auto-open-notice show-subdomains-notice fail fail-message]}
         page-info]
-    [:div.info-bar {:class (when hidden "hidden")}
+    [:div.info-bar {:class (when hidden "hidden")
+                    :style (when opacity {:opacity opacity})}
      (into
        [elements-stack]
        (filter identity
-         [(when fail
+         [(when (= (.. js/document -location -href) (:url page-info))
+            ^{:key :share-page-notice :tight true}
+            [share-page-notice])
+          (when fail
             ^{:key :fail-message :tight true}
             [load-failed-message fail-message])
           (when (and only-local-data
@@ -285,6 +305,7 @@
             ^{:key :this-page-preview :tight true}
             [this-page-preview normalized-url counts load-page-info])
           (when history ^{:key :seen-at} [seen-at history])
+          (when visits ^{:key :visits} [visits-component visits])
           (when twitter ^{:key :tweets} [tweets twitter])
           (when hn ^{:key :hn-stories} [hn-stories hn])
           (when (and prefix-info (seq (second prefix-info)))
@@ -301,19 +322,16 @@
                    :keys        [counts normalized-url show-weekly]} :page-info
                   :keys
                   [open-info-bar close-mini-tags]}]
-  [:div.mini-tags {:on-click open-info-bar}
-   #_[:div.sharing
-      [:div.buttons]
-      "Live"]
-   [:div.share {:on-click (fn [e] (.stopPropagation e))}
-    [:span.icon.share-icon]]
+  [:div.mini-tags {:role     "button"
+                   :on-click open-info-bar}
    (when show-weekly
      [:div.weekly
-      {:on-click (fn [evt]
+      {:role     "link"
+       :on-click (fn [evt]
                    (.stopPropagation evt)
                    (.. browser -runtime
                      (sendMessage (clj->js {:type :open-weekly-links}))))}
-      "Share the weekly links!"])
+      "Weekly"])
    (for [[source-key count] counts
          :when              (pos? count)]
      ^{:key source-key}
@@ -327,7 +345,8 @@
         (if (>= count 50)
           (str count "+")
           count))])
-   [:div.close {:on-click (fn [e] (.stopPropagation e) (close-mini-tags) nil)}
+   [:div.close {:on-click (fn [e] (.stopPropagation e) (close-mini-tags) nil)
+                :role     "button"}
     [:span.icon.close-icon]]])
 
 (defn hydrate-tweets [tweets]
@@ -363,7 +382,7 @@
                                             :get-url-info)
                                     :url  url})))
       (fn [js-url->where-seen]
-        (let [{:keys [hn twitter history fail message] :as seen-at}
+        (let [{:keys [hn twitter history visits fail message] :as seen-at}
               (js->clj js-url->where-seen :keywordize-keys true)
               new-page-info
               {:url             url
@@ -371,13 +390,15 @@
                :only-local-data only-local-data
                :seen-at
                (merge
-                 {:history (seq history)}
+                 {:history (seq history)
+                  :visits  (seq visits)}
                  (when-not only-local-data
                    {:twitter (when (pos? (count twitter)) :loading)
                     :hn      (when (pos? (count hn)) :loading)}))
                :counts          {:history (count history)
                                  :twitter (count twitter)
-                                 :hn      (count hn)}
+                                 :hn      (count hn)
+                                 :visits  (count visits)}
                :fail            fail
                :fail-message    message}]
           (let [idx            (-> (swap! pages-info update :info-bars conj new-page-info)
@@ -435,28 +456,30 @@
                                       false)
                   :close-mini-tags #(swap! pages-info
                                       assoc-in [:mini-tags :open] false)}])
-    (for [[index page-info] (map-indexed vector (:info-bars @pages-info))]
-      ^{:key [index (:url page-info)]}
-      [info-bar {:page-info       page-info
-                 :hidden          (:hidden @pages-info)
-                 :load-page-info  (fn [url] (load-page-info url pages-info false))
-                 :close-page-info (fn [] (swap! pages-info
-                                           update :info-bars pop))
-                 :show-prefix-info
-                 (fn [prefix-info]
-                   (swap! pages-info
-                     update :info-bars
-                     (fn [info-bars]
-                       (let [current
-                             (get-in info-bars
-                               [(dec (count info-bars)) :prefix-info])]
-                         (when-not (= current prefix-info)
-                           (.. browser -runtime
-                             (sendMessage (clj->js
-                                            {:type :clicked-subdomain})))))
-                       (assoc-in info-bars
-                         [(dec (count info-bars)) :prefix-info]
-                         prefix-info))))}])]])
+    (doall
+      (for [[index page-info] (map-indexed vector (:info-bars @pages-info))]
+        ^{:key [index (:url page-info)]}
+        [info-bar {:page-info       page-info
+                   :hidden          (:hidden @pages-info)
+                   :load-page-info  (fn [url] (load-page-info url pages-info false))
+                   :close-page-info (fn [] (swap! pages-info
+                                             update :info-bars pop))
+                   :opacity         (- 1.0 (* (- (count (:info-bars @pages-info)) (inc index)) 0.2))
+                   :show-prefix-info
+                   (fn [prefix-info]
+                     (swap! pages-info
+                       update :info-bars
+                       (fn [info-bars]
+                         (let [current
+                               (get-in info-bars
+                                 [(dec (count info-bars)) :prefix-info])]
+                           (when-not (= current prefix-info)
+                             (.. browser -runtime
+                               (sendMessage (clj->js
+                                              {:type :clicked-subdomain})))))
+                         (assoc-in info-bars
+                           [(dec (count info-bars)) :prefix-info]
+                           prefix-info))))}]))]])
 
 (defn reset-current-page-info! [pages-info]
   (let [current-url    (.. js/window -location -href)
@@ -471,14 +494,15 @@
              (sendMessage (clj->js {:type :get-local-url-info
                                     :url  current-url})))
       (fn [js-url->where-seen]
-        (let [{:keys [hn twitter history] :as seen-at}
+        (let [{:keys [hn twitter history visits] :as seen-at}
               (js->clj js-url->where-seen :keywordize-keys true)]
           (swap! pages-info assoc-in [:mini-tags :seen-at :history] (seq history))
           (swap! pages-info assoc-in [:mini-tags :counts]
             {:history (count history)
              :twitter (count twitter)
+             :visits  (count visits)
              :hn      (count hn)})
-          (when (or (seq history) (seq twitter) (seq hn))
+          (when (or (seq visits) (seq history) (seq twitter) (seq hn))
             (swap! pages-info assoc-in [:mini-tags :open] true)))))
     (.then (.. browser -runtime
              (sendMessage (clj->js {:type :get-prefixes-info
@@ -538,7 +562,7 @@
           (fn is-text-node? [el]
             (let [tag-name (.. el -tagName (toLowerCase))]
               (or (= (.-contentEditable el) "true")
-                (= tag-name "textbox")
+                (= tag-name "textarea")
                 (and (= tag-name "input")
                   (contains? text-node-types (.. el -type (toLowerCase)))))))]
       (. js/document addEventListener "focusin"
@@ -546,7 +570,9 @@
           (when (is-text-node? (.-activeElement js/document))
             (swap! pages-info assoc :hidden true))))
       (. js/document addEventListener "focusout"
-        (fn [e] (swap! pages-info assoc :hidden false)))
+        (fn [e]
+          (when (not (.-fullscreenElement js/document))
+            (swap! pages-info assoc :hidden false))))
       (. js/document addEventListener "fullscreenchange"
         (fn [e]
           (if (.-fullscreenElement js/document)

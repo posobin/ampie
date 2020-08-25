@@ -29,20 +29,13 @@
 (defn get-nurls-info
   "Returns a Promise that resolves to a clj seq of maps :source -> [info+]."
   [normalized-urls]
-  (letfn [(transform-seen-at [seen-at]
-            (let [grouped (group-by second seen-at)
-                  hn      (concat (grouped "hnc") (grouped "hn"))
-                  twitter (concat (grouped "tf") (grouped "tl"))]
-              (merge (when (seq hn) {:hn hn})
-                (when (seq twitter) {:twitter twitter}))))]
-    (.then
-      (js/Promise.all
-        (array
-          (-> (links/get-links-with-nurls normalized-urls)
-            (.then #(map transform-seen-at %)))
-          (seen-urls/find-where-saw-nurls normalized-urls)))
-      (fn [[seen-at-seq history]]
-        (map #(assoc %1 :history %2) seen-at-seq history)))))
+  (.then
+    (js/Promise.all
+      (array
+        (links/get-links-with-nurls normalized-urls)
+        (seen-urls/find-where-saw-nurls normalized-urls)))
+    (fn [[seen-at-seq history]]
+      (map #(assoc %1 :history %2) seen-at-seq history))))
 
 (defn add-seen-urls
   "Takes `request` and `sender`, filters out the pages with the same top-level
@@ -57,7 +50,6 @@
         normalized-page-url (url/normalize page-url)
         domain              (url/get-top-domain-normalized normalized-page-url)
         normalized-urls     (map url/normalize urls)]
-    #_(log/trace "add-seen-urls for" page-url)
     (when page-url
       (let [filtered-urls (filter #(not= domain (url/get-top-domain-normalized %))
                             normalized-urls)]
@@ -73,18 +65,30 @@
       (.. browser -storage -local (get "show-badges"))
       (fn [show-badges]
         (if (or (not show-badges) (aget show-badges "show-badges"))
-          (.then
-            (get-nurls-info normalized-urls)
-            (fn [infos]
-              (->> (map #(assoc %1 :url %2 :normalized-url %3)
-                     infos urls normalized-urls)
-                (map (fn [info]
-                       (update info :history
-                         (fn [history]
-                           (filter #(not= visit-hash (:visit-hash %))
-                             history)))))
-                clj->js)))
+          (.then (links/get-nurls-badge-sightings-counts normalized-urls)
+            (fn [counts]
+              (let [small-ones      (->> (map vector normalized-urls urls)
+                                      (map vector counts)
+                                      (filter #(< (first %) 3))
+                                      (map second))
+                    normalized-urls (map first small-ones)
+                    urls            (map second small-ones)]
+                (.then (get-nurls-info normalized-urls)
+                  (fn [infos]
+                    (->> (map #(assoc %1 :url %2 :normalized-url %3)
+                           infos urls normalized-urls)
+                      (map (fn [info]
+                             (update info :history
+                               (fn [history]
+                                 (vec
+                                   (filter #(not= visit-hash (:visit-hash %))
+                                     history))))))
+                      clj->js))))))
           (clj->js (map (constantly {}) normalized-urls)))))))
+
+(defn inc-badge-sightings [{:keys [url]} sender]
+  (links/inc-nurl-badge-sightings-counts (url/normalize url))
+  nil)
 
 (defn get-url-info
   "Returns a Promise that resolves to a js map :source -> [info+]."
@@ -96,17 +100,11 @@
           (seen-urls/find-where-saw-nurls [normalized-url])
           (if include-links-info
             (-> (links/get-links-with-nurl normalized-url)
+              (.then (fn [source->links]
+                       (reduce-kv #(into %1 %3) [] source->links)))
               (.then links/link-ids-to-info))
-            (-> (links/get-links-with-nurl normalized-url)
-              (.then
-                (fn [seen-at]
-                  (let [grouped (group-by second seen-at)
-                        hn      (concat (grouped "hnc") (grouped "hn"))
-                        twitter (concat (grouped "tf") (grouped "tl"))]
-                    (merge (when (seq hn) {:hn hn})
-                      (when (seq twitter) {:twitter twitter})))))))))
+            (links/get-links-with-nurl normalized-url))))
       (fn [[seen links]]
-        #_(log/info links)
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
@@ -116,9 +114,8 @@
 (defn get-prefixes-info [{url :url} sender]
   (let [normalized-url (url/normalize url)
         prefixes       (rest
-                         (take 100
+                         (take 10
                            (url/get-prefixes-normalized normalized-url)))]
-    (js/console.log prefixes)
     (.then (js/Promise.all
              (for [prefix prefixes]
                (links/get-links-starting-with prefix)))
@@ -164,8 +161,8 @@
 
 (defn amplify-page [sender]
   (let [tab-info (-> sender i/js->clj :tab)]
-    (js/console.log tab-info (select-keys tab-info [:url :fav-icon-url :title]))
     (-> (backend/amplify-page (select-keys tab-info [:url :fav-icon-url :title]))
+      (.then (fn [x] (js/Promise. #(backend/update-friends-visits)) x))
       (.then clj->js)
       (.catch clj->js))))
 
@@ -174,26 +171,38 @@
     (-> (backend/update-amplified-page
           (merge (select-keys tab-info [:url :fav-icon-url :title])
             (select-keys request [:submission-tag :comment :reaction])))
+      (.then (fn [x] (js/Promise. #(backend/update-friends-visits)) x))
       (.then clj->js)
       (.catch clj->js))))
 
 (defn delete-amplified-page [{:keys [submission-tag]} sender]
   (let [tab-info (-> sender i/js->clj :tab)]
     (-> (backend/delete-amplified-page submission-tag)
+      (.then
+        (fn [{:keys [normalized-url link-id] :as x}]
+          (js/Promise. #(links/delete-seen-at normalized-url link-id))
+          x))
       (.then clj->js)
       (.catch clj->js))))
 
+(defn amplify-dialog-enabled? [_ sender]
+  (let [url (.-url sender)]
+    (js/Promise.resolve
+      (boolean (and (:amplify-dialog-enabled @@settings)
+                 (not (some #(clojure.string/includes? url %)
+                        (:blacklisted-urls @@settings))))))))
+
 (defn get-time-spent-on-url [request sender]
-  (let [url (-> sender i/js->clj :tab :url)]
+  (let [url (.-url sender)]
     (visits.db/get-time-spent-on-url url)))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
-    #_(log/info request)
     (case (keyword request-type)
       :get-past-visits-parents   (get-past-visits-parents request sender)
       :add-seen-urls             (add-seen-urls request sender)
+      :inc-badge-sightings       (inc-badge-sightings request sender)
       :get-url-info              (get-url-info request sender true)
       :get-local-url-info        (get-url-info request sender false)
       :get-tweets                (get-tweets request sender)
@@ -209,6 +218,7 @@
       :amplify-page              (amplify-page sender)
       :update-amplified-page     (update-amplified-page request sender)
       :delete-amplified-page     (delete-amplified-page request sender)
+      :amplify-dialog-enabled?   (amplify-dialog-enabled? request sender)
 
       (log/error "Unknown request type" request-type))))
 
@@ -224,7 +234,6 @@
   (-> (.. browser -tabs (query #js {:active true :currentWindow true}))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [[{tab-id :id}]]
-             (js/console.log tab-id)
              (when tab-id
                (.. browser -tabs
                  (sendMessage tab-id

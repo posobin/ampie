@@ -10,13 +10,18 @@
                        :auto-show-domain-links    true
                        :seen-domain-links-notice  false
                        :tried-clicking-subdomains false
-                       :blacklisted-urls          []
+                       :amplify-dialog-enabled    true
+                       :blacklisted-urls          ["mail.google.com"
+                                                   "hey.com"
+                                                   "messenger.com"
+                                                   "overleaf.com"
+                                                   "docs.google.com"]
                        :blacklisted-domains       []})
 (def settings-keys (set (keys default-settings)))
 
 (defn load-settings [settings-atom]
   (.then
-    (.get (.. browser -storage -local) (clj->js settings-keys))
+    (.. browser -storage -local (get (clj->js settings-keys)))
     (fn [settings]
       (reset! settings-atom (merge default-settings
                               (js->clj settings :keywordize-keys true)))
@@ -39,7 +44,7 @@
   [key reference old-state new-state]
   (doseq [[key value] (second (clojure.data/diff old-state new-state))]
     (assert (contains? settings-keys key))
-    (.. browser -storage -local (set (clj->js {key value})))))
+    (.. browser -storage -local (set (clj->js {key (new-state key)})))))
 
 (defstate settings-watcher
   :start

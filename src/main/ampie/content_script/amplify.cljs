@@ -5,6 +5,7 @@
             [reagent.core :as r]
             [ampie.url :as url]
             [taoensso.timbre :as log]
+            [ampie.components.basics :as b]
             [mount.core :as mount :refer [defstate]]))
 
 (defn amplify-page!
@@ -21,7 +22,9 @@
             (focus))
           (catch :default e)))
     (let [url (.. js/document -location -href)]
-      (swap! amplify-info update :uploading inc)
+      (swap! amplify-info (fn [{:keys [uploading mode] :as info}]
+                            (assoc info :uploading (inc uploading)
+                              :mode (or mode :suggest-sharing))))
       (swap! amplify-info assoc :failure false :interacted true)
       (->
         (.. browser -runtime
@@ -79,6 +82,9 @@
                  :error (:message response))
                (swap! amplify-info assoc
                  :mode :suggest-sharing
+                 :comment nil
+                 :reaction nil
+                 :submission-tag nil
                  :amplified false
                  :updated false))))))
 
@@ -91,131 +97,152 @@
       (let [old-comment (:comment @amplify-info)
             new-comment (.. text-change-event -target -value)]
         (when-not (= old-comment new-comment)
-          (when @timeout-id (js/clearTimeout @timeout-id))
+          (swap! amplify-info update :uploading inc)
           (swap! amplify-info assoc :comment new-comment)
           (reset! timeout-id
-            (js/setTimeout #(update-amplified-page! amplify-info) 500)))))))
+            (js/setTimeout
+              (fn []
+                (update-amplified-page! amplify-info)
+                (swap! amplify-info update :uploading dec))
+              1000)))))))
+
+(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
+(def amplify-page-shortcut (str (if (mac?) "⌘" "Ctrl") "-Shift-A"))
+
+(defn suggest-sharing [amplify-info]
+  [:div.amplify-dialog.suggest-sharing
+   {:class (when (:fullscreen @amplify-info) :upper-right)}
+   [:p (if (pos? (:uploading @amplify-info))
+         [:button.small {:disabled true} "Sending"]
+         [:button.small {:on-click #(amplify-page! amplify-info)}
+          "Amplify"])
+    [:span.shortcut amplify-page-shortcut]]
+   [:div.close {:on-click    #(close-amplify-dialog amplify-info)
+                :role        "button"
+                :tab-index   0
+                :style       {:top "8px"}
+                :on-key-down #(when (or (= (.-code %) "Enter")
+                                      (= (.-code %) "Space"))
+                                (.stopPropagation %)
+                                (close-amplify-dialog amplify-info))}
+    [:span.shortcut "Esc"]
+    [:span.icon.close-icon]]
+   [:p (str "Click to let your followers "
+         "know that you have been to this URL.")]
+   (when (:failure @amplify-info)
+     [:p.error "Couldn't upload the data. " (:error @amplify-info)])])
+
+(defn edit-amplify [amplify-info]
+  (let [comment-focused (r/atom false)]
+    (fn [amplify-info]
+      [:div.amplify-dialog.expanded
+       {:class [(when (:fullscreen @amplify-info) :upper-right)]}
+       [:div.close {:on-click    #(close-amplify-dialog amplify-info) :tab-index 0
+                    :role        "button"
+                    :on-key-down #(when (or (= (.-code %) "Enter")
+                                          (= (.-code %) "Space"))
+                                    (close-amplify-dialog amplify-info))}
+        [:span.shortcut "Esc"]
+        [:span.icon.close-icon]]
+       [:div.header
+        (cond
+          (pos? (:uploading @amplify-info))
+          [:<> (if (:amplified @amplify-info) "Updating" "Sending")
+           [:span.spinner]]
+          (:failure @amplify-info) [:<> "Error"]
+          (:updated @amplify-info) [:<> "Updated" [:span.checkmark]]
+          :else                    [:<> "Page amplified" [:span.checkmark]])]
+       [:p "Your followers will now see that you found this page worth visiting. "
+        "The pages you amplify are available at "
+        [:a (b/ahref-opts "https://ampie.app") "ampie.app"] "."]
+       (when (and (:focused @amplify-info) (not (:fullscreen @amplify-info)))
+         [:p "Press" [:span.shortcut "Tab"]])
+       [:div.comment-holder
+        [:div.shortcut.appearing
+         {:class (when @comment-focused "hidden")}
+         amplify-page-shortcut]
+        ;; Without key reagent re-renders the textarea on focus on atom
+        ;; update.
+        ^{:key "comment-field"}
+        [:textarea.comment-field
+         ;; Using ref because on-focus wouldn't work, probably because
+         ;; we are in shadow DOM. Didn't figure it out though, maybe
+         ;; take a look some time how to make on-focus work.
+         ;; I am using the retarget events library, so expected it
+         ;; to handle everything.
+         {:ref
+          (fn [el]
+            (when el
+              (reset! comment-focused (= el (.. el (getRootNode) -activeElement)))
+              (.addEventListener el
+                "focus"
+                #(reset! comment-focused true))))
+          :max-length  1000
+          :on-blur     #(reset! comment-focused false)
+          :auto-focus  true
+          :on-key-down #(.stopPropagation %)
+          :on-change   (comment-updater amplify-info)
+          :value       (:comment @amplify-info)
+          :placeholder "Add a comment"}]]
+       [:ul.reaction.choice
+        (let [chosen-reaction (:reaction @amplify-info)]
+          (doall
+            (for [value (into ["like" "meh" "dislike" "to read"]
+                          (when chosen-reaction ["clear"]))
+                  :when (or (nil? chosen-reaction)
+                          (= value chosen-reaction)
+                          (= value "clear"))]
+              ^{:key value}
+              [:li {:class [(when (= chosen-reaction value) "selected")
+                            (when (= value "clear") "clear")]}
+               [:button.inline
+                {:on-click
+                 (fn []
+                   (when (= value "clear")
+                     (.. js/document
+                       (querySelector ".ampie-amplify-dialog-holder")
+                       -shadowRoot
+                       (querySelector "ul.reaction.choice li.selected button")
+                       (focus)))
+                   (swap! amplify-info assoc
+                     :reaction (when-not (= value "clear") value))
+                   (update-amplified-page! amplify-info))}
+                value]])))]
+       [:div.delete
+        ;; Need the key tag because otherwise when tabbing from textarea
+        ;; focused is updated and this button is re-rendered
+        ^{:key "delete-button"}
+        [:button.small {:on-click #(delete-amplified-page! amplify-info)}
+         "Delete"]]
+       (when (and (:focused @amplify-info) (:fullscreen @amplify-info))
+         [:p "Press" [:span.shortcut "Tab"]])
+       (when (:failure @amplify-info)
+         [:p.error "Couldn't upload the data. " (:error @amplify-info)])])))
 
 (defn amplify-dialog [{:keys [amplify-info]}]
-  (let [comment-focused (r/atom false)]
-    (fn [{:keys [amplify-info]}]
-      (when-let [mode (:mode @amplify-info)]
-        (cond
-          (= mode :suggest-sharing)
-          [:div.amplify-dialog
-           [:p
-            (if (pos? (:uploading @amplify-info))
-              [:button.small {:disabled true} "Sending"]
-              [:button.small {:on-click #(amplify-page! amplify-info)}
-               "Amplify"])
-            [:span.shortcut "⌘-Shift-A"]]
-           [:div.close {:on-click    #(close-amplify-dialog amplify-info)
-                        :tab-index   0
-                        :style       {:top "8px"}
-                        :on-key-down #(when (or (= (.-code %) "Enter")
-                                              (= (.-code %) "Space"))
-                                        (.stopPropagation %)
-                                        (close-amplify-dialog amplify-info))}
-            [:span.shortcut "Esc"]
-            [:span.icon.close-icon]]
-           [:p (str "Click to let your followers "
-                 "know that you have been to this URL.")]
-           (when (:failure @amplify-info)
-             [:p.error "Couldn't upload the data. " (:error @amplify-info)])]
+  (when-let [mode (:mode @amplify-info)]
+    (cond
+      (and (not (:text-focused @amplify-info))
+        (= mode :suggest-sharing))
+      [suggest-sharing amplify-info]
 
-          (= mode :edit)
-          [:div.amplify-dialog
-           {:class (when (seq (:comment @amplify-info))
-                     "expanded")}
-           [:div.close {:on-click    #(close-amplify-dialog amplify-info) :tab-index 0
-                        :on-key-down #(when (or (= (.-code %) "Enter")
-                                              (= (.-code %) "Space"))
-                                        (close-amplify-dialog amplify-info))}
-            [:span.shortcut "Esc"]
-            [:span.icon.close-icon]]
-           [:div.header
-            (cond
-              (pos? (:uploading @amplify-info))
-              [:<> (if (:amplified @amplify-info) "Updating" "Sending")
-               [:span.spinner]]
-              (:failure @amplify-info) [:<> "Error"]
-              (:updated @amplify-info) [:<> "Updated" [:span.checkmark]]
-              :else                    [:<> "Page amplified" [:span.checkmark]])]
-           [:p "Your followers will now see that you have been to this page"]
-           [:div.comment-holder
-            [:div.shortcut.appearing
-             {:class (when @comment-focused "hidden")}
-             "⌘-Shift-A"]
-            ;; Without key reagent re-renders the textarea on focus on atom
-            ;; update.
-            ^{:key "comment-field"}
-            [:textarea.comment-field
-             ;; Using ref because on-focus wouldn't work, probably because
-             ;; we are in shadow DOM. Didn't figure it out though, maybe
-             ;; take a look some time how to make on-focus work.
-             ;; I am using the retarget events library, so expected it
-             ;; to handle everything.
-             {:ref
-              (fn [el]
-                (when el
-                  (reset! comment-focused (= el (.. el (getRootNode) -activeElement)))
-                  (.addEventListener el
-                    "focus"
-                    #(reset! comment-focused true))))
-              :max-length  1000
-              :on-blur     #(reset! comment-focused false)
-              :auto-focus  true
-              :on-key-down #(.stopPropagation %)
-              :on-change   (comment-updater amplify-info)
-              :value       (:comment @amplify-info)
-              :placeholder "Add a comment"}]]
-           [:ul.reaction.choice
-            (let [chosen-reaction (:reaction @amplify-info)]
-              (doall
-                (for [value (into ["like" "meh" "dislike" "to read"]
-                              (when chosen-reaction ["clear"]))
-                      :when (or (nil? chosen-reaction)
-                              (= value chosen-reaction)
-                              (= value "clear"))]
-                  ^{:key value}
-                  [:li {:class [(when (= chosen-reaction value) "selected")
-                                (when (= value "clear") "clear")]}
-                   [:button.inline
-                    {:on-click
-                     (fn []
-                       (when (= value "clear")
-                         (.. js/document
-                           (querySelector ".ampie-amplify-dialog-holder")
-                           -shadowRoot
-                           (querySelector "ul.reaction.choice li.selected button")
-                           (focus)))
-                       (swap! amplify-info assoc
-                         :reaction (when-not (= value "clear") value))
-                       (update-amplified-page! amplify-info))}
-                    value]])))]
-           [:div.delete
-            ;; Need the key tag because otherwise when tabbing from textarea
-            ;; focused is updated and this button is re-rendered
-            ^{:key "delete-button"}
-            [:button.small {:on-click #(delete-amplified-page! amplify-info)}
-             "Delete"]]
-           (when (:focused @amplify-info)
-             [:p "Press" [:span.shortcut "Tab"]])
-           (when (:failure @amplify-info)
-             [:p.error "Couldn't upload the data. " (:error @amplify-info)])])))))
+      (= mode :edit)
+      [edit-amplify amplify-info])))
 
 (defn process-key-press [amplify-dialog-div amplify-info]
   (fn [e]
     (when (zero? (:uploading @amplify-info))
       (-> (case (:mode @amplify-info)
             :suggest-sharing
-            (case (.-key e)
-              ("Escape" "Esc") (close-amplify-dialog amplify-info)
-              :pass)
+            (cond
+              (or (= (.-key e) "Escape") (= (.-key e) "Esc"))
+              (close-amplify-dialog amplify-info)
+              :else :pass)
             :edit
-            (case (.-key e)
-              ("Escape" "Esc") (close-amplify-dialog amplify-info)
-              :pass)
+            (cond
+              (or (= (.-key e) "Escape") (= (.-key e) "Esc"))
+              (close-amplify-dialog amplify-info)
+              :else :pass)
             nil
             :pass)
         (= :pass)
@@ -239,8 +266,24 @@
           time-info)
         :idleness-timeout-id))))
 
+(defn is-video-playing? []
+  (let [video        (. js/document querySelector "video")
+        current-time (and video (.-currentTime video))
+        paused       (and video (.-paused video))
+        ended        (and video (.-ended video))
+        playing      (and video (pos? current-time) (not paused) (not ended))]
+    playing))
+
 (defn on-active-time-count []
-  (let [new-timeout-id (js/setTimeout on-blur-time-count 30000)]
+  (let [new-timeout-id
+        (js/setTimeout
+          (fn try-to-blur []
+            (if-not (is-video-playing?)
+              (on-blur-time-count)
+              (let [try-again-later-id (js/setTimeout try-to-blur 30000)]
+                (swap! time-info-atom
+                  assoc :idleness-timeout-id try-again-later-id))))
+          30000)]
     (swap! time-info-atom
       (fn [{:keys [last-start ms-spent idleness-timeout-id] :as time-info}]
         (js/clearTimeout idleness-timeout-id)
@@ -249,22 +292,16 @@
                  time-info)
           :idleness-timeout-id new-timeout-id)))))
 
-(def on-active-targets-and-events
-  [[js/window ["focus" "scroll"]]
-   [js/document ["mousedown" "keydown" "touchstart"]]])
-
 (defn show-amplify-dialog-if-fresh [amplify-info]
   (let [{:keys [mode amplified deleted interacted]} @amplify-info]
     (when-not (or mode amplified deleted interacted)
       (swap! amplify-info assoc :mode :suggest-sharing))))
 
-(defn can-show-amplify-dialog? []
-  (let [video        (. js/document querySelector "video")
-        current-time (and video (.-currentTime video))
-        paused       (and video (.-paused video))
-        ended        (and video (.-ended video))
-        playing      (and (pos? current-time) (not paused) (not ended))]
-    (or (not video) (not playing))))
+(defn can-show-amplify-dialog? [] (not (is-video-playing?)))
+
+(def on-active-targets-and-events
+  [[js/window ["focus" "scroll"]]
+   [js/document ["mousedown" "keydown" "touchstart"]]])
 
 (defn start-counting-time [amplify-info]
   (when (.hasFocus js/document) (on-active-time-count))
@@ -275,12 +312,18 @@
   (swap! amplify-info assoc :amplify-timer-interval-id
     (js/setInterval
       (fn []
-        (when (and (> (get-total-ms-spent) (* 2 3 1000))
+        (when (and (> (get-total-ms-spent) (* 2 60 1000))
                 (can-show-amplify-dialog?))
-          (show-amplify-dialog-if-fresh amplify-info)
+          (show-amplify-dialog-if-fresh amplify-info))
+        (when-not (can-show-amplify-dialog?)
           (swap! amplify-info
-            (fn [{interval-id :amplify-timer-interval-id :as amplify-info}]
-              (when interval-id (js/clearInterval interval-id))
+            (fn [{:keys [interacted mode] :as amplify-info}]
+              (assoc amplify-info :mode (and interacted mode)))))
+        (when (:interacted @amplify-info)
+          (swap! amplify-info
+            (fn [{:keys [amplify-timer-interval-id] :as amplify-info}]
+              (when amplify-timer-interval-id
+                (js/clearInterval amplify-timer-interval-id))
               (dissoc amplify-info :amplify-timer-interval-id)))))
       1000)))
 
@@ -315,15 +358,42 @@
     (. shadow (appendChild amplify-dialog-div))
     (retargetEvents shadow)
     (. js/document addEventListener "keydown" on-key-down)
+    ;; Hiding the amplify dialog when focused in a text field
+    (let [text-node-types
+          #{"text" "password" "number" "email" "tel" "url" "search" "date"
+            "datetime" "datetime-local" "time" "month" "week"}
+          is-text-node?
+          (fn is-text-node? [el]
+            (let [tag-name (.. el -tagName (toLowerCase))]
+              (or (= (.-contentEditable el) "true")
+                (= tag-name "textarea")
+                (and (= tag-name "input")
+                  (contains? text-node-types (.. el -type (toLowerCase)))))))]
+      (. js/document addEventListener "focusin"
+        (fn [e]
+          (when (is-text-node? (.-activeElement js/document))
+            (swap! amplify-info assoc :text-focused true))))
+      (. js/document addEventListener "focusout"
+        (fn [e]
+          (swap! amplify-info assoc :text-focused false)))
+      (. js/document addEventListener "fullscreenchange"
+        (fn [e]
+          (if (.-fullscreenElement js/document)
+            (swap! amplify-info assoc :fullscreen true)
+            (swap! amplify-info assoc :fullscreen false)))))
     (. shadow-root-el addEventListener "focus" #(swap! amplify-info assoc :focused true))
     (. shadow-root-el addEventListener "focusout" #(swap! amplify-info assoc :focused false))
     (.. js/document -body (appendChild shadow-root-el))
     (.then
-      (.. browser -runtime
-        (sendMessage (clj->js {:type :get-time-spent-on-url})))
-      (fn [time-spent]
+      (js/Promise.all
+        (array
+          (.. browser -runtime
+            (sendMessage (clj->js {:type :get-time-spent-on-url})))
+          (.. browser -runtime
+            (sendMessage (clj->js {:type :amplify-dialog-enabled?})))))
+      (fn [[time-spent enabled]]
         ;; time-spent is in seconds
-        (when (< time-spent 120)
+        (when (and (< time-spent 120) enabled)
           (swap! time-info-atom assoc :ms-spent (* time-spent 1000))
           (start-counting-time amplify-info))))
     {:show-dialog  #(swap! amplify-info assoc :mode :suggest-sharing)

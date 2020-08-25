@@ -21,6 +21,7 @@ assets/images/mini-tags.png
 assets/images/history.png
 assets/images/chrome-toolbar-icon.png
 assets/info-bar.css
+assets/amplify-dialog.css
 assets/content-style.css
 assets/weekly-links-style.css
 assets/icons/hn.svg
@@ -28,6 +29,7 @@ assets/icons/close.svg
 assets/icons/seen-at.svg
 assets/icons/twitter.svg
 assets/icons/history.svg
+assets/icons/ampie-no-shadow.svg
 assets/message.css
 assets/history-style.css
 assets/popup.css

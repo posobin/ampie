@@ -1,5 +1,6 @@
 (ns ampie.background.core
   (:require [ampie.background.messaging :as background.messaging]
+            [ampie.db :refer [db]]
             [ampie.links]
             [ampie.background.backend]
             [ampie.background.link-cache-sync]
@@ -39,6 +40,16 @@
   (.. browser -runtime -onInstalled
     (addListener
       (fn [^js details]
+        (when (and (= (.-reason details) "update")
+                (= (.-previousVersion details) "2.1.0"))
+          (.. browser -tabs
+            (create #js {:url (.. browser -runtime (getURL "update.html"))}))
+          (.. browser -storage -local
+            (set (clj->js {:blacklisted-urls
+                           (:blacklisted-urls
+                            ampie.settings/default-settings)})))
+          #_(-> (.. browser -storage -local (remove "link-caches-info"))
+              (.then (fn [] (-> (.-links @db) (.clear))))))
         (when (or (= (.-reason details) "install")
                 (and (= (.-reason details) "update")
                   (string/starts-with? (.-previousVersion details) "1")))

@@ -3,9 +3,11 @@ body, html {font-size: 18px; line-height: 1.3em;}
 b {font-weight: 500;}
 .header h1 {margin-bottom: 0;}
 .header {padding-bottom: 0px; width: 600px; margin: auto;}
-.hello-container {width: 600px; margin: auto;}
+.hello-container, .update-container {width: 600px; margin: auto;}
 img.mini-tags {height: 28px; margin-top: 4px;}
 img.history {height: 314px;}
+img.amplify {width: 238px; border-radius: 0;}
+img.amplify-edit {width: 368px; border-radius: 0;}
 h3 {margin-top: 32px; margin-bottom: 16px; font-weight: 500;}
 
 .ampie-mini-tag-icon {margin-right: 0;}

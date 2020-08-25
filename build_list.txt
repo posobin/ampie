@@ -3,11 +3,13 @@ out/popup-page.js
 out/bg-shared.js
 out/history-page.js
 out/hello-page.js
+out/update-page.js
 out/content-script.js
 out/shared.js
 out/weekly-links-page.js
 popup.html
 hello.html
+update.html
 history.html
 weekly-links.html
 icons/ampie-no-shadow.svg
@@ -20,6 +22,8 @@ assets/fonts-content-style.css
 assets/images/mini-tags.png
 assets/images/history.png
 assets/images/chrome-toolbar-icon.png
+assets/images/amplify-dialog.png
+assets/images/amplify-dialog-edit.png
 assets/info-bar.css
 assets/amplify-dialog.css
 assets/content-style.css

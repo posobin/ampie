@@ -18,7 +18,9 @@
                   :history-page      {:output-type :chrome/single-file
                                       :init-fn     ampie.pages.history/init}
                   :hello-page        {:output-type :chrome/single-file
-                                      :init-fn     ampie.pages.hello/init}}
+                                      :init-fn     ampie.pages.hello/init}
+                  :update-page       {:output-type :chrome/single-file
+                                      :init-fn     ampie.pages.update/init}}
 
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"

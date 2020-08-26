@@ -23,9 +23,9 @@
 
 .ampie-badge-icon:after {content: "&"; }
 
-.ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 2147483600; position: fixed;}
+.ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 2140000001; position: fixed;}
 .ampie-info-bar-holder .ampie-hidden {display: none;}
-.ampie-message-holder {z-index: 2147483601; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
+.ampie-message-holder {z-index: 2140000002; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
 
 .ampie-badge-tooltip {
     all: initial;
@@ -40,7 +40,7 @@
     max-width: 200px;
     /* border-radius: 3px; */
     border: 1px solid var(--accent-color);
-    z-index: 2147483599;
+    z-index: 2140000000;
     transition-property: box-shadow;
     transition-duration: 0.15s;
     transition-timing-function: ease;

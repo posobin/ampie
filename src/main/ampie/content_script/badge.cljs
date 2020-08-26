@@ -179,7 +179,7 @@
 (defstate on-badge-remove :start (atom {}))
 (defn add-ampie-badge [target target-id target-info on-badge-click]
   (let [badge-div  (. js/document createElement "span")
-        badge-icon (. js/document createElement "div")
+        badge-icon (. js/document createElement "span")
         tooltip    (generate-tooltip target-info)
         bold       (or (>= (count (:hn target-info)) 3)
                      (>= (count (:twitter target-info)) 5)
@@ -214,7 +214,6 @@
       (.addEventListener tooltip "mouseout" on-mouse-out)
       (swap! @on-badge-remove assoc target-id
         (fn []
-          (log/info "Removing" target-id)
           (.removeEventListener target "mouseover" on-mouse-over)
           (.removeEventListener target "mouseout" on-mouse-out))))
     (set! (.. target -style -position) "relative")

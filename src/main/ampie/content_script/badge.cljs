@@ -91,39 +91,6 @@
   (let [color (.. js/window (getComputedStyle target) -color)]
     (set! (.. badge -firstElementChild -style -color) color)))
 
-(defn position-ampie-badge [target badge]
-  (let [target-fixed?   (is-fixed? target)
-        badge-fixed?    (.. badge -classList (contains "ampie-badge-fixed"))
-        ;; Set visibility of the badge depending on the visibility of the target
-        target-visible? (and (some? (.-offsetParent target))
-                          (is-visible? (.-offsetParent target))
-                          (is-visible? target))
-        badge-hidden?   (.. badge -classList (contains "ampie-badge-hidden"))]
-    (cond (and (not target-visible?) (not badge-hidden?))
-          (.. badge -classList (add "ampie-badge-hidden"))
-
-          (and target-visible? badge-hidden?)
-          (.. badge -classList (remove "ampie-badge-hidden")))
-    (when target-visible?
-      (cond (and (= (.-parent badge) (.-body js/document))
-              target-fixed?
-              (not badge-fixed?))
-            (.. badge -classList (add "ampie-badge-fixed"))
-
-            (and (or (not= (.-parent badge)
-                       (.-body js/document))
-                   (not target-fixed?))
-              badge-fixed?)
-            (.. badge -classList (remove "ampie-badge-fixed")))
-      ;; Set position to (0,0), find the distance to the correct location,
-      ;; update the position to the correct value.
-      (set! (.. badge -style -left) (str "0px"))
-      (set! (.. badge -style -top) (str "0px"))
-      (let [[pos-x pos-y] (get-offsets badge target target-fixed?)]
-        (set! (.. badge -style -left) (str pos-x "px"))
-        (set! (.. badge -style -top) (str pos-y "px")))
-      (set! (.. badge -style -zIndex) (get-z-index target)))))
-
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")]
     (set! (.-className tooltip-div) "ampie-badge-tooltip")
@@ -187,7 +154,7 @@
       title
       href)))
 
-(def seen-badges-ids (atom #{}))
+(defstate seen-badges-ids :start (atom #{}))
 (def intersection-observer
   (js/IntersectionObserver.
     (fn [^js evts]
@@ -196,21 +163,22 @@
                      element (.-target evt)
                      intersection-ratio (.-intersectionRatio evt)
                      badge-id (.getAttribute element "ampie-badge-id")
-                     already-seen (contains? @seen-badges-ids badge-id)]
+                     already-seen (contains? @@seen-badges-ids badge-id)]
               :when (and (> intersection-ratio 0)
                       (not already-seen))
               :let  [badge-target
                      (. js/document querySelector
                        (str "[processed-by-ampie=\"" badge-id "\"]"))
                      target-url (get-target-url badge-target)]]
-        (swap! seen-badges-ids conj badge-id)
+        (swap! @seen-badges-ids conj badge-id)
         (.. browser -runtime
           (sendMessage (clj->js {:type :inc-badge-sightings
                                  :url  target-url})))))
     #js {:threshold 1.0}))
 
+(defstate on-badge-remove :start (atom {}))
 (defn add-ampie-badge [target target-id target-info on-badge-click]
-  (let [badge-div  (. js/document createElement "div")
+  (let [badge-div  (. js/document createElement "span")
         badge-icon (. js/document createElement "div")
         tooltip    (generate-tooltip target-info)
         bold       (or (>= (count (:hn target-info)) 3)
@@ -220,30 +188,37 @@
     (set! (.-className badge-div)
       (str "ampie-badge" (when bold " ampie-badge-bold")))
     (.setAttribute badge-div "role" "button")
-    (set! (.-onclick badge-div) #(on-badge-click (get-target-url target)))
+    (.addEventListener badge-div
+      "click"
+      (fn [e]
+        (.preventDefault e)
+        (on-badge-click (get-target-url target))))
     (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
     (set! (.-className badge-icon) "ampie-badge-icon")
     (.appendChild badge-div badge-icon)
     (.setAttribute badge-div "ampie-badge-id" target-id)
     (let [mouse-out? (atom false)
+          on-mouse-over
+          (fn []
+            (reset! mouse-out? false)
+            (show-tooltip badge-icon tooltip))
           on-mouse-out
           (fn []
             (reset! mouse-out? true)
             (js/setTimeout #(when @mouse-out? (.remove tooltip)) 200))]
-      (.addEventListener badge-div "mouseover"
-        (fn []
-          (reset! mouse-out? false)
-          (show-tooltip badge-div tooltip)))
-      (.addEventListener target "mouseover"
-        (fn []
-          (reset! mouse-out? false)
-          (show-tooltip badge-div tooltip)))
+      (.addEventListener badge-div "mouseover" on-mouse-over)
+      (.addEventListener target "mouseover" on-mouse-over)
       (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
       (.addEventListener badge-div "mouseout" on-mouse-out)
       (.addEventListener target "mouseout" on-mouse-out)
-      (.addEventListener tooltip "mouseout" on-mouse-out))
-    (.appendChild (find-non-table-offset-parent target) badge-div)
-    (position-ampie-badge target badge-div)
+      (.addEventListener tooltip "mouseout" on-mouse-out)
+      (swap! @on-badge-remove assoc target-id
+        (fn []
+          (log/info "Removing" target-id)
+          (.removeEventListener target "mouseover" on-mouse-over)
+          (.removeEventListener target "mouseout" on-mouse-out))))
+    (set! (.. target -style -position) "relative")
+    (.appendChild target badge-div)
     (set-badge-color target badge-div)))
 
 (defn show-too-many-badges-message []
@@ -333,13 +308,7 @@
   Repositions/hides/shows the `badge` element depending on the state
   of `target`."
   [target badge]
-  (let [badge-parent  (.-offsetParent badge)
-        target-parent (find-non-table-offset-parent target)]
-    (when-not (= badge-parent target-parent)
-      (.remove badge)
-      (.appendChild target-parent badge))
-    (position-ampie-badge target badge)
-    (set-badge-color target badge)))
+  (set-badge-color target badge))
 
 (defn screen-update
   "Iterate over all the badge ids in the `target-ids` atom
@@ -354,6 +323,9 @@
       (if (or (nil? target) (nil? badge))
         (do (when badge (.remove badge))
             (when target (.removeAttribute target "processed-by-ampie"))
+            (when-let [on-remove (@@on-badge-remove target-id)]
+              (on-remove)
+              (swap! @on-badge-remove dissoc target-id))
             (swap! target-ids disj target-id))
         (update-badge target badge)))))
 
@@ -396,6 +368,7 @@
 
 (defn stop [{:keys [next-target-id target-ids update-cancelled on-resize]}]
   (reset! update-cancelled true)
+  (doseq [[badge-id on-remove] @@on-badge-remove] (on-remove))
   (.. js/document (querySelectorAll ".ampie-badge") (forEach #(.remove %)))
   (.. js/document (querySelectorAll "[processed-by-ampie]")
     (forEach #(.removeAttribute % "processed-by-ampie")))

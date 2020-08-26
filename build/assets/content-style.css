@@ -1,5 +1,7 @@
 :host {all: initial;}
-.ampie-badge {all: initial; position: absolute; width: min-content !important; padding: 0 !important; margin: 0 !important;}
+.ampie-badge {all: initial; /*position: relative; */
+              vertical-align: top;
+              width: 0 !important; padding: 0 !important; margin: 0 !important;}
 .ampie-badge-hidden {visibility: hidden; display: none;}
 .ampie-badge-fixed {position: fixed;}
 
@@ -11,13 +13,15 @@
     font-family: "Crimson Text";
     user-select: none;
     text-align: center;
+    position: absolute; right: 0px; transform: translateX(100%); top: -2px;
+
 }
 .ampie-badge-bold .ampie-badge-icon {
     font-weight: bold;
-    font-size: 13px;
+    font-size: 13px; line-height: 1em;
 }
 
-.ampie-badge-icon:after {content: "&";}
+.ampie-badge-icon:after {content: "&"; }
 
 .ampie-info-bar-holder, .ampie-amplify-dialog-holder {z-index: 2147483600; position: fixed;}
 .ampie-info-bar-holder .ampie-hidden {display: none;}

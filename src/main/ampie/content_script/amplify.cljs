@@ -248,14 +248,14 @@
         (= :pass)
         (when-not (.stopPropagation e))))))
 
-(def time-info-atom (atom {:ms-spent 0 :last-start nil}))
+(defstate time-info-atom :start (atom {:ms-spent 0 :last-start nil}))
 
 (defn get-total-ms-spent []
-  (let [{:keys [ms-spent last-start]} @time-info-atom]
+  (let [{:keys [ms-spent last-start]} @@time-info-atom]
     (+ ms-spent (when last-start (- (js/Date.) last-start)))))
 
 (defn on-blur-time-count []
-  (swap! time-info-atom
+  (swap! @time-info-atom
     (fn [{:keys [last-start ms-spent idleness-timeout-id] :as time-info}]
       (js/clearTimeout idleness-timeout-id)
       (dissoc
@@ -281,10 +281,10 @@
             (if-not (is-video-playing?)
               (on-blur-time-count)
               (let [try-again-later-id (js/setTimeout try-to-blur 30000)]
-                (swap! time-info-atom
+                (swap! @time-info-atom
                   assoc :idleness-timeout-id try-again-later-id))))
           30000)]
-    (swap! time-info-atom
+    (swap! @time-info-atom
       (fn [{:keys [last-start ms-spent idleness-timeout-id] :as time-info}]
         (js/clearTimeout idleness-timeout-id)
         (assoc (if-not last-start
@@ -394,7 +394,7 @@
       (fn [[time-spent enabled]]
         ;; time-spent is in seconds
         (when (and (< time-spent 120) enabled)
-          (swap! time-info-atom assoc :ms-spent (* time-spent 1000))
+          (swap! @time-info-atom assoc :ms-spent (* time-spent 1000))
           (start-counting-time amplify-info))))
     {:show-dialog  #(swap! amplify-info assoc :mode :suggest-sharing)
      :amplify-page #(amplify-page! amplify-info)

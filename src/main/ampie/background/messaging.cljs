@@ -185,15 +185,17 @@
       (.then clj->js)
       (.catch clj->js))))
 
-(defn amplify-dialog-enabled? [_ sender]
-  (let [url (.-url sender)]
+(defn amplify-dialog-enabled? [_ ^js sender]
+  ;; Using .tab.url instead of .url because the latter appears to
+  ;; stay the same for SPAs even when the actual page url changes.
+  (let [url (.. sender -tab -url)]
     (js/Promise.resolve
       (boolean (and (:amplify-dialog-enabled @@settings)
                  (not (some #(clojure.string/includes? url %)
                         (:blacklisted-urls @@settings))))))))
 
-(defn get-time-spent-on-url [request sender]
-  (let [url (.-url sender)]
+(defn get-time-spent-on-url [request ^js sender]
+  (let [url (.. sender -tab -url)]
     (visits.db/get-time-spent-on-url url)))
 
 (defn message-received [request sender]

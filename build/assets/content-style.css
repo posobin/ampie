@@ -4,6 +4,7 @@
               width: 0 !important; padding: 0 !important; margin: 0 !important;}
 .ampie-badge-hidden {visibility: hidden; display: none;}
 .ampie-badge-fixed {position: fixed;}
+p > * > .ampie-badge {position: relative; display: inline-block;}
 
 .ampie-badge-icon {
     font-size: 11px;
@@ -14,7 +15,6 @@
     user-select: none;
     text-align: center;
     position: absolute; right: 0px; transform: translateX(100%); top: -2px;
-
 }
 .ampie-badge-bold .ampie-badge-icon {
     font-weight: bold;

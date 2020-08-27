@@ -85,12 +85,6 @@
            ;; has display: none;
            [0 0])))))
 
-(defn set-badge-color
-  "Sets the color of the `badge` to the color of the `target`."
-  [target badge]
-  (let [color (.. js/window (getComputedStyle target) -color)]
-    (set! (.. badge -firstElementChild -style -color) color)))
-
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")]
     (set! (.-className tooltip-div) "ampie-badge-tooltip")
@@ -183,7 +177,7 @@
         tooltip    (generate-tooltip target-info)
         bold       (or (>= (count (:hn target-info)) 3)
                      (>= (count (:twitter target-info)) 5)
-                     (>= (count (:visits target-info) 1)))]
+                     (>= (count (:visits target-info)) 1))]
     (.observe intersection-observer badge-div)
     (set! (.-className badge-div)
       (str "ampie-badge" (when bold " ampie-badge-bold")))
@@ -217,8 +211,7 @@
           (.removeEventListener target "mouseover" on-mouse-over)
           (.removeEventListener target "mouseout" on-mouse-out))))
     (set! (.. target -style -position) "relative")
-    (.appendChild target badge-div)
-    (set-badge-color target badge-div)))
+    (.appendChild target badge-div)))
 
 (defn show-too-many-badges-message []
   (let [shadow-holder   (.createElement js/document "div")
@@ -302,13 +295,6 @@
                      updated-badges-added))))))))
      (partition 100 100 nil unprocessed-links) 0)))
 
-(defn update-badge
-  "Function to be run when `target` changes.
-  Repositions/hides/shows the `badge` element depending on the state
-  of `target`."
-  [target badge]
-  (set-badge-color target badge))
-
 (defn screen-update
   "Iterate over all the badge ids in the `target-ids` atom
   and update them, deleting the entries from `target-ids`
@@ -319,14 +305,13 @@
                    (str "[processed-by-ampie=\"" target-id "\"]"))
           badge  (. js/document querySelector
                    (str "[ampie-badge-id=\"" target-id "\"]"))]
-      (if (or (nil? target) (nil? badge))
+      (when (or (nil? target) (nil? badge))
         (do (when badge (.remove badge))
             (when target (.removeAttribute target "processed-by-ampie"))
             (when-let [on-remove (@@on-badge-remove target-id)]
               (on-remove)
               (swap! @on-badge-remove dissoc target-id))
-            (swap! target-ids disj target-id))
-        (update-badge target badge)))))
+            (swap! target-ids disj target-id))))))
 
 (defn start [on-badge-click]
   (let [target-ids           (atom #{})

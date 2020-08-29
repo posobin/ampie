@@ -24,7 +24,12 @@
             (badge/stop @page-service)))
 
 (defn ^:dev/after-load init []
-  (mount/start))
+  ;; Don't attempt to load the background services in the content script
+  (mount/start (mount/only
+                 #{#'page-service
+                   #'badge/seen-badges-ids #'badge/on-badge-remove
+                   #'info-bar-state
+                   #'amplify})))
 
 (defn ^:dev/before-load before-load []
   (mount/stop))

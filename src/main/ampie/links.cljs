@@ -16,8 +16,8 @@
     seen-at-map))
 
 (defn transform-seen-at [seen-at]
-  (let [int-ids (map (fn [[k v]] [(js/parseInt (name k)) v]) seen-at)
-        grouped (group-by-source int-ids)
+  (let [str-ids (map (fn [[k v]] [(if (keyword? k) (name k) k) v]) seen-at)
+        grouped (group-by-source str-ids)
         hn      (concat (grouped "hnc") (grouped "hn"))
         twitter (concat (grouped "tf") (grouped "tl"))]
     (merge (when (seq hn) {:hn hn})
@@ -118,7 +118,7 @@
        (.or "normalizedUrl")
        (.equals normalized-url-prefix)
        (.reverse)
-       (.sortBy "count")
+       (.sortBy "score")
        (.then i/js->clj)
        (.then (fn [links] (map #(update % :seen-at transform-seen-at) links)))
        (.then
@@ -140,3 +140,33 @@
               (set! (.-seenAt visit-info) (i/clj->js seen-at))
               (set! (.-count visit-info) (dec (.-count visit-info))))
             (js-delete ref "value")))))))
+
+
+(defn count-history [history-entries] (count history-entries))
+(defn count-tweets [twitter-entries]
+  (->> twitter-entries
+    (map second)
+    (group-by :t-author-id)
+    count))
+(defn count-visits [visits-entries]
+  (->> visits-entries
+    (map second)
+    (group-by :v-user-tag)
+    count))
+(defn count-hn [hn-entries]
+  (if (seq hn-entries)
+    (->> hn-entries
+      (map second)
+      (map #(or (:descendants %) 1))
+      (reduce +))
+    0))
+
+(defn compute-seen-at-score
+  "Computes the total score of the given sources."
+  [seen-at]
+  (let [{:keys [twitter visits hn]}
+        (transform-seen-at seen-at)
+        tweets-count (count-tweets twitter)
+        visits-count (count-visits visits)
+        hn-count     (count-hn hn)]
+    (+ (min hn-count 200) (* 10 tweets-count) (* 10 visits-count))))

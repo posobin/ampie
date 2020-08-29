@@ -11,6 +11,7 @@
             [ampie.components.basics :as b]
             [ampie.time]
             [ampie.content-script.amplify :as amplify]
+            [ampie.links :as links]
             [mount.core :as mount :refer [defstate]]))
 
 (defn tweet [{{:keys [screen_name]} :user
@@ -230,9 +231,9 @@
           [reversed-normalized-url]))]
      (let [{:keys [visits hn twitter]} seen-at]
        [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
-        [mini-tag :visits (count visits)]
-        [mini-tag :hn (count hn)]
-        [mini-tag :twitter (count twitter)]])]))
+        [mini-tag :visits (links/count-visits visits)]
+        [mini-tag :hn (links/count-hn hn)]
+        [mini-tag :twitter (links/count-tweets twitter)]])]))
 
 (defn adjacent-links [[normalized-url links] load-page-info]
   [:div.adjacent-links.pane
@@ -396,9 +397,9 @@
                    {:twitter (when (pos? (count twitter)) :loading)
                     :hn      (when (pos? (count hn)) :loading)}))
                :counts          {:history (count history)
-                                 :twitter (count twitter)
-                                 :hn      (count hn)
-                                 :visits  (count visits)}
+                                 :twitter (links/count-tweets twitter)
+                                 :hn      (links/count-hn hn)
+                                 :visits  (links/count-visits visits)}
                :fail            fail
                :fail-message    message}]
           (let [idx            (-> (swap! pages-info update :info-bars conj new-page-info)
@@ -499,9 +500,9 @@
           (swap! pages-info assoc-in [:mini-tags :seen-at :history] (seq history))
           (swap! pages-info assoc-in [:mini-tags :counts]
             {:history (count history)
-             :twitter (count twitter)
-             :visits  (count visits)
-             :hn      (count hn)})
+             :twitter (links/count-tweets twitter)
+             :visits  (links/count-visits visits)
+             :hn      (links/count-hn hn)})
           (when (or (seq visits) (seq history) (seq twitter) (seq hn))
             (swap! pages-info assoc-in [:mini-tags :open] true)))))
     (.then (.. browser -runtime

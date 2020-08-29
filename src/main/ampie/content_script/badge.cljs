@@ -5,6 +5,7 @@
             [taoensso.timbre :as log]
             [mount.core :refer [defstate]]
             [clojure.string :as string]
+            [ampie.links :as links]
             [cljs.core.async :refer [go go-loop >! <! alts! chan]])
   (:require-macros [mount.core :refer [defstate]]))
 
@@ -88,13 +89,15 @@
 (defn generate-tooltip [target-info]
   (let [tooltip-div (. js/document createElement "div")]
     (set! (.-className tooltip-div) "ampie-badge-tooltip")
-    (doseq [source-tag [:history :hn :twitter :visits]
-            :when      (source-tag target-info)
-            :let       [n-entries (count (source-tag target-info))]
-            :when      (pos? n-entries)
-            :let       [mini-tag (.createElement js/document "div")
-                        icon (.createElement js/document "span")
-                        count-el (.createTextNode js/document (str n-entries))]]
+    (doseq [[source-tag count-fn]
+            [[:history count] [:hn links/count-hn]
+             [:twitter links/count-tweets] [:visits links/count-visits]]
+            :when (source-tag target-info)
+            :let  [n-entries (count-fn (source-tag target-info))]
+            :when (pos? n-entries)
+            :let  [mini-tag (.createElement js/document "div")
+                   icon (.createElement js/document "span")
+                   count-el (.createTextNode js/document (str n-entries))]]
       (set! (.-className mini-tag) "ampie-badge-mini-tag")
       (set! (.-className icon) (str "ampie-mini-tag-icon ampie-"
                                  (name source-tag) "-icon"))

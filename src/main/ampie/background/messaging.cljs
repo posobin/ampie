@@ -7,6 +7,7 @@
             [ampie.links :as links]
             [ampie.background.backend :as backend]
             [ampie.settings :refer [settings]]
+            [ampie.background.link-cache-sync :as link-cache-sync]
             [clojure.set]
             [taoensso.timbre :as log]
             ["webextension-polyfill" :as browser]
@@ -162,7 +163,7 @@
 (defn amplify-page [sender]
   (let [tab-info (-> sender i/js->clj :tab)]
     (-> (backend/amplify-page (select-keys tab-info [:url :fav-icon-url :title]))
-      (.then (fn [x] (js/Promise. #(backend/update-friends-visits)) x))
+      (.then (fn [x] (js/Promise. #(link-cache-sync/update-friends-visits)) x))
       (.then clj->js)
       (.catch clj->js))))
 
@@ -171,7 +172,7 @@
     (-> (backend/update-amplified-page
           (merge (select-keys tab-info [:url :fav-icon-url :title])
             (select-keys request [:submission-tag :comment :reaction])))
-      (.then (fn [x] (js/Promise. #(backend/update-friends-visits)) x))
+      (.then (fn [x] (js/Promise. #(link-cache-sync/update-friends-visits)) x))
       (.then clj->js)
       (.catch clj->js))))
 

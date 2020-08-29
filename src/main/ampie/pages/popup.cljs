@@ -137,7 +137,11 @@
                 (swap! state assoc :link-cache-status)))))
 
 (defn ^:dev/after-load init []
-  (mount/start)
+  (mount/start (mount/only #{'ampie.background.backend/user-info
+                             'ampie.background.backend/cookie-watcher
+                             'ampie.background.backend/auth-token
+                             'ampie.settings/settings
+                             'ampie.db/db}))
   (load-origin-visits)
   #_(set-download-status)
   #_(js/setInterval set-download-status 500)

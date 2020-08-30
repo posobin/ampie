@@ -46,14 +46,91 @@
      (for [{:keys [id_str] :as tweet-info} tweets-info]
        ^{:key id_str} [tweet tweet-info]))])
 
-(defn hn-story [{:keys [by title time score descendants id]
+(defn hn-item-url [item-id]
+  (str "https://hacker-news.firebaseio.com/v0/item/" item-id ".json"))
+
+(defn load-hn-items [item-ids]
+  (js/Promise.all
+    (for [item-id item-ids]
+      (js/Promise.
+        (fn [resolve]
+          (GET (hn-item-url item-id)
+            {:response-format :json
+             :keywords?       true
+             :handler         #(resolve %)}))))))
+
+(defn hn-comment [{:keys [by text time id kids]} depth]
+  (let [comment-ps      (clojure.string/split text #"<p>")
+        p-lengths       (reductions + 0 (map count comment-ps))
+        p-with-length   (map vector comment-ps p-lengths)
+        showing-all     (r/atom (<= (-> p-with-length last second) 280))
+        loaded-kids     (r/atom [])
+        children-hidden (r/atom false)]
+    (fn [{:keys [by text time id kids]} depth]
+      [:div.hn-comment
+       [:div.text
+        (doall
+          (for [[p prior-length] p-with-length
+                :when            (or (<= prior-length 280) @showing-all)]
+            ^{:key prior-length}
+            [:p {:dangerouslySetInnerHTML #js {:__html p}}]))]
+       [:div.info
+        (when-not @showing-all
+          [:button.inline
+           {:on-click #(reset! showing-all true)} "Full comment"])
+        [:div.author by]
+        [:a.date (b/ahref-opts (str "https://news.ycombinator.com/item?id=" id))
+         (ampie.time/timestamp->date (* time 1000))]
+        (when (seq kids)
+          (if (not (seq @loaded-kids))
+            ^{:key :load}
+            [:button.inline
+             {:on-click (fn []
+                          (.then (load-hn-items kids)
+                            #(reset! loaded-kids %)))}
+             "Load " (count kids)
+             (if (= (count kids) 1) " child" " children")]
+            ^{:key :hide-or-show}
+            [:button.inline {:on-click #(log/info (swap! children-hidden not))}
+             (if @children-hidden "Show " "Hide ") "children"]))]
+       (when (and (not @children-hidden) (seq @loaded-kids))
+         [:div.children {:class (when (even? depth) "white")}
+          (for [kid   @loaded-kids
+                :when (seq (:text kid))]
+            ^{:key (:id kid)}[hn-comment kid (inc depth)])])])))
+
+(defn hn-story [{:keys [by title time score descendants id kids]
                  :as   story-info}]
-  [:div.hn-story.row
-   [:a.title (b/ahref-opts (str "https://news.ycombinator.com/item?id=" id)) title]
-   [:div.info
-    [:div.author by] [:div.n-comments (str descendants " comments")]
-    [:div.score (str score " points")]
-    [:div.date (ampie.time/timestamp->date (* time 1000))]]])
+  (let [kids-info (r/atom {:kids [] :loaded-ids #{}})
+        load-more
+        (fn [count]
+          (-> (take count (remove (:loaded-ids @kids-info) kids))
+            (load-hn-items)
+            (.then
+              (fn [loaded-info]
+                (swap! kids-info
+                  (fn [kids-info]
+                    (-> kids-info
+                      (update :kids into loaded-info)
+                      (update :loaded-ids into (map :id loaded-info)))))))))]
+    (load-more 5)
+    (fn [{:keys [by title time score descendants id kids]
+          :as   story-info}]
+      [:div.hn-story.row
+       [:a.title (b/ahref-opts (str "https://news.ycombinator.com/item?id=" id)) title]
+       [:div.info
+        [:div.author by] [:div.n-comments (str descendants " comments")]
+        [:div.score (str score " points")]
+        [:div.date (ampie.time/timestamp->date (* time 1000))]]
+       [:div.children
+        (for [kid-info (:kids @kids-info)
+              :when    (seq (:text kid-info))]
+          ^{:key (:id kid-info)} [hn-comment kid-info 0])
+        (let [loaded-kids-count (count (:kids @kids-info))
+              kids-count        (count kids)]
+          (when (< loaded-kids-count kids-count)
+            [:button.inline {:on-click #(load-more 10) :role "button"}
+             "Load " (min 10 (- kids-count loaded-kids-count)) " more comments"]))]])))
 
 (defn hn-stories [hn-stories-info]
   [:div.hn-stories.pane
@@ -211,7 +288,9 @@
      [:span.icon {:class (str (if (= source-key :visits)
                                 "ampie"
                                 (name source-key)) "-icon")}]
-     count]
+     (if (< count 1000)
+       count
+       (str (quot count 1000) "k"))]
     [:div.mini-tag]))
 
 (defn adjacent-link-row [{:keys [normalized-url seen-at url title]}
@@ -398,19 +477,9 @@
                              :ids  (map (comp :tweet-id-str :info) tweets)})))
     #(js->clj % :keywordize-keys true)))
 
-(defn hn-item-url [item-id]
-  (str "https://hacker-news.firebaseio.com/v0/item/" item-id ".json"))
-
 (defn hydrate-hn [hn-stories]
   (let [stories-ids (map (comp :item-id :info) hn-stories)]
-    (js/Promise.all
-      (for [story-id stories-ids]
-        (js/Promise.
-          (fn [resolve]
-            (GET (hn-item-url story-id)
-              {:response-format :json
-               :keywords?       true
-               :handler         #(resolve %)})))))))
+    (load-hn-items stories-ids)))
 
 (defn load-page-info [url pages-info only-local-data]
   (letfn [(get-prefixes-info []

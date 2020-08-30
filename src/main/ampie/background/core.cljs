@@ -41,15 +41,16 @@
     (addListener
       (fn [^js details]
         (when (and (= (.-reason details) "update")
-                (= (.-previousVersion details) "2.1.0"))
+                (not= (.-previousVersion details) "2.2.1"))
           (.. browser -tabs
             (create #js {:url (.. browser -runtime (getURL "update.html"))}))
-          (.. browser -storage -local
-            (set (clj->js {:blacklisted-urls
-                           (:blacklisted-urls
-                            ampie.settings/default-settings)})))
-          #_(-> (.. browser -storage -local (remove "link-caches-info"))
-              (.then (fn [] (-> (.-links @db) (.clear))))))
+          (when-not goog.DEBUG
+            (.. browser -storage -local
+              (set (clj->js {:blacklisted-urls
+                             (:blacklisted-urls
+                              ampie.settings/default-settings)})))
+            (-> (.. browser -storage -local (remove "link-caches-info"))
+              (.then (fn [] (-> (.-links @db) (.clear)))))))
         (when (or (= (.-reason details) "install")
                 (and (= (.-reason details) "update")
                   (string/starts-with? (.-previousVersion details) "1")))

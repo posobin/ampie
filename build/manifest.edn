@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.2.0"
+ :version          "2.2.1"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"

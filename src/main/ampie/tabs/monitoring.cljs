@@ -58,7 +58,6 @@
               (visits.db/set-visit-title! visit-hash title))))))))
 
 (defn stop []
-  (js/clearInterval update-all-tab-titles 1000)
   (.. browser -tabs -onUpdated
     (removeListener evt/tab-updated))
   (.. browser -windows -onFocusChanged
@@ -75,17 +74,17 @@
 (defn start []
   (.. browser -tabs -onUpdated
     (addListener evt/tab-updated))
-  (.. browser -windows -onFocusChanged
-    (addListener evt/window-focus-changed))
-  (.. browser -tabs -onRemoved
-    (addListener evt/tab-removed))
-  (.. browser -webNavigation -onHistoryStateUpdated
-    (addListener evt/history-state-updated))
-  (.. browser -webNavigation -onCommitted
-    (addListener evt/committed))
-  (.. browser -webNavigation -onCreatedNavigationTarget
-    (addListener evt/created-navigation-target))
-  (js/setInterval update-all-tab-titles 1000))
+  #_(.. browser -windows -onFocusChanged
+      (addListener evt/window-focus-changed))
+  #_(.. browser -tabs -onRemoved
+      (addListener evt/tab-removed))
+  #_(.. browser -webNavigation -onHistoryStateUpdated
+      (addListener evt/history-state-updated))
+  #_(.. browser -webNavigation -onCommitted
+      (addListener evt/committed))
+  #_(.. browser -webNavigation -onCreatedNavigationTarget
+      (addListener evt/created-navigation-target))
+  #_(js/setInterval update-all-tab-titles 1000))
 
 (defstate service
   :start (start)

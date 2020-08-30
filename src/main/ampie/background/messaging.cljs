@@ -51,16 +51,16 @@
         normalized-page-url (url/normalize page-url)
         domain              (url/get-top-domain-normalized normalized-page-url)
         normalized-urls     (map url/normalize urls)]
-    (when page-url
-      (let [filtered-urls (filter #(not= domain (url/get-top-domain-normalized %))
-                            normalized-urls)]
-        (-> (visits.db/get-visit-by-hash visit-hash)
-          (.then
-            (fn [{url :url timestamp :first-opened}]
-              (if (= url page-url)
-                (seen-urls/add-seen-nurls filtered-urls visit-hash timestamp)
-                (log/error "Couldn't add seen-urls because page-url"
-                  "didn't match: expected" url "got" page-url)))))))
+    #_(when page-url
+        (let [filtered-urls (filter #(not= domain (url/get-top-domain-normalized %))
+                              normalized-urls)]
+          (-> (visits.db/get-visit-by-hash visit-hash)
+            (.then
+              (fn [{url :url timestamp :first-opened}]
+                (if (= url page-url)
+                  (seen-urls/add-seen-nurls filtered-urls visit-hash timestamp)
+                  (log/error "Couldn't add seen-urls because page-url"
+                    "didn't match: expected" url "got" page-url)))))))
     ;; The result that the promise returns will be sent to the sender.
     (.then
       (.. browser -storage -local (get "show-badges"))
@@ -140,17 +140,10 @@
     (let [normalized-url (url/normalize url)
           domain         (url/get-domain-normalized normalized-url)
           tab-id         (-> sender i/js->clj :tab :id)]
-      (-> (js/Promise.all
-            (array
-              (visits.db/get-visits-with-nprefix (str domain "/") 2)
-              (visits.db/get-past-visits-to-the-nurl domain 2)))
-        (.then
-          (fn [[visits-prefix visits-url]]
-            (let [union      (concat visits-prefix visits-url)
-                  hashes     (keys (group-by :visit-hash union))
-                  visit-hash (:visit-hash (@@tabs/open-tabs tab-id))]
-              (or (and (nil? visit-hash) (<= (count hashes) 1))
-                (every? #(= visit-hash %) hashes)))))))
+      (-> (visits.db/domain-visited? domain)
+        (.then (fn [result]
+                 (visits.db/mark-domain-visited domain)
+                 (not result)))))
     (js/Promise.resolve false)))
 (defn should-show-domain-links-notice? []
   (let [result (:seen-domain-links-notice @@settings)]
@@ -203,6 +196,11 @@
 (defn get-time-spent-on-url [request ^js sender]
   (let [url (.. sender -tab -url)]
     (visits.db/get-time-spent-on-url url)))
+
+(defn saw-amplify-before? [{url :url} sender]
+  (visits.db/saw-amplify-before? url))
+(defn saw-amplify-dialog [{url :url} sender]
+  (visits.db/saw-amplify-dialog url))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)

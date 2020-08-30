@@ -201,9 +201,10 @@
                            time/get-start-of-week
                            time/js-date->yyyy-MM-dd)
         last-filled-week (first (:weekly-links-posts @@user-info))]
-    (and @@user-info
-      (not= current-week last-filled-week)
-      (zero? dow))))
+    false
+    #_(and @@user-info
+        (not= current-week last-filled-week)
+        (zero? dow))))
 
 (defn amplify-page [page-info]
   (js/Promise.

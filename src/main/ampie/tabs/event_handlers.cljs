@@ -169,9 +169,9 @@
         {url :url}                  (i/js->clj tab-info)
         normalized-url              (url/normalize url)]
     ;; Only fire when the title was updated
-    (when title
-      (log/info "Title of" url "updated to" title)
-      (tabs/update-tab-title tab-id title url))
+    #_(when title
+        (log/info "Title of" url "updated to" title)
+        (tabs/update-tab-title tab-id title url))
 
     (when new-url
       (log/info "Url of tab" tab-id "changed to" new-url)

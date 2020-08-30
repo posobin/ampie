@@ -168,5 +168,8 @@
         (transform-seen-at seen-at)
         tweets-count (count-tweets twitter)
         visits-count (count-visits visits)
-        hn-count     (count-hn hn)]
-    (+ (min hn-count 200) (* 10 tweets-count) (* 10 visits-count))))
+        ;; Just counting the number of submissions
+        ;; to HN since this that is a better metric than
+        ;; the number of comments that count-hn returns.
+        hn-count     (count hn)]
+    (+ hn-count tweets-count visits-count)))

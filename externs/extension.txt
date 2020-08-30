@@ -3,3 +3,5 @@ visits
 links
 closedTabs
 seenBadgeLinks
+visitedDomains
+sawAmplifyOn

@@ -12,25 +12,26 @@
   one vector for each given normalized url - visits during which saw that url."
   [normalized-urls]
   #_(log/trace "find-where-saw-nurls" normalized-urls)
-  (-> (.-seenUrls @db)
-    (.bulkGet (i/clj->js normalized-urls))
-    (.then
-      (fn [arr]
-        (let [;; Vector of vectors of visit-hashes for those urls
-              visit-hashes  (->> (i/js->clj arr)
-                              (map (comp #(map first %) :seen-at)))
-              merged-hashes (reduce #(into %1 %2) #{} visit-hashes)]
-          (-> (.-visits @db)
-            (.bulkGet (i/clj->js merged-hashes))
-            (.then
-              (fn [visits]
-                #_(log/info "Got visits" (i/js->clj visits))
-                (let [visits (reduce
-                               #(assoc %1 (:visit-hash %2) %2)
-                               {}
-                               (i/js->clj visits))]
-                  (map #(->> (map visits %) (filterv some?))
-                    visit-hashes))))))))))
+  (js/Promise.resolve (map (constantly nil) normalized-urls))
+  #_(-> (.-seenUrls @db)
+      (.bulkGet (i/clj->js normalized-urls))
+      (.then
+        (fn [arr]
+          (let [;; Vector of vectors of visit-hashes for those urls
+                visit-hashes  (->> (i/js->clj arr)
+                                (map (comp #(map first %) :seen-at)))
+                merged-hashes (reduce #(into %1 %2) #{} visit-hashes)]
+            (-> (.-visits @db)
+              (.bulkGet (i/clj->js merged-hashes))
+              (.then
+                (fn [visits]
+                  #_(log/info "Got visits" (i/js->clj visits))
+                  (let [visits (reduce
+                                 #(assoc %1 (:visit-hash %2) %2)
+                                 {}
+                                 (i/js->clj visits))]
+                    (map #(->> (map visits %) (filterv some?))
+                      visit-hashes))))))))))
 
 (defn add-seen-nurls
   "Adds the normalized urls from the `normalized-urls` seq to the set of links

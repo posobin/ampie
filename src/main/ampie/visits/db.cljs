@@ -187,3 +187,23 @@
   [url]
   (-> (get-past-visits-to-the-url url 10)
     (.then (fn [visits] (reduce #(+ %1 (:time-spent %2)) 0 visits)))))
+
+(defn domain-visited? [normalized-domain]
+  (-> (.-visitedDomains @db)
+    (.get normalized-domain)
+    (.then some?)))
+
+(defn mark-domain-visited [normalized-domain]
+  (-> (.-visitedDomains @db)
+    (.put (clj->js {:domain        normalized-domain
+                    :lastTimestamp (.getTime (js/Date.))}))))
+
+(defn saw-amplify-before? [url]
+  (-> (.-sawAmplifyOn @db)
+    (.get url)
+    (.then some?)))
+
+(defn saw-amplify-dialog [url]
+  (-> (.-sawAmplifyOn @db)
+    (.put (clj->js {:url       url
+                    :timestamp (.getTime (js/Date.))}))))

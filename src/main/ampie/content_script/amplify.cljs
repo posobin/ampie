@@ -22,26 +22,34 @@
             (focus))
           (catch :default e)))
     (let [url (.. js/document -location -href)]
-      (swap! amplify-info (fn [{:keys [uploading mode] :as info}]
-                            (assoc info :uploading (inc uploading)
-                              :mode (or mode :suggest-sharing))))
-      (swap! amplify-info assoc :failure false :interacted true)
-      (->
+      (when (zero? (:uploading @amplify-info))
         (.. browser -runtime
-          (sendMessage (clj->js {:type :amplify-page :url url})))
-        (.then #(js->clj % :keywordize-keys true))
-        (.then (fn [response]
-                 (swap! amplify-info update :uploading dec)
-                 (if (:fail response)
-                   (swap! amplify-info assoc
-                     :mode :suggest-sharing
-                     :failure true
-                     :error (:message response))
-                   (swap! amplify-info assoc
-                     :amplified true
-                     :failure false
-                     :submission-tag (:submission-tag response)
-                     :mode :edit))))))))
+          (sendMessage (clj->js {:type :saw-amplify-dialog
+                                 :url  (-> (.. js/document -location -href)
+                                         (clojure.string/split #"#")
+                                         first)})))
+        (swap! amplify-info
+          (fn [{:keys [uploading mode] :as info}]
+            (assoc info
+              :uploading (inc uploading)
+              :mode (or mode :suggest-sharing)
+              :failure false
+              :interacted true)))
+        (-> (.. browser -runtime
+              (sendMessage (clj->js {:type :amplify-page :url url})))
+          (.then #(js->clj % :keywordize-keys true))
+          (.then (fn [response]
+                   (swap! amplify-info update :uploading dec)
+                   (if (:fail response)
+                     (swap! amplify-info assoc
+                       :mode :suggest-sharing
+                       :failure true
+                       :error (:message response))
+                     (swap! amplify-info assoc
+                       :amplified true
+                       :failure false
+                       :submission-tag (:submission-tag response)
+                       :mode :edit)))))))))
 
 (defn update-amplified-page!
   "Takes the amplify-info atom, sends the message to extension backend to update
@@ -293,6 +301,11 @@
           :idleness-timeout-id new-timeout-id)))))
 
 (defn show-amplify-dialog-if-fresh [amplify-info]
+  (.. browser -runtime
+    (sendMessage (clj->js {:type :saw-amplify-dialog
+                           :url  (-> (.. js/document -location -href)
+                                   (clojure.string/split #"#")
+                                   first)})))
   (let [{:keys [mode amplified deleted interacted]} @amplify-info]
     (when-not (or mode amplified deleted interacted)
       (swap! amplify-info assoc :mode :suggest-sharing))))
@@ -387,14 +400,21 @@
     (.then
       (js/Promise.all
         (array
+          #_(.. browser -runtime
+              (sendMessage (clj->js {:type :get-time-spent-on-url})))
           (.. browser -runtime
-            (sendMessage (clj->js {:type :get-time-spent-on-url})))
+            (sendMessage (clj->js {:type :amplify-dialog-enabled?})))
           (.. browser -runtime
-            (sendMessage (clj->js {:type :amplify-dialog-enabled?})))))
-      (fn [[time-spent enabled]]
+            (sendMessage
+              (clj->js
+                {:type :saw-amplify-before?
+                 :url  (-> (.. js/document -location -href)
+                         (clojure.string/split #"#")
+                         first)})))))
+      (fn [[enabled saw-amplify-before]]
         ;; time-spent is in seconds
-        (when (and (< time-spent 120) enabled)
-          (swap! @time-info-atom assoc :ms-spent (* time-spent 1000))
+        (when (and #_(< time-spent 120) enabled (not saw-amplify-before))
+          (swap! @time-info-atom assoc :ms-spent 0)
           (start-counting-time amplify-info))))
     {:show-dialog  #(swap! amplify-info assoc :mode :suggest-sharing)
      :amplify-page #(amplify-page! amplify-info)

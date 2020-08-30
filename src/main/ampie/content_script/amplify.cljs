@@ -163,8 +163,6 @@
        [:p "Your followers will now see that you found this page worth visiting. "
         "The pages you amplify are available at "
         [:a (b/ahref-opts "https://ampie.app") "ampie.app"] "."]
-       (when (and (:focused @amplify-info) (not (:fullscreen @amplify-info)))
-         [:p "Press" [:span.shortcut "Tab"]])
        [:div.comment-holder
         [:div.shortcut.appearing
          {:class (when @comment-focused "hidden")}
@@ -216,14 +214,15 @@
                      :reaction (when-not (= value "clear") value))
                    (update-amplified-page! amplify-info))}
                 value]])))]
+       (when (:focused @amplify-info)
+         [:span {:style {:font-weight "initial" :margin-left "1em"}}
+          "Press" [:span.shortcut "Tab"]])
        [:div.delete
         ;; Need the key tag because otherwise when tabbing from textarea
         ;; focused is updated and this button is re-rendered
         ^{:key "delete-button"}
         [:button.small {:on-click #(delete-amplified-page! amplify-info)}
          "Delete"]]
-       (when (and (:focused @amplify-info) (:fullscreen @amplify-info))
-         [:p "Press" [:span.shortcut "Tab"]])
        (when (:failure @amplify-info)
          [:p.error "Couldn't upload the data. " (:error @amplify-info)])])))
 

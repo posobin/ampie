@@ -17,3 +17,6 @@ h3 {margin: 12px 0 0 0;}
 .settings {padding-bottom: 8px;}
 .settings-form {margin-top: 8px;}
 .settings-form > *:not(:first-child) {margin-top: 4px;}
+
+p {margin: initial;}
+.blacklisted-row {margin-top: 4px;}

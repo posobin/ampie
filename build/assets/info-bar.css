@@ -32,7 +32,7 @@
 .window:not(:first-child), .bottom-row {margin-top: 1px;}
 .stack {margin-top: 2px;}
 .stack:empty {margin-top: 1px;}
-.window {height: 5em; overflow-y: hidden; box-sizing: border-box; padding: 8px 8px;}
+.window {height: 7em; overflow-y: hidden; box-sizing: border-box; padding: 8px 8px; position: relative; z-index: 0;}
 .window.tight {height: initial;}
 .bottom-row {padding: 5px 8px; box-sizing: border-box; font-weight: 500; display:flex; justify-content:space-between;}
 
@@ -97,12 +97,12 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .adjacent-link.row .url {word-break: break-all;}
 .adjacent-link.row .url .prefix {color: grey;}
 .inline-mini-tags {cursor: pointer; flex: 0 0 auto; z-index: 1; margin-right:4px;}
-.inline-mini-tags .mini-tag {width: 2.5em; display: inline-block; position: relative; padding-left: 4px; z-index: 0;}
-.inline-mini-tags .mini-tag .icon {margin-right: 3px;}
+.inline-mini-tags .mini-tag {width: 3em; display: inline-block; position: relative; padding-left: 4px; vertical-align: top;}
+.inline-mini-tags .mini-tag .icon {margin-right: 3px; margin-left:0;}
 .inline-mini-tags .mini-tag > * {z-index: 1;}
 .this-page-preview:hover .inline-mini-tags .mini-tag:not(:empty)::after,
 .inline-mini-tags:hover .mini-tag:not(:empty)::after {
-    content:""; position:absolute; left:-5px; top:-6px; width:calc(100% + 5px); height:calc(100% + 12px);
+    content:""; position:absolute; left:0; top:-5px; width:calc(100% + 5px); height:calc(100% + 10px);
     background: #ffeffe; border-radius: 3px;
     box-shadow: 0 0 3px #ffeffe;
     z-index: -1;
@@ -154,3 +154,29 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags .weekly:hover {text-decoration: underline;}
 .ampie-visit .reaction.like {color: var(--green);}
 .ampie-visit .reaction.dislike {color: var(--red);}
+
+.hn-story .children {
+    padding: 4px 0;
+    padding-left: 8px;
+    background: rgb(246, 250, 250);
+    border-radius: 8px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+}
+.hn-story .children.white {background: white;}
+.hn-comment .text p:first-child {margin-top: 2px;}
+.hn-comment .text p {margin-top: 2px; margin-bottom: 2px;}
+.hn-comment:not(:last-child) {margin-bottom: 8px;}
+
+button.inline {border: none; background: transparent; color: var(--link-color); padding: 0; margin: 0; cursor: pointer;
+               outline: none;}
+button.inline:hover {text-decoration: underline;}
+button.inline.muffled {color: grey;}
+
+.spinner {
+    display: inline-block;
+    width: 10px; height: 10px; vertical-align: middle; margin-left: 4px;
+    border: 2px solid lightblue; border-radius: 50%; border-top-color: var(--accent-color);
+    animation: spin 0.65s linear infinite; -webkit-animation: spin 0.65s linear infinite;
+}
+@keyframes spin {to { -webkit-transform: rotate(360deg); }}

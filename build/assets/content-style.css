@@ -15,10 +15,11 @@ p > * > .ampie-badge {position: relative; display: inline-block;}
     user-select: none;
     text-align: center;
     position: absolute; right: 0px; transform: translateX(100%); top: -2px;
+    line-height: 1em;
 }
 .ampie-badge-bold .ampie-badge-icon {
     font-weight: bold;
-    font-size: 13px; line-height: 1em;
+    font-size: 13px;
 }
 
 .ampie-badge-icon:after {content: "&"; }

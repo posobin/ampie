@@ -642,6 +642,11 @@
   display the mini tags if necessary, return the function
   that needs to be called with a url to be displayed in a new info bar."
   []
+  (when (. js/document querySelector ".ampie-info-bar-holder")
+    (when goog.DEBUG
+      (js/alert "ampie: attaching a second info bar")
+      (js/console.trace))
+    (throw "Info bar already exists"))
   (let [info-bar-div   (. js/document createElement "div")
         shadow-root-el (. js/document createElement "div")
         shadow         (. shadow-root-el (attachShadow #js {"mode" "open"}))

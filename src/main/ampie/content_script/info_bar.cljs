@@ -214,42 +214,79 @@
      count]
     [:div.mini-tag]))
 
-(defn adjacent-link-row [{:keys [normalized-url seen-at]} prefix load-page-info]
+(defn adjacent-link-row [{:keys [normalized-url seen-at url title]}
+                         prefix load-page-info]
   (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)
         reversed-prefix         (url/reverse-lower-domain prefix)]
     [:div.row.adjacent-link
-     [:div.url
-      (into
-        [:a (b/ahref-opts (str "http://" reversed-normalized-url))]
-        (if-let [index (clojure.string/index-of reversed-normalized-url
-                         reversed-prefix)]
-          (let [start (subs reversed-normalized-url 0 index)
-                end   (subs reversed-normalized-url (+ index (count prefix)))]
-            [(js/decodeURI start)
-             [:span.prefix (js/decodeURI reversed-prefix)]
-             (js/decodeURI end)])
-          [reversed-normalized-url]))]
+     [:div.title-and-url
+      (when title [:div.title title])
+      [:div.url
+       (into
+         [:a (b/ahref-opts (or url (str "http://" reversed-normalized-url)))]
+         (if-let [index (clojure.string/index-of reversed-normalized-url
+                          reversed-prefix)]
+           (let [start (subs reversed-normalized-url 0 index)
+                 end   (subs reversed-normalized-url (+ index (count prefix)))]
+             [(js/decodeURI start)
+              [:span.prefix (js/decodeURI reversed-prefix)]
+              (js/decodeURI end)])
+           [reversed-normalized-url]))]]
      (let [{:keys [visits hn twitter]} seen-at]
        [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
         [mini-tag :visits (links/count-visits visits)]
         [mini-tag :hn (links/count-hn hn)]
         [mini-tag :twitter (links/count-tweets twitter)]])]))
 
-(defn adjacent-links [[normalized-url links] load-page-info]
-  [:div.adjacent-links.pane
-   [:div.header [:span.icon.domain-links-icon]
-    "Links at " (url/reverse-lower-domain normalized-url)]
-   (for [{link-url :normalized-url :as link} links]
-     ^{:key link-url}
-     [adjacent-link-row link normalized-url load-page-info])])
+(defn adjacent-links [[normalized-url links] load-page-info only-local-data]
+  (let [pages-info (r/atom [])
+        loading    (r/atom false)
+        get-link-id
+        (fn [{:keys [seen-at]}]
+          (or (-> seen-at :hn first first)
+            (-> seen-at :visits first first)
+            (-> seen-at :twitter first first)))]
+    (when-not only-local-data
+      (reset! loading true)
+      (-> ((fn download-chain [[first-part & rest-parts]]
+             (when first-part
+               (->
+                 (.. browser -runtime
+                   (sendMessage
+                     (clj->js {:type     :get-links-pages-info
+                               :link-ids (map get-link-id first-part)})))
+                 (.then #(js->clj % :keywordize-keys true))
+                 (.then #(swap! pages-info into %))
+                 (.then (js/Promise. #(js/setTimeout % 5000)))
+                 (.then #(download-chain rest-parts)))))
+           (partition-all 10 links))
+        (.finally #(reset! loading false))))
+    (fn [[normalized-url links] load-page-info]
+      [:div.adjacent-links.pane
+       [:div.header [:span.icon.domain-links-icon]
+        "Links at " (url/reverse-lower-domain normalized-url)
+        (when @loading [:span.spinner])]
+       (when only-local-data
+         [:p {:style {:margin-top "4px" :margin-bottom 0}}
+          "This list was created from your local cache. To request page titles, click the link above"])
+       (doall
+         (for [{link-url :normalized-url title :title :as link}
+               (map #(merge %1 %2) links (concat @pages-info (repeat nil)))]
+           ^{:key (str link-url " " title)}
+           [adjacent-link-row link normalized-url load-page-info]))])))
 
 (defn this-page-preview [normalized-url counts load-page-info]
   (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)]
     [:div.this-page-preview.pane
      {:on-click #(load-page-info reversed-normalized-url)}
      [:div.header
-      [:a "Load mentions of this page"]]
+      [:a (if (or (pos? (:visits counts))
+                (pos? (:hn counts))
+                (pos? (:twitter counts)))
+            "Request page info"
+            "Load page titles")]]
      [:div.inline-mini-tags
+      [mini-tag :visits (:visits counts)]
       [mini-tag :hn (:hn counts)]
       [mini-tag :twitter (:twitter counts)]]]))
 
@@ -297,12 +334,14 @@
             [load-failed-message fail-message])
           (when (and only-local-data
                   show-auto-open-notice
-                  (or (pos? (:hn counts))
-                    (pos? (:twitter counts))))
+                  prefix-info (seq (second prefix-info)))
             ^{:key :domain-links-notice :tight true}
             [domain-links-notice])
-          (when (and only-local-data (or (pos? (:hn counts))
-                                       (pos? (:twitter counts))))
+          (when (and only-local-data
+                  (or (pos? (:twitter counts))
+                    (pos? (:visits counts))
+                    (pos? (:hn counts))
+                    (and prefix-info (seq (second prefix-info)))))
             ^{:key :this-page-preview :tight true}
             [this-page-preview normalized-url counts load-page-info])
           (when history ^{:key :seen-at} [seen-at history])
@@ -310,7 +349,9 @@
           (when twitter ^{:key :tweets} [tweets twitter])
           (when hn ^{:key :hn-stories} [hn-stories hn])
           (when (and prefix-info (seq (second prefix-info)))
-            ^{:key :prefix-info} [adjacent-links prefix-info load-page-info])
+            ^{:key [:prefix-info (first prefix-info)]}
+            [adjacent-links prefix-info load-page-info
+             only-local-data])
           (when show-subdomains-notice
             ^{:key :subdomains-notice :tight true} [subdomains-notice])]))
      [bottom-row
@@ -391,10 +432,10 @@
                :only-local-data only-local-data
                :seen-at
                (merge
-                 {:history (seq history)
-                  :visits  (seq visits)}
+                 {:history (seq history)}
                  (when-not only-local-data
                    {:twitter (when (pos? (count twitter)) :loading)
+                    :visits  (seq visits)
                     :hn      (when (pos? (count hn)) :loading)}))
                :counts          {:history (count history)
                                  :twitter (links/count-tweets twitter)

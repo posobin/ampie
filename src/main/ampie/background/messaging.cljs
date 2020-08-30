@@ -109,6 +109,11 @@
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
+(defn get-links-pages-info [{link-ids :link-ids} sender]
+  (-> (backend/get-links-pages-info link-ids)
+    (.then clj->js)
+    (.catch clj->js)))
+
 (defn get-tweets [{ids :ids} sender]
   (.then (backend/get-tweets ids) clj->js))
 
@@ -208,9 +213,12 @@
       :inc-badge-sightings       (inc-badge-sightings request sender)
       :get-url-info              (get-url-info request sender true)
       :get-local-url-info        (get-url-info request sender false)
+      :get-links-pages-info      (get-links-pages-info request sender)
       :get-tweets                (get-tweets request sender)
       :get-prefixes-info         (get-prefixes-info request sender)
       :get-time-spent-on-url     (get-time-spent-on-url request sender)
+      :saw-amplify-before?       (saw-amplify-before? request sender)
+      :saw-amplify-dialog        (saw-amplify-dialog request sender)
       :show-domain-links-notice? (should-show-domain-links-notice?)
       :should-show-domain-links? (should-show-domain-links? request sender)
       :subdomains-notice?        (should-show-subdomains-notice?)

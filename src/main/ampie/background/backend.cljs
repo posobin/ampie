@@ -128,6 +128,25 @@
           :error-handler
           #(reject (error->map %)))))))
 
+(defn get-links-pages-info
+  "Takes a seq of link ids and returns a seq with
+  the titles of the corresponding web pages."
+  [link-ids]
+  (let [link-ids (map js/parseInt link-ids)]
+    (.then
+      (js/Promise.
+        (fn [resolve reject]
+          (POST (endpoint "links/get-links-pages-info")
+            (assoc (base-request-options)
+              :params {:link-ids link-ids}
+              :error-handler #(reject (error->map %))
+              :handler #(resolve (js->clj % :keywordize-keys true))))))
+      (fn [result]
+        (map (->> (:links-info result)
+               (map #(vector (:link-id %) %))
+               (into {}))
+          link-ids)))))
+
 (defn get-tweets
   "Returns the hydrated tweet objects as returned by twitter.
   `ids` should contain tweet ids."

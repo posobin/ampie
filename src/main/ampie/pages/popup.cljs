@@ -43,12 +43,20 @@
 
 (defn enable-amplify-dialog []
   (let [enabled (:amplify-dialog-enabled @@settings)]
-    [:div.enable-amplify-dialog
-     [:a {:href     "#"
-          :on-click (fn [evt]
-                      (.preventDefault evt)
-                      (swap! @settings update :amplify-dialog-enabled not))}
-      (if enabled "Disable" "Enable")] " amplify dialog."]))
+    [:<>
+     [:div.enable-amplify-dialog
+      [:a {:href     "#"
+           :on-click (fn [evt]
+                       (.preventDefault evt)
+                       (swap! @settings update :amplify-dialog-enabled not))}
+       (if enabled "Disable" "Enable")] " amplify dialog."]
+     [:div "Change the amplify keyboard shortcut in "
+      [:a {:href "#"
+           :on-click
+           #(.. browser -tabs
+              (create #js
+                {:url "chrome://extensions/shortcuts"}))}
+       "settings"] "."]]))
 
 (defn blacklisted-urls []
   ;; Creating a separate atom because updating settings very quickly might be
@@ -74,6 +82,8 @@
 
 (defn settings-form []
   [:div.settings-form
+   [:h3 "Ampie"]
+   [:p "To load the tweets / HN submissions / friend's shares of the page, click on the bar in the lower right corner."]
    [show-badges]
    [auto-show-domain-links]
    [enable-amplify-dialog]
@@ -85,7 +95,7 @@
    [settings-form]])
 
 (defn popup-page []
-  (let [page (@state :page :home)]
+  (let [page (@state :page :settings)]
     [:div.popup-page
      (when-not (backend/logged-in?)
        [login-notice])
@@ -103,16 +113,18 @@
       (when-let [link-cache-status (:link-cache-status @@settings)]
         [:div.row link-cache-status])
       [:div.row
-       [:a (b/ahref-opts (.. browser -runtime (getURL "history.html")))
-        "History"]
+       #_[:a (b/ahref-opts (.. browser -runtime (getURL "history.html")))
+          "History"]
        (when (backend/can-complete-weekly?)
          [:a.href (b/ahref-opts (.. browser -runtime (getURL "weekly-links.html")))
           "Weekly links"])
-       [:a {:href "#" :on-click #(swap! state assoc :page
-                                   (case page :settings :home :home :settings))}
-        (case page :home "Settings" :settings "Back")]
+       #_[:a {:href "#" :on-click #(swap! state assoc :page
+                                     (case page :settings :home :home :settings))}
+          (case page :home "Settings" :settings "Back")]
        [:a {:href "#" :on-click ampie.background.messaging/amplify-current-tab}
-        "Amplify this page"]]]]))
+        "Amplify this page"]
+       [:a.href (b/ahref-opts "https://forms.gle/CdAhxhu9ym2mQjgX6")
+        "Give feedback"]]]]))
 
 (defn load-origin-visits []
   (->

@@ -3,8 +3,7 @@
             ["webextension-polyfill" :as browser]
             [taoensso.timbre :as log]
             [clojure.data]
-            [mount.core])
-  (:require-macros [mount.core :refer [defstate]]))
+            [mount.core :refer [defstate]]))
 
 (def default-settings {:show-badges               true
                        :auto-show-domain-links    true

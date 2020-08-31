@@ -4,15 +4,11 @@
             [taoensso.timbre :as log]
             [ampie.components.visit :as components.visit]
             [ampie.components.basics :as b]
-            [ampie.db :refer [db]]
-            [ampie.visits :as visits]
-            [ampie.visits.db :as visits.db]
-            [ampie.time :as time]
             [ampie.settings :refer [settings]]
-            [ampie.background.backend :refer [user-info] :as backend]
+            [ampie.background.backend :as backend]
             [ampie.background.messaging]
             ["webextension-polyfill" :as browser]
-            [mount.core :as mount]))
+            [mount.core :as mount :refer [defstate]]))
 
 (defonce state (r/atom {}))
 
@@ -38,8 +34,8 @@
           :on-click (fn [evt]
                       (.preventDefault evt)
                       (swap! @settings update :auto-show-domain-links not))}
-      (if show-domain-links "Don't show" "Show")] " interesting links "
-     "on a new domain."]))
+      (if show-domain-links "Don't open" "Open")] " interesting links "
+     "on a new domain automatically."]))
 
 (defn enable-amplify-dialog []
   (let [enabled (:amplify-dialog-enabled @@settings)]
@@ -126,21 +122,21 @@
        [:a.href (b/ahref-opts "https://forms.gle/CdAhxhu9ym2mQjgX6")
         "Give feedback"]]]]))
 
-(defn load-origin-visits []
-  (->
-    ;; currentWindow is the window where the code is currently executing,
-    ;; which is what we need.
-    (.. browser -tabs (query #js {:active true :currentWindow true}))
-    (.then #(js->clj % :keywordize-keys true))
-    (.then (fn [[{url :url}]]
-             (visits.db/get-past-visits-to-the-url url 10)))
-    (.then #(map :origin %))
-    (.then #(visits.db/get-visits-info %))
-    (.then
-      (fn [visits]
-        (swap! state assoc :past-visits-origins visits)
-        (doseq [[index visit] (map-indexed vector visits)]
-          (visits/load-children-visits state [:past-visits-origins index]))))))
+#_(defn load-origin-visits []
+    (->
+      ;; currentWindow is the window where the code is currently executing,
+      ;; which is what we need.
+      (.. browser -tabs (query #js {:active true :currentWindow true}))
+      (.then #(js->clj % :keywordize-keys true))
+      (.then (fn [[{url :url}]]
+               (visits.db/get-past-visits-to-the-url url 10)))
+      (.then #(map :origin %))
+      (.then #(visits.db/get-visits-info %))
+      (.then
+        (fn [visits]
+          (swap! state assoc :past-visits-origins visits)
+          (doseq [[index visit] (map-indexed vector visits)]
+            (visits/load-children-visits state [:past-visits-origins index]))))))
 
 #_(defn set-download-status []
     (-> (.. browser -storage -local (get "link-cache-status"))

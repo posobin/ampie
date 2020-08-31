@@ -181,16 +181,15 @@
       (.then #(iterate-over-keys (keys %))))))
 
 (defn check-and-update-link-caches
-  "Queries the server to get latest cache urls, gets their etags and if they
-  don't match the ones stored, downloads the caches, updates the links db and
-  the cache info (last updated timestamp and etag)."
+  "Queries the server to get latest cache urls, downloads the caches,
+  updates the links db and the cache info
+  (last updated timestamp, previous versions)."
   []
-  (->
-    (js/Promise.
-      (fn [resolve]
-        (GET (backend/endpoint "links/get-cache-urls")
-          (assoc (backend/base-request-options)
-            :handler #(resolve (js->clj % :keywordize-keys true))))))
+  (-> (js/Promise.
+        (fn [resolve]
+          (GET (backend/endpoint "links/get-cache-urls")
+            (assoc (backend/base-request-options)
+              :handler #(resolve (js->clj % :keywordize-keys true))))))
     (.then
       (fn [server-caches]
         (-> ;; Reset link caches if told to do so by the server

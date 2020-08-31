@@ -19,7 +19,7 @@
       [:p "Give ampie ten minutes to download and unpack its caches, "
        "it might be CPU-intensive for 10 minutes while unpacking."])
     [:p
-     "On some webpages you will now see this bar:"
+     "Once ampie downloads its caches, on some webpages you will see this bar:"
      [:img.mini-tags {:src (.. browser -runtime (getURL "assets/images/mini-tags.png"))}]
      "The numbers indicate the following:"]
     [:ul

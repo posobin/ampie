@@ -48,7 +48,8 @@
             (.. browser -storage -local
               (set (clj->js {:blacklisted-urls
                              (:blacklisted-urls
-                              ampie.settings/default-settings)})))
+                              ampie.settings/default-settings)
+                             :seen-domain-links-notice false})))
             (-> (.. browser -storage -local (remove "link-caches-info"))
               (.then (fn [] (-> (.-links @db) (.clear)))))))
         (when (or (= (.-reason details) "install")

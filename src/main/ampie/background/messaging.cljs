@@ -147,8 +147,9 @@
     (js/Promise.resolve false)))
 (defn should-show-domain-links-notice? []
   (let [result (:seen-domain-links-notice @@settings)]
-    (swap! @settings assoc :seen-domain-links-notice true)
     (js/Promise.resolve (not result))))
+(defn saw-domain-links-notice []
+  (swap! @settings assoc :seen-domain-links-notice true))
 
 (defn should-show-weekly? [] (js/Promise.resolve (backend/can-complete-weekly?)))
 (defn update-user-info [] (backend/request-user-info @backend/user-info))
@@ -217,6 +218,7 @@
       :get-time-spent-on-url     (get-time-spent-on-url request sender)
       :saw-amplify-before?       (saw-amplify-before? request sender)
       :saw-amplify-dialog        (saw-amplify-dialog request sender)
+      :saw-domain-links-notice   (saw-domain-links-notice)
       :show-domain-links-notice? (should-show-domain-links-notice?)
       :should-show-domain-links? (should-show-domain-links? request sender)
       :subdomains-notice?        (should-show-subdomains-notice?)

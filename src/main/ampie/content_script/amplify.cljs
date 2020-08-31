@@ -354,7 +354,7 @@
 
 (defn create-amplify-dialog []
   (when (. js/document querySelector ".ampie-amplify-dialog-holder")
-    (when goog.debug (js/alert "ampie: amplify dialog already exists"))
+    (when goog.DEBUG (js/alert "ampie: amplify dialog already exists"))
     (throw "amplify dialog already exists"))
   (let [amplify-dialog-div (. js/document createElement "div")
         shadow-root-el     (. js/document createElement "div")

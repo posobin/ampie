@@ -9,12 +9,7 @@
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]))
 
-(defn message-listener [message]
-  (let [message (js->clj message :keywordize-keys true)]
-    (case (keyword (:type message))
-      :url-updated  (do (mount/stop) (mount/start))
-      :amplify-page ((:amplify-page @amplify))
-      (log/error "Unknown message type" message))))
+(declare message-listener)
 
 (defstate page-service
   :start (do (.. browser -runtime -onMessage (addListener message-listener))
@@ -22,6 +17,19 @@
                :reset-page (:reset-page @info-bar-state)))
   :stop (do (.. browser -runtime -onMessage (removeListener message-listener))
             (badge/stop @page-service)))
+
+(defn message-listener [message]
+  (let [message (js->clj message :keywordize-keys true)]
+    (case (keyword (:type message))
+      :url-updated  (do (mount/stop)
+                        (mount/start
+                          (mount/only
+                            #{#'page-service
+                              #'badge/seen-badges-ids #'badge/on-badge-remove
+                              #'info-bar-state
+                              #'amplify})))
+      :amplify-page ((:amplify-page @amplify))
+      (log/error "Unknown message type" message))))
 
 (defn ^:dev/after-load init []
   ;; Don't attempt to load the background services in the content script

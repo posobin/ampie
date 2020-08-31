@@ -520,7 +520,15 @@
                        (sendMessage (clj->js {:type :show-domain-links-notice?})))
                 (fn [show?]
                   (swap! pages-info assoc-in
-                    [:info-bars idx :show-auto-open-notice] show?))))
+                    [:info-bars idx :show-auto-open-notice] show?)))
+              (js/setTimeout
+                (fn []
+                  ;; Mark the domains notice as seen only if the info bar hasn't
+                  ;; been detached after 5 seconds
+                  (when-not (:removed @pages-info)
+                    (.. browser -runtime
+                      (sendMessage (clj->js {:type :saw-domain-links-notice})))))
+                5000))
             (.then (get-prefixes-info)
               (fn [prefixes-info]
                 (let [filtered (filter
@@ -697,9 +705,11 @@
     (.. js/document -body (appendChild shadow-root-el))
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.
-    {:reset-page (fn [] (reset-current-page-info! pages-info))
-     :show-info  (fn [page-url] (load-page-info page-url pages-info false))}))
+    {:reset-page      (fn [] (reset-current-page-info! pages-info))
+     :show-info       (fn [page-url] (load-page-info page-url pages-info false))
+     :remove-info-bar (fn [] (swap! pages-info assoc :removed true))}))
 
 (defstate info-bar-state
   :start (display-info-bar)
-  :stop (remove-info-bar))
+  :stop (do (remove-info-bar)
+            ((:remove-info-bar @info-bar-state))))

@@ -4,14 +4,7 @@
             [taoensso.timbre :as log]
             [ampie.components.visit :as components.visit]
             [ampie.components.basics :as b]
-            [ampie.db :refer [db]]
-            [ampie.visits :as visits]
-            [ampie.visits.db :as visits.db]
-            [ampie.time :as time]
-            [ampie.settings :refer [settings]]
-            [ampie.background.backend :refer [user-info] :as backend]
-            ["webextension-polyfill" :as browser]
-            [mount.core :as mount]))
+            ["webextension-polyfill" :as browser]))
 
 (def state (r/atom {}))
 
@@ -76,6 +69,5 @@
      "Any suggestions how to make this more useful are welcome!"]]])
 
 (defn ^:dev/after-load init []
-  (mount/start)
   (rdom/render [update-page]
     (. js/document getElementById "update-content")))

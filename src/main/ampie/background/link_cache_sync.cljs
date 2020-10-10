@@ -3,10 +3,13 @@
             [ampie.links :as links]
             [ampie.db :refer [db]]
             [ampie.interop :as i]
+            [ampie.macros :refer [|vv]]
             [ajax.core :refer [GET POST HEAD PUT DELETE]]
+            [ajax.json :refer [safe-json-request-format]]
             [taoensso.timbre :as log]
             ["dexie" :default Dexie]
             ["webextension-polyfill" :as browser]
+            ["jsonparse" :as JSONParser]
             [mount.core :refer [defstate]]))
 
 (defn- get-updated-entries
@@ -61,58 +64,54 @@
   to the DB. Returns the promise that resolves with nil once all the downloading
   and saving is finished."
   [cache-key cache-url]
-  (letfn [;; Transform the plain vector cache as downloaded into a map
-          ;; {normalized url -> {id -> source-info}}
-          (cache->map [{:keys [field-names links]}]
-            (let [keywordized-field-names (map keyword field-names)]
-              (->> links
-                (map #(into {} (map vector keywordized-field-names %)))
-                (reduce
-                  (fn [result link]
-                    (assoc-in result
-                      [(:normalized-url link) (str (:id link))]
-                      (into {}
-                        (remove (comp nil? val)
-                          (dissoc link :id :normalized-url)))))
-                  {}))))]
-    (js/Promise.
-      (fn [resolve reject]
-        (GET cache-url
-          {:response-format :json :keywords? true
-           :error-handler
-           (fn [{:keys [status status-text]}]
-             (.. browser -storage -local
-               (set #js {:link-cache-status
-                         (str "Coudn't download cache " cache-key
-                           ": " status-text " Will try again in 30 minutes.")}))
-             (reject status-text))
-           ;; Not using :progress-handler because it works only for upload
-           ;; events.
-           :handler
-           (fn [cache]
-             (log/info "Downloaded")
-             (let [nurl->seen-at (cache->map cache)
-                   total-count   (count nurl->seen-at)
-                   recursive-chain
-                   (fn recursive-chain [parts-nurl->seen-at]
-                     (-> (get-updated-entries
-                           (first parts-nurl->seen-at))
-                       (.then #(save-links % cache-key))
-                       (.then
-                         (fn [_]
-                           (.. browser -storage -local
-                             (set #js {:link-cache-status
-                                       (str "Unpacked "
-                                         (- (quot total-count 1000)
-                                           (count parts-nurl->seen-at))
-                                         "/" (quot total-count 1000) " of "
-                                         cache-key)}))
-                           (if (seq (rest parts-nurl->seen-at))
-                             (recursive-chain (rest parts-nurl->seen-at))
-                             (resolve))))))]
-               (log/info "Received cache" cache-key "saving")
-               (recursive-chain
-                 (partition-all 1000 nurl->seen-at))))})))))
+  (|vv
+    (. (js/fetch cache-url) then)
+    (fn [response])
+    (let [reader         (.. response -body getReader)
+          parser         (JSONParser.)
+          field-names    (atom nil)
+          links-buffer   (atom {})
+          unpacked-count (atom 0)
+          add-buffer-to-db
+          (fn add-buffer-to-db []
+            (let [[buffer _] (reset-vals! links-buffer {})]
+              (-> (get-updated-entries buffer)
+                (.then #(save-links % cache-key))
+                (.then (fn [_]
+                         (.. browser -storage -local
+                           (set #js {:link-cache-status
+                                     (str "Unpacked " @unpacked-count
+                                       " link batches from " cache-key)})))))))]
+      (|vv
+        (set! (.-onValue parser))
+        (fn [val])
+        (this-as this)
+        (let [path (mapv #(.-key %) (.-stack this))
+              path (conj (if (seq path) (subvec path 1) []) (.-key this))])
+        (cond (= path ["field-names"])
+              (reset! field-names (mapv keyword (array-seq val)))
+
+              (and (= (first path) "links") (= (count path) 2))
+              (let [link (->> (vec val)
+                           (map vector @field-names)
+                           (filter second)
+                           (into {}))]
+                (swap! links-buffer assoc-in
+                  [(:normalized-url link) (str (:id link))]
+                  (dissoc link :normalized-url :id)))))
+      ((fn ff []
+         (.then (.read reader)
+           (fn [res]
+             (if (and (not (.-done res))
+                   ;; Unpack at most a 1000 batches
+                   (< @unpacked-count 1000))
+               (.then (do (.write parser (.-value res))
+                          (if (>= (count @links-buffer) 1000)
+                            (do (swap! unpacked-count inc)
+                                (add-buffer-to-db))
+                            (js/Promise.resolve)))
+                 ff)
+               (add-buffer-to-db)))))))))
 
 (defn- update-cache-with-next-diff
   "Finds the diff for the given `cache-key`, downloads and applies it.
@@ -235,11 +234,7 @@
                       (.catch
                         (fn [error]
                           (log/error error)
-                          (throw error)
-                          #_(.. browser -storage -local
-                              (set (clj->js
-                                     {:link-cache-status
-                                      (str "Couldn't download link cache: " error)})))))
+                          (throw error)))
                       (.then #(iterate-over-response (rest server-caches))))
                     (iterate-over-response (rest server-caches))))))))))))
 (def last-downloaded-timestamp (atom nil))

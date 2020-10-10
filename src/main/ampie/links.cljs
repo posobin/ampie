@@ -117,6 +117,7 @@
        (.startsWith (str normalized-url-prefix "/"))
        (.or "normalizedUrl")
        (.equals normalized-url-prefix)
+       (.limit 10000)
        (.reverse)
        (.sortBy "score")
        (.then i/js->clj)
@@ -172,4 +173,4 @@
         ;; to HN since this that is a better metric than
         ;; the number of comments that count-hn returns.
         hn-count     (count hn)]
-    (+ hn-count tweets-count visits-count)))
+    (+ hn-count tweets-count (* 3 visits-count))))

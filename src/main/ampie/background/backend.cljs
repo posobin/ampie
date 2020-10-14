@@ -237,3 +237,13 @@
             :handler #(resolve (js->clj % :keywordize-keys true))
             :error-handler #(reject (error->map %))))
         (reject {:fail true :message "Page hasn't been amplified yet."})))))
+
+(defn problem-getting-cache [cache-key error-text]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "problem-getting-cache")
+        (assoc (base-request-options)
+          :params {:cache-key  cache-key
+                   :error-text error-text}
+          :handler    #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))

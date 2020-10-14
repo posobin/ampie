@@ -44,20 +44,22 @@
   reporting."
   [nurl->seen-at cache-key]
   (log/info "Saving" (count nurl->seen-at) "links")
-  (-> (.-links @db)
-    (.bulkPut
-      (i/clj->js
-        (map (fn [[nurl sources]] {:normalized-url nurl
-                                   :score
-                                   (links/compute-seen-at-score sources)
-                                   :seen-at        sources})
-          nurl->seen-at)))
-    (.catch (.-BulkError Dexie)
-      (fn [e]
-        (js/console.log e)
-        (log/error "Couldn't add" (.. e -failures -length)
-          "entries to urls for cache" cache-key ", e.g."
-          (js->clj (aget (.-failures e) 0)))))))
+  (if (seq nurl->seen-at)
+    (-> (.-links @db)
+      (.bulkPut
+        (i/clj->js
+          (map (fn [[nurl sources]] {:normalized-url nurl
+                                     :score
+                                     (links/compute-seen-at-score sources)
+                                     :seen-at        sources})
+            nurl->seen-at)))
+      (.catch (.-BulkError Dexie)
+        (fn [e]
+          (js/console.log e)
+          (log/error "Couldn't add" (.. e -failures -length)
+            "entries to urls for cache" cache-key ", e.g."
+            (js->clj (aget (.-failures e) 0))))))
+    (js/Promise.resolve)))
 
 (defn update-link-cache
   "Downloads the given cache from `cache-url` and saves all the links from it
@@ -67,6 +69,11 @@
   (|vv
     (. (js/fetch cache-url) then)
     (fn [response])
+    (if-not (.-ok response)
+      (do
+        (backend/problem-getting-cache
+          cache-key (str "status=" (.-status response)))
+        (js/Promise.reject)))
     (let [reader         (.. response -body getReader)
           parser         (JSONParser.)
           field-names    (atom nil)
@@ -75,13 +82,21 @@
           add-buffer-to-db
           (fn add-buffer-to-db []
             (let [[buffer _] (reset-vals! links-buffer {})]
-              (-> (get-updated-entries buffer)
-                (.then #(save-links % cache-key))
-                (.then (fn [_]
-                         (.. browser -storage -local
-                           (set #js {:link-cache-status
-                                     (str "Unpacked " @unpacked-count
-                                       " link batches from " cache-key)})))))))]
+              (if (seq buffer)
+                (-> (get-updated-entries buffer)
+                  (.then #(save-links % cache-key))
+                  (.then (fn [_]
+                           (.. browser -storage -local
+                             (set #js {:link-cache-status
+                                       (str "Unpacked " @unpacked-count
+                                         " link batches from " cache-key)}))))
+                  (.catch (fn [error]
+                            (backend/problem-getting-cache
+                              cache-key
+                              (str "type=save-problem; "
+                                (.toString error)))
+                            (js/Promise.reject error))))
+                (js/Promise.resolve))))]
       (|vv
         (set! (.-onValue parser))
         (fn [val])

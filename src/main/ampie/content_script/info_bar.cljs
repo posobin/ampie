@@ -12,39 +12,16 @@
             [ampie.time]
             [ampie.content-script.amplify :as amplify]
             [ampie.links :as links]
+            [ampie.content-script.info-bar.tweet :refer [tweet hydrate-tweets]]
             [mount.core :as mount :refer [defstate]]))
 
-(defn tweet [{{:keys [screen_name]} :user
-              {urls :urls}          :entities
-              :keys                 [full_text created_at id_str]
-              :as                   tweet-info}]
-  [:div.tweet.row
-   [:div.text
-    (let [indices      (concat [0]
-                         (mapcat :indices urls)
-                         [(count full_text)])
-          text-substrs (->> (partition 2 indices)
-                         (map (fn [[start end]] (subs full_text start end))))
-          links        (map-indexed
-                         (fn [idx {:keys [expanded_url display_url]}]
-                           ^{:key idx} [:a (b/ahref-opts expanded_url) display_url])
-                         urls)
-          result       (concat [(first text-substrs)]
-                         (interleave links (rest text-substrs)))]
-      result)]
-   [:div.info
-    [:div.author screen_name]
-    [:a.date
-     (b/ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
-     (ampie.time/timestamp->date (js/Date.parse created_at))]]])
-
-(defn tweets [tweets-info]
+(defn tweets [tweets-info selected-normalized-url]
   [:div.tweets.pane
    [:div.header [:span.icon.twitter-icon] "Tweets"]
    (if (= tweets-info :loading)
      [:div.loading "Loading"]
      (for [{:keys [id_str] :as tweet-info} tweets-info]
-       ^{:key id_str} [tweet tweet-info]))])
+       ^{:key id_str} [tweet tweet-info selected-normalized-url]))])
 
 (defn hn-item-url [item-id]
   (str "https://hacker-news.firebaseio.com/v0/item/" item-id ".json"))
@@ -243,8 +220,8 @@
 
                 (> new-height max-height)
                 (do (set! (.. el -style -height) (str max-height "px"))
-                    (when propagate
-                      (overscroll-handler :up (- new-height max-height))))
+                    ;; Return false not to propagate the scroll
+                    false)
 
                 :else
                 (do (set! (.. el -style -height) (str new-height "px"))
@@ -425,7 +402,7 @@
             [this-page-preview normalized-url counts load-page-info])
           (when history ^{:key :seen-at} [seen-at history])
           (when visits ^{:key :visits} [visits-component visits])
-          (when twitter ^{:key :tweets} [tweets twitter])
+          (when twitter ^{:key :tweets} [tweets twitter normalized-url])
           (when hn ^{:key :hn-stories} [hn-stories hn])
           (when (and prefix-info (seq (second prefix-info)))
             ^{:key [:prefix-info (first prefix-info)]}
@@ -469,13 +446,6 @@
    [:div.close {:on-click (fn [e] (.stopPropagation e) (close-mini-tags) nil)
                 :role     "button"}
     [:span.icon.close-icon]]])
-
-(defn hydrate-tweets [tweets]
-  (.then
-    (.. browser -runtime
-      (sendMessage (clj->js {:type :get-tweets
-                             :ids  (map (comp :tweet-id-str :info) tweets)})))
-    #(js->clj % :keywordize-keys true)))
 
 (defn hydrate-hn [hn-stories]
   (let [stories-ids (map (comp :item-id :info) hn-stories)]

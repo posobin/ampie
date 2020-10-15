@@ -26,7 +26,9 @@
                           (mount/only
                             #{#'page-service
                               #'badge/seen-badges-ids #'badge/on-badge-remove
-                              #'info-bar-state
+                              ;; Info bar should start lazily because it is referenced
+                              ;; in page service.
+                              ;;#'info-bar-state
                               #'amplify})))
       :amplify-page ((:amplify-page @amplify))
       (log/error "Unknown message type" message))))
@@ -36,7 +38,10 @@
   (mount/start (mount/only
                  #{#'page-service
                    #'badge/seen-badges-ids #'badge/on-badge-remove
-                   #'info-bar-state
+                   #'google-results
+                   ;; Info bar should start lazily because it is referenced
+                   ;; in page service.
+                   ;; #'info-bar-state
                    #'amplify})))
 
 (defn ^:dev/before-load before-load []

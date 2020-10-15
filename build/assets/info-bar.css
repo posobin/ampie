@@ -46,10 +46,40 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 
 .pane .header {font-weight: 500;}
 .pane .header + .row {margin-top: 0.3em;}
-.pane .row {margin-top: 0.5em;}
+.pane > .row {margin-top: 0.5em;}
 .pane .row .info {color: var(--secondary-font-color);}
 .pane .row .info * {display: inline;}
-.pane .row .info *:not(:first-child) {margin-left: 0.5em;}
+.pane .row .info *:not(:first-child) {margin-left: 4px;}
+
+.tweets > .tweet:not(:last-child) {margin-bottom: 12px;}
+.tweets > .tweet {position: relative;}
+.tweets > .tweet:not(:last-child):after {
+    content: "";
+    position: absolute;
+    width: calc(100% + 16px);
+    height: 1px;
+    background: #eaeaea;
+    left: -8px;
+    bottom: -6px;
+}
+.tweet .replies { padding: 4px 8px; margin-top: 2px; position: relative; background: rgb(244, 244, 248); border-radius: 4px;}
+.tweet .replies > .tweet:not(:last-child) {margin-bottom: 4px;}
+/* .tweet .replies:before { content: ""; background: #f5e0e0; height: 100%; width: 2px; position: absolute; left: -10px; top: 0; } */
+.tweet .quote { margin-left: 7px; position: relative; font-size: 9pt; margin-bottom: 2px; margin-top: 2px; }
+.tweet .quote:before { position: absolute; left: -6px; top: 0; height: 100%; border-left: 1px solid #efc6ff; content: "";  }
+.tweet .reply-to { font-size: 9.5pt; margin-bottom: 2px; }
+.tweet .text { white-space: pre-line; }
+.tweet .text a.selected-url {
+    --selected-url-bg: #eeebf7;
+    box-shadow: 0 0 0 1px var(--selected-url-bg);
+    border-radius: 2px;
+    background: var(--selected-url-bg);
+}
+.tweet-inside {display: flex;}
+.tweet .profile-pic {width: 2em; height: 2em; border-radius: 50%; vertical-align: text-top; margin-right: 6px;}
+.tweet .info {color: grey !important;}
+.tweet .info .date {color: grey;}
+.tweet .retweeted-by {margin-left: calc(2em + 6px);}
 
 .this-page-preview {cursor: pointer;}
 .this-page-preview .header {display: inline;}

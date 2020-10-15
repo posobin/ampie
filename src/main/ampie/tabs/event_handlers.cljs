@@ -174,13 +174,12 @@
         (tabs/update-tab-title tab-id title url))
 
     (when new-url
-      (log/info "Url of tab" tab-id "changed to" new-url)
       (.catch
         (.. browser -tabs (sendMessage tab-id (clj->js {:type :url-updated
                                                         :url  new-url})))
         (fn [error]
-          (log/info "Couldn't send a url-updated"
-            new-url " message to tab" tab-id))))))
+          #_(log/debug "Couldn't send a url-updated"
+              new-url " message to tab" tab-id))))))
 
 (defn redirect-tab [{:keys [url tab-id]} {:keys [visit-hash]}]
   (log/info "Tab redirect" tab-id url visit-hash)

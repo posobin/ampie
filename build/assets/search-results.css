@@ -16,7 +16,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 
 .search-result .info {display: flex; font-size: 14px;}
 .search-result .info > *:not(:first-child) {margin-left: 8px;}
-.search-result:not(:first-child) {margin-top: 12px;}
+.search-result:not(:first-child) {margin-top: 16px;}
 
 .search-result > *:not(:first-child) {margin-top: 4px;}
 

@@ -14,22 +14,22 @@
             [ampie.links :as links]
             [mount.core :as mount :refer [defstate]]))
 
-(defstate state :start (r/atom {}))
+(def state (r/atom {}))
 
 (defn load-search-results [query]
-  (swap! @state assoc :loading true)
+  (swap! state assoc :loading true)
   (-> (.. browser -runtime
         (sendMessage
           (clj->js {:type  :search-friends-visits
                     :query query})))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [response]
-             (swap! @state assoc :loading false)
+             (swap! state assoc :loading false)
              (if (:fail response)
-               (swap! @state assoc
+               (swap! state assoc
                  :failure true
                  :error (:message response))
-               (swap! @state assoc
+               (swap! state assoc
                  :search-results (:search-results response)
                  :hidden false))))))
 
@@ -71,33 +71,64 @@
       (when reaction [:div.reaction reaction])]]]])
 
 (defn visits-search-results []
-  (when-not (or (:hidden @@state)
-              (empty? (:search-results @@state)))
+  (when-not (or (:hidden @state)
+              (empty? (:search-results @state)))
     [:div.search-results
      [:h2 "Ampie results"]
      (doall
-       (for [result (:search-results @@state)]
+       (for [result (:search-results @state)]
          ^{:key (:tag result)}[search-result result]))]))
 
 (defstate google-results
-  :start (when (string/starts-with? (.. js/document -location -href)
-                 "https://www.google.com/search")
+  :start (when (re-matches #"https://(www\.)?google\..{1,6}/search.*"
+                 (.. js/document -location -href))
            (let [rhs-el        (. js/document getElementById "rhs")
                  shadow-holder (. js/document createElement "div")
                  shadow        (. shadow-holder (attachShadow #js {"mode" "open"}))
                  shadow-style  (. js/document createElement "link")
                  query         (.. (js/URL. (.. js/document -location -href))
-                                -searchParams (get "q"))]
+                                 -searchParams (get "q"))]
              (set! (.-rel shadow-style) "stylesheet")
              (.setAttribute shadow-holder "style"  "display: none;")
              (set! (.-onload shadow-style) #(.setAttribute shadow-holder "style" ""))
              (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-results.css")))
              (set! (.-className shadow-holder)
-               "rhs VjDLd ampie-results-holder")
-             (load-search-results query)
-             (rdom/render [visits-search-results] shadow)
-             (. shadow (appendChild shadow-style))
-             (.prepend rhs-el shadow-holder)))
+               "rhs VjDLd ampie-results-holder google")
+             (.then
+               (load-search-results query)
+               (fn []
+                 (when (seq (:search-results @state))
+                   (rdom/render [visits-search-results] shadow)
+                   (. shadow (appendChild shadow-style))
+                   (.prepend rhs-el shadow-holder))))))
+  :stop (when-let [element (.. js/document -body
+                             (querySelector ".ampie-results-holder"))]
+          (.remove element)))
+
+(defstate ddg-results
+  :start (when (re-matches #"https://(www\.)?duckduckgo\.com/\?.*"
+                 (.. js/document -location -href))
+           (let [rhs-el        (. js/document querySelector ".sidebar-modules")
+                 wrapper       (. js/document createElement "div")
+                 shadow-holder (. js/document createElement "div")
+                 shadow        (. shadow-holder (attachShadow #js {"mode" "open"}))
+                 shadow-style  (. js/document createElement "link")
+                 query         (.. (js/URL. (.. js/document -location -href))
+                                 -searchParams (get "q"))]
+             (set! (.-rel shadow-style) "stylesheet")
+             (.setAttribute wrapper "style"  "display: none;")
+             (set! (.-onload shadow-style) #(.setAttribute wrapper "style" ""))
+             (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-results.css")))
+             (set! (.-className wrapper) "module ampie-results-holder ddg")
+             (.then
+               (load-search-results query)
+               (fn []
+                 (when (seq (:search-results @state))
+                   (rdom/render [visits-search-results] shadow)
+                   (. shadow (appendChild shadow-style))
+                   (set! (.-className shadow-holder) "module__content")
+                   (.appendChild wrapper shadow-holder)
+                   (.prepend rhs-el wrapper))))))
   :stop (when-let [element (.. js/document -body
                              (querySelector ".ampie-results-holder"))]
           (.remove element)))

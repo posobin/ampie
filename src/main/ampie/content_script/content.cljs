@@ -6,7 +6,7 @@
             [taoensso.timbre :as log]
             [ampie.content-script.info-bar :refer [info-bar-state]]
             [ampie.content-script.amplify :refer [amplify]]
-            [ampie.content-script.visits-search :refer [google-results]]
+            [ampie.content-script.visits-search :refer [google-results ddg-results]]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]))
 
@@ -28,6 +28,7 @@
                             #{#'page-service
                               #'badge/seen-badges-ids #'badge/on-badge-remove
                               #'google-results
+                              #'ddg-results
                               ;; Info bar should start lazily because it is referenced
                               ;; in page-service.
                               ;; #'info-bar-state
@@ -41,6 +42,7 @@
                  #{#'page-service
                    #'badge/seen-badges-ids #'badge/on-badge-remove
                    #'google-results
+                   #'ddg-results
                    ;; Info bar should start lazily because it is referenced
                    ;; in page service.
                    ;; #'info-bar-state

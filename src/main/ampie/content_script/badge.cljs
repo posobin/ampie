@@ -174,7 +174,7 @@
     #js {:threshold 1.0}))
 
 (defstate on-badge-remove :start (atom {}))
-(defn add-ampie-badge [target target-id target-info on-badge-click]
+(defn add-ampie-badge [^js target target-id target-info on-badge-click]
   (let [badge-div  (. js/document createElement "span")
         badge-icon (. js/document createElement "span")
         tooltip    (generate-tooltip target-info)
@@ -213,7 +213,6 @@
         (fn []
           (.removeEventListener target "mouseover" on-mouse-over)
           (.removeEventListener target "mouseout" on-mouse-out))))
-    (set! (.. target -style -position) "relative")
     (.appendChild target badge-div)))
 
 (defn show-too-many-badges-message []

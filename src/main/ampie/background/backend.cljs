@@ -238,6 +238,15 @@
             :error-handler #(reject (error->map %))))
         (reject {:fail true :message "Page hasn't been amplified yet."})))))
 
+(defn search-friends-visits [query]
+  (js/Promise.
+    (fn [resolve reject]
+      (GET (endpoint "visits" "search")
+        (assoc (base-request-options)
+          :params {:query query}
+          :handler #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
 (defn problem-getting-cache [cache-key error-text]
   (js/Promise.
     (fn [resolve reject]

@@ -6,6 +6,7 @@
             [taoensso.timbre :as log]
             [ampie.content-script.info-bar :refer [info-bar-state]]
             [ampie.content-script.amplify :refer [amplify]]
+            [ampie.content-script.visits-search :refer [google-results]]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]))
 
@@ -26,9 +27,10 @@
                           (mount/only
                             #{#'page-service
                               #'badge/seen-badges-ids #'badge/on-badge-remove
+                              #'google-results
                               ;; Info bar should start lazily because it is referenced
-                              ;; in page service.
-                              ;;#'info-bar-state
+                              ;; in page-service.
+                              ;; #'info-bar-state
                               #'amplify})))
       :amplify-page ((:amplify-page @amplify))
       (log/error "Unknown message type" message))))

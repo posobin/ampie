@@ -90,3 +90,12 @@ p > * > .ampie-badge {position: relative; display: inline-block;}
         no-repeat url('assets/icons/ampie-no-shadow.svg') center/contain;
     margin-left: -2px;
 }
+
+.ampie-results-holder {
+    --accent-color: #b6e2d4;
+    border: 1px solid var(--accent-color) !important;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+}

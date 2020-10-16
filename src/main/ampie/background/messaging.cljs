@@ -203,6 +203,11 @@
 (defn saw-amplify-dialog [{url :url} sender]
   (visits.db/saw-amplify-dialog url))
 
+(defn search-friends-visits [{query :query} sender]
+  (-> (backend/search-friends-visits query)
+    (.then #(clj->js % :keyword-fn i/name-with-ns))
+    (.catch clj->js)))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -230,6 +235,7 @@
       :update-amplified-page     (update-amplified-page request sender)
       :delete-amplified-page     (delete-amplified-page request sender)
       :amplify-dialog-enabled?   (amplify-dialog-enabled? request sender)
+      :search-friends-visits     (search-friends-visits request sender)
 
       (log/error "Unknown request type" request-type))))
 

@@ -45,3 +45,8 @@
 
 (defn clj->js [obj]
   (core-clj->js obj :keyword-fn (comp kebab->camel-case name)))
+
+(defn name-with-ns [keyword]
+  (if (namespace keyword)
+    (str (namespace keyword) "/" (name keyword))
+    (name keyword)))

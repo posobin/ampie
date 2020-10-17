@@ -105,14 +105,7 @@
       (let [old-comment (:comment @amplify-info)
             new-comment (.. text-change-event -target -value)]
         (when-not (= old-comment new-comment)
-          (swap! amplify-info update :uploading inc)
-          (swap! amplify-info assoc :comment new-comment)
-          (reset! timeout-id
-            (js/setTimeout
-              (fn []
-                (update-amplified-page! amplify-info)
-                (swap! amplify-info update :uploading dec))
-              1000)))))))
+          (swap! amplify-info assoc :comment new-comment))))))
 
 (defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
 (def amplify-page-shortcut (str (if (mac?) "⌘" "Ctrl") "-Shift-A"))
@@ -135,8 +128,6 @@
                                 (close-amplify-dialog amplify-info))}
     [:span.shortcut "Esc"]
     [:span.icon.close-icon]]
-   [:p (str "Click to let your followers "
-         "know that you have been to this URL.")]
    (when (:failure @amplify-info)
      [:p.error "Couldn't upload the data. " (:error @amplify-info)])])
 
@@ -165,8 +156,10 @@
         [:a (b/ahref-opts "https://ampie.app") "ampie.app"] "."]
        [:div.comment-holder
         [:div.shortcut.appearing
-         {:class (when @comment-focused "hidden")}
-         amplify-page-shortcut]
+         {:class (when @comment-focused "right")}
+         (if @comment-focused
+           "Shift-↵"
+           amplify-page-shortcut)]
         ;; Without key reagent re-renders the textarea on focus on atom
         ;; update.
         ^{:key "comment-field"}
@@ -186,14 +179,19 @@
           :max-length  1000
           :on-blur     #(reset! comment-focused false)
           :auto-focus  true
-          :on-key-down #(.stopPropagation %)
+          :on-key-down (fn [^js evt]
+                         (when (and (= (.-key evt) "Enter")
+                                 (.-shiftKey evt)
+                                 (zero? (:uploading @amplify-info)))
+                           (.preventDefault evt)
+                           (update-amplified-page! amplify-info)))
           :on-change   (comment-updater amplify-info)
           :value       (:comment @amplify-info)
           :placeholder "Add a comment"}]]
        [:ul.reaction.choice
         (let [chosen-reaction (:reaction @amplify-info)]
           (doall
-            (for [value (into ["like" "meh" "dislike" "to read"]
+            (for [value (into ["like" "to read"]
                           (when chosen-reaction ["clear"]))
                   :when (or (nil? chosen-reaction)
                           (= value chosen-reaction)
@@ -217,12 +215,18 @@
        (when (:focused @amplify-info)
          [:span {:style {:font-weight "initial" :margin-left "1em"}}
           "Press" [:span.shortcut "Tab"]])
-       [:div.delete
-        ;; Need the key tag because otherwise when tabbing from textarea
-        ;; focused is updated and this button is re-rendered
-        ^{:key "delete-button"}
-        [:button.small {:on-click #(delete-amplified-page! amplify-info)}
-         "Delete"]]
+       [:div.float-right
+        [:div.delete
+         ;; Need the key tag because otherwise when tabbing from textarea
+         ;; focused is updated and this button is re-rendered
+         ^{:key "delete-button"}
+         [:button.small {:on-click #(delete-amplified-page! amplify-info)}
+          "Delete"]]
+        [:div.update
+         ^{:key "update-button"}
+         [:button.small {:on-click #(update-amplified-page! amplify-info)
+                         :disabled (pos? (:uploading @amplify-info))}
+          "Update"]]]
        (when (:failure @amplify-info)
          [:p.error "Couldn't upload the data. " (:error @amplify-info)])])))
 

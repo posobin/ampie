@@ -120,8 +120,7 @@
 (defn get-prefixes-info [{url :url} sender]
   (let [normalized-url (url/normalize url)
         prefixes       (rest
-                         (take 10
-                           (url/get-prefixes-normalized normalized-url)))]
+                         (url/get-prefixes-normalized normalized-url))]
     (.then (js/Promise.all
              (for [prefix prefixes]
                (links/get-links-starting-with prefix)))

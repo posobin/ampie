@@ -107,7 +107,7 @@
   ([normalized-url-prefix]
    (get-links-starting-with normalized-url-prefix 0))
   ([normalized-url-prefix page]
-   (get-links-starting-with normalized-url-prefix 50 (* page 50)))
+   (get-links-starting-with normalized-url-prefix 200 (* page 200)))
   ([normalized-url-prefix limit offset]
    (if-let [result (@@large-prefixes-cache normalized-url-prefix)]
      (js/Promise.resolve (->> result (drop offset) (take limit)))

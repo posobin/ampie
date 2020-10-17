@@ -46,7 +46,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 
 .pane .header {font-weight: 500;}
 .pane .header + .row {margin-top: 0.3em;}
-.pane > .row {margin-top: 0.5em;}
+.pane > .row {margin-top: 8px;}
 .pane .row .info {color: var(--secondary-font-color);}
 .pane .row .info * {display: inline;}
 .pane .row .info *:not(:first-child) {margin-left: 4px;}
@@ -123,9 +123,11 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 
 .header .icon {margin-left: 0; margin-right: 3px;}
 
-.adjacent-link.row {display: flex; justify-content: space-between;}
+.adjacent-link.row .upper-part {display: flex; justify-content: space-between;}
 .adjacent-link.row .url {word-break: break-all;}
 .adjacent-link.row .url .prefix {color: grey;}
+.adjacent-link.row .shared-usernames {/* text-align: right; */ margin-right: 8px; font-size: 9pt;}
+.load-more a {cursor: pointer;}
 .inline-mini-tags {cursor: pointer; flex: 0 0 auto; z-index: 1; margin-right:4px;}
 .inline-mini-tags .mini-tag {width: 3em; display: inline-block; position: relative; padding-left: 4px; vertical-align: top;}
 .inline-mini-tags .mini-tag .icon {margin-right: 3px; margin-left:0;}

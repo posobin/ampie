@@ -68,7 +68,7 @@
              "Load " (count kids)
              (if (= (count kids) 1) " child" " children")]
             ^{:key :hide-or-show}
-            [:button.inline {:on-click #(log/info (swap! children-hidden not))}
+            [:button.inline {:on-click #(swap! children-hidden not)}
              (if @children-hidden "Show " "Hide ") "children"]))]
        (when (and (not @children-hidden) (seq @loaded-kids))
          [:div.children {:class (when (even? depth) "white")}
@@ -272,52 +272,81 @@
 
 (defn adjacent-link-row [{:keys [normalized-url seen-at url title]}
                          prefix load-page-info]
-  (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)
-        reversed-prefix         (url/reverse-lower-domain prefix)]
+  (let [reversed-normalized-url     (url/reverse-lower-domain normalized-url)
+        reversed-prefix             (url/reverse-lower-domain prefix)
+        {:keys [visits hn twitter]} seen-at
+        who-shared
+        (->> (concat visits twitter)
+          (map #(or (-> % second :v-username)
+                  (-> % second :t-author-name)))
+          (filter identity)
+          frequencies
+          (map #(str (key %) (when (> (val %) 1) (str "×" (val %))))))]
     [:div.row.adjacent-link
-     [:div.title-and-url
-      (when title [:div.title title])
-      [:div.url
-       (into
-         [:a (b/ahref-opts (or url (str "http://" reversed-normalized-url)))]
-         (if-let [index (clojure.string/index-of reversed-normalized-url
-                          reversed-prefix)]
-           (let [start (subs reversed-normalized-url 0 index)
-                 end   (subs reversed-normalized-url (+ index (count prefix)))]
-             [(js/decodeURI start)
-              [:span.prefix (js/decodeURI reversed-prefix)]
-              (js/decodeURI end)])
-           [reversed-normalized-url]))]]
-     (let [{:keys [visits hn twitter]} seen-at]
-       [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
-        [mini-tag :visits (links/count-visits visits)]
-        [mini-tag :hn (links/count-hn hn)]
-        [mini-tag :twitter (links/count-tweets twitter)]])]))
+     [:div.upper-part
+      [:div.title-and-url
+       (when title [:div.title title])
+       [:div.url
+        (into
+          [:a (b/ahref-opts (or url (str "http://" reversed-normalized-url)))]
+          (if-let [index (clojure.string/index-of reversed-normalized-url
+                           reversed-prefix)]
+            (let [start (subs reversed-normalized-url 0 index)
+                  end   (subs reversed-normalized-url (+ index (count prefix)))]
+              [(js/decodeURI start)
+               [:span.prefix (js/decodeURI reversed-prefix)]
+               (js/decodeURI end)])
+            [reversed-normalized-url]))]]
+      [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
+       [mini-tag :visits (links/count-visits visits)]
+       [mini-tag :hn (links/count-hn hn)]
+       [mini-tag :twitter (links/count-tweets twitter)]]]
+     (when (or (seq twitter) (seq visits))
+       (let [batch (cond (= (count who-shared) 6)
+                         who-shared
+                         :else
+                         (take 5 who-shared))]
+         [:div.shared-usernames
+          (string/join " " batch)
+          (cond (> (count who-shared) (count batch))
+                (str " + " (- (count who-shared) (count batch))
+                  " more"))]))]))
 
 (defn adjacent-links [[normalized-url links] load-page-info only-local-data]
-  (let [pages-info (r/atom [])
+  (let [pages-info (r/atom {:loaded              []
+                            :n-loading-or-loaded (if only-local-data
+                                                   (count links)
+                                                   0)
+                            :not-loaded          links})
         loading    (r/atom false)
         get-link-id
         (fn [{:keys [seen-at]}]
           (or (-> seen-at :hn first first)
             (-> seen-at :visits first first)
-            (-> seen-at :twitter first first)))]
-    (when-not only-local-data
-      (reset! loading true)
-      (-> ((fn download-chain [[first-part & rest-parts]]
-             (when first-part
-               (->
-                 (.. browser -runtime
-                   (sendMessage
-                     (clj->js {:type     :get-links-pages-info
-                               :link-ids (map get-link-id first-part)})))
-                 (.then #(js->clj % :keywordize-keys true))
-                 (.then #(swap! pages-info into %))
-                 (.then (js/Promise. #(js/setTimeout % 5000)))
-                 (.then #(download-chain rest-parts)))))
-           (partition-all 10 links))
-        (.finally #(reset! loading false))))
-    (fn [[normalized-url links] load-page-info]
+            (-> seen-at :twitter first first)))
+        batch-size 5
+        load-next-batch
+        (fn []
+          (let [{:keys [loaded not-loaded]} @pages-info
+                next-batch                  (take batch-size not-loaded)]
+            (reset! loading true)
+            (swap! pages-info update :n-loading-or-loaded + batch-size)
+            (->
+              (.. browser -runtime
+                (sendMessage
+                  (clj->js {:type     :get-links-pages-info
+                            :link-ids (map get-link-id next-batch)})))
+              (.then #(js->clj % :keywordize-keys true))
+              (.then (fn [next-batch-info]
+                       (swap! pages-info
+                         (fn [val]
+                           (-> val
+                             (update :loaded into next-batch-info)
+                             (update :not-loaded #(drop batch-size %)))))))
+              (.then (js/Promise. #(js/setTimeout % 3000)))
+              (.finally #(reset! loading false)))))]
+    (when-not only-local-data (load-next-batch))
+    (fn [[normalized-url links] load-page-info only-local-data]
       [:div.adjacent-links.pane
        [:div.header [:span.icon.domain-links-icon]
         "Links at " (url/reverse-lower-domain normalized-url)
@@ -325,11 +354,20 @@
        (when only-local-data
          [:p {:style {:margin-top "4px" :margin-bottom 0}}
           "This list was created from your local cache. To request page titles, click the link above"])
-       (doall
-         (for [{link-url :normalized-url title :title :as link}
-               (map #(merge %1 %2) links (concat @pages-info (repeat nil)))]
-           ^{:key (str link-url " " title)}
-           [adjacent-link-row link normalized-url load-page-info]))])))
+       (let [{:keys [n-loading-or-loaded loaded not-loaded]} @pages-info]
+         [:<>
+          (doall
+            (for [{link-url :normalized-url title :title :as link}
+                  (map #(merge %1 %2) (take n-loading-or-loaded links)
+                    (concat loaded (repeat nil)))]
+              ^{:key (str link-url " " title)}
+              [adjacent-link-row link normalized-url load-page-info]))
+          (when (and (not only-local-data) (seq not-loaded))
+            [:div.row.load-more
+             (if @loading
+               "Loading"
+               [:a {:on-click (fn [e] (.stopPropagation e) (load-next-batch))}
+                "Load more"])])])])))
 
 (defn this-page-preview [normalized-url counts load-page-info]
   (let [reversed-normalized-url (url/reverse-lower-domain normalized-url)]
@@ -440,7 +478,7 @@
      [:div.mini-tag
       [:span.icon.domain-links-icon]
       (let [count (count domain-links)]
-        (if (>= count 50)
+        (if (>= count 200)
           (str count "+")
           count))])
    [:div.close {:on-click (fn [e] (.stopPropagation e) (close-mini-tags) nil)

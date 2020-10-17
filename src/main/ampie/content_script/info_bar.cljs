@@ -36,10 +36,35 @@
              :keywords?       true
              :handler         #(resolve %)}))))))
 
+(defn element->hiccup [^js el]
+  (let [children-seq
+        (doall
+          (for [[idx child] (map-indexed vector (.-childNodes el))]
+            (vary-meta
+              (element->hiccup child)
+              assoc :key idx)))]
+    (vary-meta
+      (case (.-nodeName el)
+        "BODY"  children-seq
+        "PRE"   [:pre (-> (.-childNodes el)
+                        first
+                        element->hiccup)]
+        "P"     [:p children-seq]
+        "A"     [:a (b/ahref-opts (.-href el)) (.-innerText el)]
+        "I"     [:i children-seq]
+        "CODE"  [:code (.-innerText el)]
+        "#text" [:<> (.-textContent el)])
+      assoc :text-length (count (or (.-innerText el)
+                                  (.-textContent el))))))
+
 (defn hn-comment [{:keys [by text time id kids]} depth]
-  (let [comment-ps      (clojure.string/split text #"<p>")
-        p-lengths       (reductions + 0 (map count comment-ps))
-        p-with-length   (map vector comment-ps p-lengths)
+  (let [parser          (js/DOMParser.)
+        paragraphs      (filter (comp pos? :text-length meta)
+                          (-> (.parseFromString parser text "text/html")
+                            (.querySelector "body")
+                            element->hiccup))
+        p-lengths       (reductions + 0 (map (comp :text-length meta) paragraphs))
+        p-with-length   (map vector paragraphs p-lengths)
         showing-all     (r/atom (<= (-> p-with-length last second) 280))
         loaded-kids     (r/atom [])
         children-hidden (r/atom false)]
@@ -49,8 +74,7 @@
         (doall
           (for [[p prior-length] p-with-length
                 :when            (or (<= prior-length 280) @showing-all)]
-            ^{:key prior-length}
-            [:p {:dangerouslySetInnerHTML #js {:__html p}}]))]
+            (with-meta p {:key prior-length})))]
        [:div.info
         (when-not @showing-all
           [:button.inline

@@ -83,19 +83,23 @@
           (fn add-buffer-to-db []
             (let [[buffer _] (reset-vals! links-buffer {})]
               (if (seq buffer)
-                (-> (get-updated-entries buffer)
-                  (.then #(save-links % cache-key))
-                  (.then (fn [_]
-                           (.. browser -storage -local
-                             (set #js {:link-cache-status
-                                       (str "Unpacked " @unpacked-count
-                                         " link batches from " cache-key)}))))
-                  (.catch (fn [error]
-                            (backend/problem-getting-cache
-                              cache-key
-                              (str "type=save-problem; "
-                                (.toString error)))
-                            (js/Promise.reject error))))
+                ((fn process-buffer-parts [[keys-part & rest]]
+                   (-> (get-updated-entries (select-keys buffer keys-part))
+                     (.then #(save-links % cache-key))
+                     (.then (fn [_]
+                              (.. browser -storage -local
+                                (set #js {:link-cache-status
+                                          (str "Unpacked " @unpacked-count
+                                            " link batches from " cache-key)}))))
+                     (.then
+                       (fn [] (when (seq rest) (process-buffer-parts rest))))
+                     (.catch (fn [error]
+                               (backend/problem-getting-cache
+                                 cache-key
+                                 (str "type=save-problem; "
+                                   (.toString error)))
+                               (js/Promise.reject error)))))
+                 (partition-all 1000 (keys buffer)))
                 (js/Promise.resolve))))]
       (|vv
         (set! (.-onValue parser))

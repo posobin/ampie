@@ -44,12 +44,12 @@ button.small:hover, button.small:focus {box-shadow: 0 2px 7px var(--green);}
 .delete button.small:hover, .delete button.small:focus {box-shadow: inset 0 0 0 1px var(--red), 0 2px 5px var(--red-shadow);}
 .delete button.small:active {background: var(--red); color: white;}
 button[disabled] {background: grey; cursor: initial;}
-button.inline {border: none; background: transparent; color: inherit; padding: 0; margin: 0; cursor: pointer;}
+button.inline {border: none; background: transparent; color: inherit; padding: 0; margin: 0; cursor: pointer; font: inherit;}
 
 .error {background: #f9ebeb; padding: 4px; border-radius: 4px; margin-top: 4px;}
 
 .float-right { float: right; display: flex; flex-direction: row; }
-/* .delete, .update {float: right;} */
+.delete, .update {font: inherit;}
 .delete { margin-right: 4px; }
 
 .amplify-dialog .close {position: absolute; top: 6px; right: 8px; margin-top: 1px; cursor: pointer;}

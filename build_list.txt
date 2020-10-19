@@ -1,17 +1,9 @@
 out/background.js
 out/popup-page.js
 out/bg-shared.js
-out/history-page.js
-out/hello-page.js
-out/update-page.js
 out/content-script.js
 out/shared.js
-out/weekly-links-page.js
 popup.html
-hello.html
-update.html
-history.html
-weekly-links.html
 icons/ampie-no-shadow.svg
 icons/ampie-128.png
 icons/ampie-32.png
@@ -20,12 +12,8 @@ icons/ampie-48.png
 manifest.json
 assets/fonts-content-style.css
 assets/images/mini-tags.png
-assets/images/history.png
-assets/images/chrome-toolbar-icon.png
-assets/images/amplify-dialog.png
-assets/images/amplify-dialog-edit.png
-assets/info-bar.css
 assets/amplify-dialog.css
+assets/info-bar.css
 assets/content-style.css
 assets/weekly-links-style.css
 assets/icons/hn.svg
@@ -36,6 +24,7 @@ assets/icons/history.svg
 assets/icons/ampie-no-shadow.svg
 assets/message.css
 assets/history-style.css
+assets/search-results.css
 assets/popup.css
 assets/fonts.css
 assets/fonts/roboto-regular.woff2
@@ -45,4 +34,3 @@ assets/fonts/roboto-bold.woff2
 assets/fonts/roboto-medium2.woff2
 assets/fonts/roboto-bold2.woff2
 assets/common-page-style.css
-assets/hello.css

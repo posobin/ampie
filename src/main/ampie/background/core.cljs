@@ -2,6 +2,7 @@
   (:require [ampie.background.messaging :as background.messaging]
             [ampie.db :refer [db]]
             [ampie.links]
+            [ampie.settings]
             [ampie.background.backend]
             [ampie.background.link-cache-sync]
             [ampie.tabs.monitoring :as tabs.monitoring]
@@ -40,6 +41,27 @@
   (.. browser -runtime -onInstalled
     (addListener
       (fn [^js details]
+        (let [previous-version
+              (->> (re-matches #"(\d+).(\d+)(?:.(\d+)(?:.(\d+))?)?"
+                     (.-previousVersion details))
+                rest
+                (map (fnil js/parseInt "0"))
+                vec)]
+          (js/console.log "Ampie version " (string/join "." previous-version))
+          (when (and (= (.-reason details) "update")
+                  (string/includes? (.. js/window -navigator -userAgent) "Firefox")
+                  (neg? (compare previous-version [2 3 0 1])))
+            (when-not goog.DEBUG
+              #_(.. browser -storage -local
+                  (set (clj->js {:blacklisted-urls
+                                 (:blacklisted-urls
+                                  ampie.settings/default-settings)
+                                 :seen-domain-links-notice false})))
+              (mount/stop)
+              (-> (.. browser -storage -local (clear))
+                (.then (fn [] (-> (.-links @db) (.clear))))
+                (.then (fn [] (mount/start)))))))
+
         (when (or (= (.-reason details) "install")
                 (= (.-reason details) "update"))
           (.. browser -tabs

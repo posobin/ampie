@@ -40,23 +40,10 @@
   (.. browser -runtime -onInstalled
     (addListener
       (fn [^js details]
-        (when (and (= (.-reason details) "update")
-                (not= (.-previousVersion details) "2.2.1"))
-          (.. browser -tabs
-            (create #js {:url (.. browser -runtime (getURL "update.html"))}))
-          (when-not goog.DEBUG
-            (.. browser -storage -local
-              (set (clj->js {:blacklisted-urls
-                             (:blacklisted-urls
-                              ampie.settings/default-settings)
-                             :seen-domain-links-notice false})))
-            (-> (.. browser -storage -local (remove "link-caches-info"))
-              (.then (fn [] (-> (.-links @db) (.clear)))))))
         (when (or (= (.-reason details) "install")
-                (and (= (.-reason details) "update")
-                  (string/starts-with? (.-previousVersion details) "1")))
+                (= (.-reason details) "update"))
           (.. browser -tabs
-            (create #js {:url (.. browser -runtime (getURL "hello.html"))}))))))
+            (create #js {:url "https://ampie.app/hello"}))))))
 
   #_(.. browser -tabs
       (query #js {} process-already-open-tabs))

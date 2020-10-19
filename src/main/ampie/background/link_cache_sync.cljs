@@ -312,7 +312,10 @@
                             stop-download (some existing-ids
                                             ;; Link ids from the server are ints
                                             (map (comp str :link-id) page))]
-                        (if-not stop-download
+                        ;; Stop if the page is too small or we reached
+                        ;; a previously seen link. Curent logic will cause
+                        ;; problems if there are hundreds visits per second though.
+                        (if-not (or stop-download (< (count page) 100))
                           (-> (get-page earliest-timestamp-on-page)
                             (.then #(load-next-page % (inc depth)
                                       (merge-with merge accum

@@ -260,7 +260,13 @@
                 (swap! window-atom assoc
                   :update-height (partial change-height el true))
                 (set! (.-onwheel el)
-                  (fn [evt] (change-height el true (. evt -deltaY))))))}]
+                  (fn [evt]
+                    (js/console.log evt)
+                    (change-height el true
+                      ;; Account for firefox using deltamode = 1
+                      ;; and its deltaY being in lines scrolled, not in pixels
+                      (* (if (= (.-deltaMode evt) 1) 16 1)
+                        (. evt -deltaY)))))))}]
       (r/children (r/current-component)))))
 
 (defn elements-stack []

@@ -139,6 +139,21 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
     box-shadow: 0 0 3px #ffeffe;
     z-index: -1;
 }
+.info-bar--0 .inline-mini-tags.blinking .mini-tag:not(:empty)::after {
+    content:""; position:absolute; left:-10px; top:-10px; width:calc(100% + 15px); height:calc(100% + 20px);
+    animation-name: blinking-mini-tag;
+    animation-duration: 0.6s;
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+    animation-timing-function: ease;
+    border-radius: 3px;
+    box-shadow: 0 0 3px #ffeffe;
+    z-index: -1;
+}
+@keyframes blinking-mini-tag {
+    0% {background: transparent; box-shadow: 0 0 3px transparent;}
+    100% {background: #56dc61; box-shadow: 0 0 3px #56dc61;}
+}
 
 .mini-tags-holder {
     pointer-events: none;

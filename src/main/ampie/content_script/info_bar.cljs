@@ -4,11 +4,11 @@
             [reagent.dom :as rdom]
             [reagent.core :as r]
             [ampie.url :as url]
-            [ampie.interop :as i]
-            [taoensso.timbre :as log]
             [ajax.core :refer [GET]]
             [clojure.string :as string]
             [ampie.components.basics :as b]
+            [ampie.content-script.demo
+             :refer [is-demo-url? get-current-url send-message-to-page]]
             [ampie.time]
             [ampie.content-script.amplify :as amplify]
             [ampie.links :as links]
@@ -261,7 +261,6 @@
                   :update-height (partial change-height el true))
                 (set! (.-onwheel el)
                   (fn [evt]
-                    (js/console.log evt)
                     (change-height el true
                       ;; Account for firefox using deltamode = 1
                       ;; and its deltaY being in lines scrolled, not in pixels
@@ -300,7 +299,7 @@
        (str (quot count 1000) "k"))]
     [:div.mini-tag]))
 
-(defn adjacent-link-row [{:keys [normalized-url seen-at url title]}
+(defn adjacent-link-row [{:keys [normalized-url seen-at url title blinking]}
                          prefix load-page-info]
   (let [reversed-normalized-url     (url/reverse-lower-domain normalized-url)
         reversed-prefix             (url/reverse-lower-domain prefix)
@@ -327,7 +326,8 @@
                [:span.prefix (js/decodeURI reversed-prefix)]
                (js/decodeURI end)])
             [reversed-normalized-url]))]]
-      [:div.inline-mini-tags {:on-click #(load-page-info reversed-normalized-url)}
+      [:div.inline-mini-tags {:class    (when blinking :blinking)
+                              :on-click #(load-page-info reversed-normalized-url)}
        [mini-tag :visits (links/count-visits visits)]
        [mini-tag :hn (links/count-hn hn)]
        [mini-tag :twitter (links/count-tweets twitter)]]]
@@ -343,18 +343,19 @@
                   " more"))]))]))
 
 (defn adjacent-links [[normalized-url links] load-page-info only-local-data]
-  (let [pages-info (r/atom {:loaded              []
-                            :n-loading-or-loaded (if only-local-data
-                                                   (count links)
-                                                   0)
-                            :not-loaded          links})
-        loading    (r/atom false)
+  (let [pages-info          (r/atom {:loaded              []
+                                     :n-loading-or-loaded (if only-local-data
+                                                            (count links)
+                                                            0)
+                                     :not-loaded          links})
+        clicked-on-blinking (r/atom false)
+        loading             (r/atom false)
         get-link-id
         (fn [{:keys [seen-at]}]
           (or (-> seen-at :hn first first)
             (-> seen-at :visits first first)
             (-> seen-at :twitter first first)))
-        batch-size 5
+        batch-size          5
         load-next-batch
         (fn []
           (let [{:keys [loaded not-loaded]} @pages-info
@@ -389,9 +390,19 @@
           (doall
             (for [{link-url :normalized-url title :title :as link}
                   (map #(merge %1 %2) (take n-loading-or-loaded links)
-                    (concat loaded (repeat nil)))]
+                    (concat loaded (repeat nil)))
+                  :let [blinking
+                        (and (= normalized-url "com.eugenewei")
+                          (= link-url "com.eugenewei/blog/2019/2/19/status-as-a-service")
+                          (is-demo-url? (.. js/document -location -href))
+                          (not @clicked-on-blinking))]]
               ^{:key (str link-url " " title)}
-              [adjacent-link-row link normalized-url load-page-info]))
+              [adjacent-link-row
+               (assoc link :blinking blinking)
+               normalized-url
+               (fn [& args]
+                 (when blinking (reset! clicked-on-blinking true))
+                 (apply load-page-info args))]))
           (when (and (not only-local-data) (seq not-loaded))
             [:div.row.load-more
              (if @loading
@@ -438,19 +449,22 @@
                              ((:amplify-page @amplify/amplify)))}
     [:a "Amplify this page"]]])
 
-(defn info-bar [{:keys [page-info close-page-info show-prefix-info
-                        load-page-info hidden opacity]}]
+(defn info-bar [{:keys       [page-info close-page-info show-prefix-info
+                              index load-page-info hidden]
+                 :style/keys [opacity right]}]
   (let [{{:keys [history hn twitter visits]} :seen-at
          :keys
          [normalized-url prefixes-info prefix-info only-local-data counts
           show-auto-open-notice show-subdomains-notice fail fail-message]}
         page-info]
-    [:div.info-bar {:class (when hidden "hidden")
-                    :style (when opacity {:opacity opacity})}
+    [:div.info-bar {:class [(when hidden :hidden)
+                            (str "info-bar--" index)]
+                    :style (merge (when opacity {:opacity opacity})
+                             (when right {:right right}))}
      (into
        [elements-stack]
        (filter identity
-         [(when (= (.. js/document -location -href) (:url page-info))
+         [(when (= (get-current-url) (:url page-info))
             ^{:key :share-page-notice :tight true}
             [share-page-notice])
           (when fail
@@ -520,6 +534,7 @@
     (load-hn-items stories-ids)))
 
 (defn load-page-info [url pages-info only-local-data]
+  (send-message-to-page {:type :ampie-load-page-info :url url})
   (letfn [(get-prefixes-info []
             (.then (.. browser -runtime
                      (sendMessage (clj->js {:type :get-prefixes-info
@@ -606,22 +621,29 @@
     (when (and (:open (:mini-tags @pages-info))
             (not (:hidden @pages-info)))
       ^{:key :mini-tags}
-      [mini-tags {:page-info       (:mini-tags @pages-info)
-                  :open-info-bar   #(load-page-info
-                                      (.. js/document -location -href)
-                                      pages-info
-                                      false)
-                  :close-mini-tags #(swap! pages-info
-                                      assoc-in [:mini-tags :open] false)}])
+      [mini-tags {:page-info (:mini-tags @pages-info)
+                  :open-info-bar
+                  #(load-page-info
+                     (get-current-url)
+                     pages-info
+                     false)
+                  :close-mini-tags
+                  #(swap! pages-info assoc-in [:mini-tags :open] false)}])
     (doall
-      (for [[index page-info] (map-indexed vector (:info-bars @pages-info))]
+      (for [[index page-info] (map-indexed vector (:info-bars @pages-info))
+            :let              [index-from-end (- (count (:info-bars @pages-info)) (inc index))]]
         ^{:key [index (:url page-info)]}
         [info-bar {:page-info       page-info
+                   :index           index
                    :hidden          (:hidden @pages-info)
                    :load-page-info  (fn [url] (load-page-info url pages-info false))
-                   :close-page-info (fn [] (swap! pages-info
-                                             update :info-bars pop))
-                   :opacity         (- 1.0 (* (- (count (:info-bars @pages-info)) (inc index)) 0.2))
+                   :close-page-info (fn []
+                                      (send-message-to-page
+                                        {:type :ampie-infobar-closed
+                                         :url  (-> @pages-info :info-bars peek :url)})
+                                      (swap! pages-info update :info-bars pop))
+                   :style/opacity   (- 1.0 (* index-from-end 0.2))
+                   :style/right     (str "-" (* index-from-end 10) "px")
                    :show-prefix-info
                    (fn [prefix-info]
                      (swap! pages-info
@@ -639,7 +661,7 @@
                            prefix-info))))}]))]])
 
 (defn reset-current-page-info! [pages-info]
-  (let [current-url    (.. js/window -location -href)
+  (let [current-url    (get-current-url)
         normalized-url (url/normalize current-url)]
     (reset! pages-info {:mini-tags {:url            current-url
                                     :normalized-url normalized-url}

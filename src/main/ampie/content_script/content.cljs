@@ -1,8 +1,6 @@
 (ns ampie.content-script.content
-  (:require [reagent.core :as r]
-            [reagent.dom :as rdom]
-            [ampie.interop :as i]
-            [ampie.content-script.badge :as badge]
+  (:require [ampie.content-script.badge :as badge]
+            [ampie.content-script.demo :as demo]
             [taoensso.timbre :as log]
             [ampie.content-script.info-bar :refer [info-bar-state]]
             [ampie.content-script.amplify :refer [amplify]]
@@ -36,7 +34,24 @@
       :amplify-page ((:amplify-page @amplify))
       (log/error "Unknown message type" message))))
 
+(defn send-ampie-version []
+  (demo/send-message-to-page
+    {:type    :ampie-starting
+     :version (.. browser -runtime (getManifest) -version)}))
+
+(defn respond-to-ampie-version-message [^js evt]
+  (when (and (= (.-source evt) js/window)
+          (.-data evt)
+          (= (.. evt -data -type) "get-ampie-version")
+          (demo/is-ampie-domain? (.. js/document -location -href)))
+    (send-ampie-version)))
+
 (defn ^:dev/after-load init []
+  ;; Both send the ampie version and set a listener to respond to
+  ;; a request for ampie version, so that the page gets the ampie version
+  ;; no matter the order in which content script and the page script ran.
+  (send-ampie-version)
+  (. js/window addEventListener "message" respond-to-ampie-version-message)
   ;; Don't attempt to load the background services in the content script
   (mount/start (mount/only
                  #{#'page-service
@@ -49,4 +64,5 @@
                    #'amplify})))
 
 (defn ^:dev/before-load before-load []
+  (. js/window removeEventListener "message" respond-to-ampie-version-message)
   (mount/stop))

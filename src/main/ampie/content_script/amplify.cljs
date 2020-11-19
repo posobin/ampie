@@ -3,10 +3,10 @@
             ["react-shadow-dom-retarget-events" :as retargetEvents]
             [reagent.dom :as rdom]
             [reagent.core :as r]
-            [ampie.url :as url]
-            [taoensso.timbre :as log]
+            [ampie.content-script.demo :refer [is-demo-url? send-message-to-page]]
             [ampie.components.basics :as b]
-            [mount.core :as mount :refer [defstate]]))
+            [mount.core :as mount :refer [defstate]]
+            [clojure.string]))
 
 (defn amplify-page!
   "Sends a message to the extension backend to amplify the current page, updates
@@ -20,36 +20,47 @@
             -shadowRoot
             (querySelector ".comment-field")
             (focus))
-          (catch :default e)))
-    (let [url (.. js/document -location -href)]
+          (catch :default _)))
+    (let [url (-> (.. js/document -location -href)
+                ;; Split on hashes not followed by !
+                (clojure.string/split #"#(?!!)")
+                first)]
       (when (zero? (:uploading @amplify-info))
-        (.. browser -runtime
-          (sendMessage (clj->js {:type :saw-amplify-dialog
-                                 :url  (-> (.. js/document -location -href)
-                                         (clojure.string/split #"#")
-                                         first)})))
-        (swap! amplify-info
-          (fn [{:keys [uploading mode] :as info}]
-            (assoc info
-              :uploading (inc uploading)
-              :mode (or mode :suggest-sharing)
+        (if (is-demo-url? (.. js/document -location -href))
+          (do
+            (send-message-to-page {:type :ampie-amplify-page :url url})
+            (swap! amplify-info assoc
+              :interacted true
+              :amplified true
               :failure false
-              :interacted true)))
-        (-> (.. browser -runtime
-              (sendMessage (clj->js {:type :amplify-page :url url})))
-          (.then #(js->clj % :keywordize-keys true))
-          (.then (fn [response]
-                   (swap! amplify-info update :uploading dec)
-                   (if (:fail response)
-                     (swap! amplify-info assoc
-                       :mode :suggest-sharing
-                       :failure true
-                       :error (:message response))
-                     (swap! amplify-info assoc
-                       :amplified true
-                       :failure false
-                       :submission-tag (:submission-tag response)
-                       :mode :edit)))))))))
+              :submission-tag nil
+              :mode :edit))
+          (do
+            (.. browser -runtime
+              (sendMessage (clj->js {:type :saw-amplify-dialog
+                                     :url  url})))
+            (swap! amplify-info
+              (fn [{:keys [uploading mode] :as info}]
+                (assoc info
+                  :uploading (inc uploading)
+                  :mode (or mode :suggest-sharing)
+                  :failure false
+                  :interacted true)))
+            (-> (.. browser -runtime
+                  (sendMessage (clj->js {:type :amplify-page :url url})))
+              (.then #(js->clj % :keywordize-keys true))
+              (.then (fn [response]
+                       (swap! amplify-info update :uploading dec)
+                       (if (:fail response)
+                         (swap! amplify-info assoc
+                           :mode :suggest-sharing
+                           :failure true
+                           :error (:message response))
+                         (swap! amplify-info assoc
+                           :amplified true
+                           :failure false
+                           :submission-tag (:submission-tag response)
+                           :mode :edit)))))))))))
 
 (defn update-amplified-page!
   "Takes the amplify-info atom, sends the message to extension backend to update
@@ -58,11 +69,13 @@
   (swap! amplify-info update :uploading inc)
   (swap! amplify-info assoc :failure false :interacted true)
   (->
-    (.. browser -runtime
-      (sendMessage (clj->js {:type           :update-amplified-page
-                             :comment        (:comment @amplify-info)
-                             :reaction       (:reaction @amplify-info)
-                             :submission-tag (:submission-tag @amplify-info)})))
+    (if (is-demo-url? (.. js/document -location -href))
+      (js/Promise.resolve #js {:result :ok})
+      (.. browser -runtime
+        (sendMessage (clj->js {:type           :update-amplified-page
+                               :comment        (:comment @amplify-info)
+                               :reaction       (:reaction @amplify-info)
+                               :submission-tag (:submission-tag @amplify-info)}))))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [response]
              (swap! amplify-info update :uploading dec)
@@ -78,9 +91,11 @@
   (swap! amplify-info update :uploading inc)
   (swap! amplify-info assoc :failure false :interacted true)
   (->
-    (.. browser -runtime
-      (sendMessage (clj->js {:type           :delete-amplified-page
-                             :submission-tag (:submission-tag @amplify-info)})))
+    (if (is-demo-url? (.. js/document -location -href))
+      (js/Promise.resolve #js {:result :ok})
+      (.. browser -runtime
+        (sendMessage (clj->js {:type           :delete-amplified-page
+                               :submission-tag (:submission-tag @amplify-info)}))))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [response]
              (swap! amplify-info update :uploading dec)
@@ -100,12 +115,11 @@
   (swap! amplify-info assoc :mode nil :interacted true))
 
 (defn comment-updater [amplify-info]
-  (let [timeout-id (atom nil)]
-    (fn [text-change-event]
-      (let [old-comment (:comment @amplify-info)
-            new-comment (.. text-change-event -target -value)]
-        (when-not (= old-comment new-comment)
-          (swap! amplify-info assoc :comment new-comment))))))
+  (fn [text-change-event]
+    (let [old-comment (:comment @amplify-info)
+          new-comment (.. text-change-event -target -value)]
+      (when-not (= old-comment new-comment)
+        (swap! amplify-info assoc :comment new-comment)))))
 
 (defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
 (def amplify-page-shortcut (str (if (mac?) "⌘" "Ctrl") "-Shift-A"))
@@ -131,7 +145,7 @@
    (when (:failure @amplify-info)
      [:p.error "Couldn't upload the data. " (:error @amplify-info)])])
 
-(defn edit-amplify [amplify-info]
+(defn edit-amplify [_amplify-info]
   (let [comment-focused (r/atom false)]
     (fn [amplify-info]
       [:div.amplify-dialog.expanded
@@ -240,7 +254,7 @@
       (= mode :edit)
       [edit-amplify amplify-info])))
 
-(defn process-key-press [amplify-dialog-div amplify-info]
+(defn process-key-press [amplify-info]
   (fn [e]
     (when (zero? (:uploading @amplify-info))
       (-> (case (:mode @amplify-info)
@@ -296,7 +310,7 @@
                   assoc :idleness-timeout-id try-again-later-id))))
           30000)]
     (swap! @time-info-atom
-      (fn [{:keys [last-start ms-spent idleness-timeout-id] :as time-info}]
+      (fn [{:keys [last-start idleness-timeout-id] :as time-info}]
         (js/clearTimeout idleness-timeout-id)
         (assoc (if-not last-start
                  (assoc time-info :last-start (js/Date.))
@@ -365,7 +379,7 @@
         shadow             (. shadow-root-el (attachShadow #js {"mode" "open"}))
         shadow-style       (. js/document createElement "link")
         amplify-info       (r/atom {:mode nil :uploading 0})
-        on-key-down        (process-key-press amplify-dialog-div amplify-info)]
+        on-key-down        (process-key-press amplify-info)]
     (set! (.-rel shadow-style) "stylesheet")
     (.setAttribute shadow-root-el "style"  "display: none;")
     (set! (.-onload shadow-style) #(.setAttribute shadow-root-el "style" ""))
@@ -389,14 +403,14 @@
                 (and (= tag-name "input")
                   (contains? text-node-types (.. el -type (toLowerCase)))))))]
       (. js/document addEventListener "focusin"
-        (fn [e]
+        (fn [_]
           (when (is-text-node? (.-activeElement js/document))
             (swap! amplify-info assoc :text-focused true))))
       (. js/document addEventListener "focusout"
-        (fn [e]
+        (fn [_]
           (swap! amplify-info assoc :text-focused false)))
       (. js/document addEventListener "fullscreenchange"
-        (fn [e]
+        (fn [_]
           (if (.-fullscreenElement js/document)
             (swap! amplify-info assoc :fullscreen true)
             (swap! amplify-info assoc :fullscreen false)))))

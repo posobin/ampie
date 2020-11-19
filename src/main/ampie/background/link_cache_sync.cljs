@@ -1,11 +1,11 @@
 (ns ampie.background.link-cache-sync
   (:require [ampie.background.backend :as backend]
+            [ampie.background.demo :as demo]
             [ampie.links :as links]
             [ampie.db :refer [db]]
             [ampie.interop :as i]
             [ampie.macros :refer [|vv]]
-            [ajax.core :refer [GET POST HEAD PUT DELETE]]
-            [ajax.json :refer [safe-json-request-format]]
+            [ajax.core :refer [GET POST]]
             [taoensso.timbre :as log]
             ["dexie" :default Dexie]
             ["webextension-polyfill" :as browser]
@@ -97,8 +97,8 @@
                                (backend/problem-getting-cache
                                  cache-key
                                  (str "type=save-problem; "
-                                   (.toString error)))
-                               (js/Promise.reject error)))))
+                        (.toString error)))
+          (js/Promise.reject error)))))
                  (partition-all 1000 (keys buffer)))
                 (js/Promise.resolve))))]
       (|vv
@@ -342,6 +342,11 @@
                     #(max (or % 0) last-timestamp)))))
             (log/info "No new visits by friends")))))))
 
+(defn load-demo-data! []
+  (-> (get-updated-entries (demo/staas-links))
+    (.then #(save-links % :demo-staas))
+    (.then #(get-updated-entries (demo/invisible-asymptotes-links)))
+    (.then #(save-links % :demo-invisible-asymptotes))))
 
 (defstate link-cache-sync
   :start (letfn [(run-cache-check [time]
@@ -358,6 +363,7 @@
                          (log/info "Friends visits updated")
                          (let [timeout (js/setTimeout run-cache-check time time)]
                            (reset! @link-cache-sync timeout))))))]
+           (load-demo-data!)
            (when-not false ;;goog.DEBUG
              (js/setTimeout
                (fn [] (backend/on-logged-in :link-cache-sync

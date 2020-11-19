@@ -565,15 +565,24 @@
                                  :visits  (links/count-visits visits)}
                :fail            fail
                :fail-message    message}]
-          (let [idx            (-> (swap! pages-info update :info-bars conj new-page-info)
+          (let [idx            (-> (swap! pages-info update
+                                     :info-bars conj new-page-info)
                                  :info-bars count dec)
-                normalized-url (url/normalize url)]
+                normalized-url (url/normalize url)
+                swap-info-bars!
+                (fn [& args]
+                  (swap! pages-info
+                    (fn [{:keys [info-bars] :as pages-info}]
+                      ;; Check that the info bar hasn't been closed
+                      (if (> (count info-bars) idx)
+                        (apply update-in pages-info [:info-bars idx]
+                          args)
+                        pages-info))))]
             (when only-local-data
               (.then (.. browser -runtime
                        (sendMessage (clj->js {:type :show-domain-links-notice?})))
                 (fn [show?]
-                  (swap! pages-info assoc-in
-                    [:info-bars idx :show-auto-open-notice] show?)))
+                  (swap-info-bars! assoc :show-auto-open-notice show?)))
               (js/setTimeout
                 (fn []
                   ;; Mark the domains notice as seen only if the info bar hasn't
@@ -593,10 +602,8 @@
                     (.then (.. browser -runtime
                              (sendMessage
                                (clj->js {:type :subdomains-notice?})))
-                      #(swap! pages-info assoc-in
-                         [:info-bars idx :show-subdomains-notice] %))))
-                (swap! pages-info assoc-in
-                  [:info-bars idx :prefixes-info] prefixes-info)
+                      #(swap-info-bars! assoc :show-subdomains-notice %))))
+                (swap-info-bars! assoc :prefixes-info prefixes-info)
                 (let [;; Find the entry for the domain among prefixes
                       domain-info (->> (remove #(clojure.string/includes?
                                                   (first %) "/") prefixes-info)
@@ -605,15 +612,15 @@
                   ;; Show only if there are links besides the one the user is reading
                   ;; about
                   (when (other-links-with-prefix? links (url/normalize url))
-                    (swap! pages-info assoc-in
-                      [:info-bars idx :prefix-info] domain-info)))))
+                    (swap-info-bars! assoc :prefix-info domain-info)))))
             (when (and (not only-local-data) (seq twitter))
               (.then (hydrate-tweets twitter)
-                #(swap! pages-info assoc-in [:info-bars idx :seen-at :twitter] %)))
+                (fn [twitter-info]
+                  (swap-info-bars! assoc-in [:seen-at :twitter] twitter-info))))
             (when (and (not only-local-data) (seq hn))
-              (-> (hydrate-hn hn)
-                (.then
-                  #(swap! pages-info assoc-in [:info-bars idx :seen-at :hn] %))))))))))
+              (.then (hydrate-hn hn)
+                (fn [hn-info]
+                  (swap-info-bars! assoc-in [:seen-at :hn] hn-info))))))))))
 
 (defn info-bars-and-mini-tags [{:keys [pages-info close-info-bar]}]
   [:div.info-bars-and-mini-tags

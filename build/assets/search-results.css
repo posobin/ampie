@@ -26,7 +26,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .search-result .title {text-overflow: ellipsis; white-space: nowrap; overflow: hidden; display: block;}
 .search-result .visit { box-shadow: 0 1px 4px lightgrey, 0 0 0 1px rgb(240, 240, 250);
                         background: lightcyan;
-                        padding: 6px 8px; border-radius: 4px; width: max-content;
+                        padding: 6px 8px; border-radius: 4px;
                         position: relative;}
 .search-result .visit.like { box-shadow: 0 1px 4px lightgreen, 0 0 0 1px rgb(240, 240, 250); }
 /* .search-result .visit .no.comment:before { content: "No comment"; font-style: italic; } */

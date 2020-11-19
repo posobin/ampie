@@ -76,7 +76,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
     background: var(--selected-url-bg);
 }
 .tweet-inside {display: flex;}
-.tweet .profile-pic {width: 2em; height: 2em; border-radius: 50%; vertical-align: text-top; margin-right: 6px;}
+.tweet .profile-pic {width: 2em; height: 2em; border-radius: 50%; vertical-align: text-top; margin-right: 6px; flex-shrink: 0;}
 .tweet .info {color: grey !important;}
 .tweet .info .date {color: grey;}
 .tweet .retweeted-by {margin-left: calc(2em + 6px);}
@@ -113,6 +113,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 }
 .info-bar .close:hover::before {
     content: "Press ESC"; position: absolute; left: 0; top: -4px; transform: translateX(calc(-100% - 8px));
+    font-weight: normal;
     padding: 2px 4px; background: grey; color: white; border-radius: 4px;
     white-space: nowrap;
 }

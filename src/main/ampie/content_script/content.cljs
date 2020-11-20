@@ -25,6 +25,7 @@
                           (mount/only
                             #{#'page-service
                               #'badge/seen-badges-ids #'badge/on-badge-remove
+                              #'badge/existing-badges 'badge/visible-badges
                               #'google-results
                               #'ddg-results
                               ;; Info bar should start lazily because it is referenced
@@ -56,6 +57,7 @@
   (mount/start (mount/only
                  #{#'page-service
                    #'badge/seen-badges-ids #'badge/on-badge-remove
+                   #'badge/existing-badges 'badge/visible-badges
                    #'google-results
                    #'ddg-results
                    ;; Info bar should start lazily because it is referenced

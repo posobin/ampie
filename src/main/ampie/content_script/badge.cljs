@@ -151,26 +151,32 @@
       title
       href)))
 
+
+(defstate existing-badges :start (atom {}))
+(defstate visible-badges :start (atom #{}))
+
 (defstate seen-badges-ids :start (atom #{}))
 (def intersection-observer
   (js/IntersectionObserver.
     (fn [^js evts]
-      (doseq [evt   (array-seq evts)
-              :let  [ratio (.-intersectionRatio evt)
-                     element (.-target evt)
-                     intersection-ratio (.-intersectionRatio evt)
-                     badge-id (.getAttribute element "ampie-badge-id")
-                     already-seen (contains? @@seen-badges-ids badge-id)]
-              :when (and (> intersection-ratio 0)
-                      (not already-seen))
-              :let  [badge-target
-                     (. js/document querySelector
-                       (str "[processed-by-ampie=\"" badge-id "\"]"))
-                     target-url (get-target-url badge-target)]]
-        (swap! @seen-badges-ids conj badge-id)
-        (.. browser -runtime
-          (sendMessage (clj->js {:type :inc-badge-sightings
-                                 :url  target-url})))))
+      (doseq [evt  (array-seq evts)
+              :let [element (.-target evt)
+                    intersection-ratio (.-intersectionRatio evt)
+                    badge-id (js/parseInt (.getAttribute element "ampie-badge-id"))
+                    already-seen (contains? @@seen-badges-ids badge-id)]]
+        (if (< intersection-ratio 1)
+          (swap! @visible-badges disj badge-id)
+          (swap! @visible-badges conj badge-id))
+        (when (and (> intersection-ratio 0)
+                (not already-seen))
+          (let [badge-target
+                (. js/document querySelector
+                  (str "[processed-by-ampie=\"" badge-id "\"]"))
+                target-url (get-target-url badge-target)]
+            (swap! @seen-badges-ids conj badge-id)
+            (.. browser -runtime
+              (sendMessage (clj->js {:type :inc-badge-sightings
+                                     :url  target-url})))))))
     #js {:threshold 1.0}))
 
 (defstate on-badge-remove :start (atom {}))
@@ -194,7 +200,7 @@
     (set! (.-className badge-icon) "ampie-badge-icon")
     (.appendChild badge-div badge-icon)
     (.setAttribute badge-div "ampie-badge-id" target-id)
-    (let [mouse-out? (atom false)
+    (let [mouse-out? (atom true)
           on-mouse-over
           (fn []
             (reset! mouse-out? false)
@@ -206,11 +212,14 @@
       (.addEventListener badge-div "mouseover" on-mouse-over)
       (.addEventListener target "mouseover" on-mouse-over)
       (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
-      (.addEventListener badge-div "mouseout" on-mouse-out)
-      (.addEventListener target "mouseout" on-mouse-out)
-      (.addEventListener tooltip "mouseout" on-mouse-out)
+      (doseq [el [badge-div target tooltip]]
+        (.addEventListener el "mouseout" on-mouse-out))
+      (swap! @existing-badges assoc target-id
+        {:show #(show-tooltip badge-icon tooltip)
+         :hide #(when @mouse-out? (.remove tooltip))})
       (swap! @on-badge-remove assoc target-id
         (fn []
+          (swap! @existing-badges dissoc target-id)
           (.removeEventListener target "mouseover" on-mouse-over)
           (.removeEventListener target "mouseout" on-mouse-out))))
     (.appendChild target badge-div)))
@@ -315,6 +324,20 @@
               (swap! @on-badge-remove dissoc target-id))
             (swap! target-ids disj target-id))))))
 
+(defn on-alt-down [^js evt]
+  (when (= (.-key evt) "Alt")
+    (doseq [badge-id @@visible-badges
+            :let     [f (:show (@@existing-badges badge-id))]
+            :when    f]
+      (f))))
+
+(defn on-alt-up [^js evt]
+  (when (= (.-key evt) "Alt")
+    (doseq [badge-id @@visible-badges
+            :let     [f (:hide (@@existing-badges badge-id))]
+            :when    f]
+      (f))))
+
 (defn start [on-badge-click]
   (let [target-ids           (atom #{})
         next-target-id       (atom 0)
@@ -344,6 +367,8 @@
           (js/clearTimeout @resize-event-timeout)
           (reset! resize-event-timeout
             (js/setTimeout #(screen-update target-ids) 25)))]
+    (. js/document addEventListener "keydown" on-alt-down)
+    (. js/document addEventListener "keyup" on-alt-up)
     (. js/window addEventListener "resize" on-resize)
     (process-child-links js/document.body target-ids next-target-id on-badge-click)
     (js/setTimeout #(update-page update-cancelled) 2000)
@@ -353,6 +378,8 @@
      :on-resize        on-resize}))
 
 (defn stop [{:keys [next-target-id target-ids update-cancelled on-resize]}]
+  (. js/document removeEventListener "keydown" on-alt-down)
+  (. js/document removeEventListener "keyup" on-alt-up)
   (reset! update-cancelled true)
   (doseq [[badge-id on-remove] @@on-badge-remove] (on-remove))
   (.. js/document (querySelectorAll ".ampie-badge") (forEach #(.remove %)))

@@ -598,7 +598,8 @@
                                    (other-links-with-prefix?
                                      links normalized-url))
                                  prefixes-info)]
-                  (when (> (count filtered) 1)
+                  (when (and (> (count filtered) 1)
+                          (not (is-demo-url? (.. js/document -location -href))))
                     (.then (.. browser -runtime
                              (sendMessage
                                (clj->js {:type :subdomains-notice?})))
@@ -702,11 +703,12 @@
           (swap! pages-info assoc-in [:mini-tags :on-this-domain] domain-links)
           (when (other-links-with-prefix? domain-links normalized-url)
             (swap! pages-info assoc-in [:mini-tags :open] true)
-            (-> (.. browser -runtime
-                  (sendMessage (clj->js {:type :should-show-domain-links?
-                                         :url  current-url})))
-              (.then
-                #(when % (load-page-info current-url pages-info true))))))))))
+            (when (not (is-demo-url? (.. js/document -location -href)))
+              (-> (.. browser -runtime
+                    (sendMessage (clj->js {:type :should-show-domain-links?
+                                           :url  current-url})))
+                (.then
+                  #(when % (load-page-info current-url pages-info true)))))))))))
 
 (defn remove-info-bar []
   (let [element (.. js/document -body (querySelector ".ampie-info-bar-holder"))]

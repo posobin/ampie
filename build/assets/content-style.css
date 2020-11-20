@@ -2,7 +2,6 @@
 .ampie-badge {all: initial; position: relative; display: inline-block;
               vertical-align: top;
               width: 0 !important; padding: 0 !important; margin: 0 !important;}
-.ampie-badge-hidden {visibility: hidden; display: none;}
 .ampie-badge-fixed {position: fixed;}
 /* p > * > .ampie-badge {position: relative; display: inline-block;} */
 
@@ -21,6 +20,8 @@
     font-weight: bold;
     font-size: 13px;
 }
+
+.ampie-badge-hidden { visibility: hidden; }
 
 .ampie-badge-icon:after {content: "&"; }
 

@@ -86,7 +86,7 @@
            ;; has display: none;
            [0 0])))))
 
-(defn generate-tooltip [target-info]
+(defn generate-tooltip [{:keys [twitter visits] :as target-info}]
   (let [tooltip-div (. js/document createElement "div")]
     (set! (.-className tooltip-div) "ampie-badge-tooltip")
     (doseq [[source-tag count-fn]
@@ -104,6 +104,28 @@
       (.appendChild mini-tag icon)
       (.appendChild mini-tag count-el)
       (.appendChild tooltip-div mini-tag))
+    (let [who-shared
+          (->> (concat visits twitter)
+            (map #(or (-> % second :v-username)
+                    (-> % second :t-author-name)))
+            (filter identity)
+            frequencies
+            (map #(str (key %) (when (> (val %) 1) (str "×" (val %))))))]
+      (when (seq who-shared)
+        (let [batch   (cond (= (count who-shared) 6)
+                            who-shared
+                            :else
+                            (take 5 who-shared))
+              text-line
+              (str (string/join " " batch)
+                (cond (> (count who-shared) (count batch))
+                      (str " + " (- (count who-shared) (count batch))
+                        " more")))
+              el      (.createElement js/document "div")
+              el-text (.createTextNode js/document text-line)]
+          (.. el -classList (add "ampie-who-shared"))
+          (.appendChild el el-text)
+          (.appendChild tooltip-div el))))
     tooltip-div))
 
 (defn show-tooltip [badge tooltip]

@@ -68,23 +68,17 @@
         (if (or (not show-badges) (aget show-badges "show-badges"))
           (.then (links/get-nurls-badge-sightings-counts normalized-urls)
             (fn [counts]
-              (let [small-ones      (->> (map vector normalized-urls urls)
-                                      (map vector counts)
-                                      (filter #(< (first %) 3))
-                                      (map second))
-                    normalized-urls (map first small-ones)
-                    urls            (map second small-ones)]
-                (.then (get-nurls-info normalized-urls)
-                  (fn [infos]
-                    (->> (map #(assoc %1 :url %2 :normalized-url %3)
-                           infos urls normalized-urls)
-                      (map (fn [info]
-                             (update info :history
-                               (fn [history]
-                                 (vec
-                                   (filter #(not= visit-hash (:visit-hash %))
-                                     history))))))
-                      clj->js))))))
+              (.then (get-nurls-info normalized-urls)
+                (fn [infos]
+                  (->> (map #(assoc %1 :url %2 :normalized-url %3 :badge-sightings %4)
+                         infos urls normalized-urls counts)
+                    (map (fn [info]
+                           (update info :history
+                             (fn [history]
+                               (vec
+                                 (filter #(not= visit-hash (:visit-hash %))
+                                   history))))))
+                    clj->js)))))
           (clj->js (map (constantly {}) normalized-urls)))))))
 
 (defn inc-badge-sightings [{:keys [url]} sender]

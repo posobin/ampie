@@ -203,15 +203,17 @@
 
 (defstate on-badge-remove :start (atom {}))
 (defn add-ampie-badge [^js target target-id target-info on-badge-click]
-  (let [badge-div  (. js/document createElement "span")
-        badge-icon (. js/document createElement "span")
-        tooltip    (generate-tooltip target-info)
-        bold       (or (>= (count (:hn target-info)) 3)
-                     (>= (count (:twitter target-info)) 5)
-                     (>= (count (:visits target-info)) 1))]
+  (let [badge-div    (. js/document createElement "span")
+        badge-icon   (. js/document createElement "span")
+        tooltip      (generate-tooltip target-info)
+        seen-already (>= (:badge-sightings target-info) 3)
+        bold         (or (>= (count (:hn target-info)) 3)
+                       (>= (count (:twitter target-info)) 5)
+                       (>= (count (:visits target-info)) 1))]
     (.observe intersection-observer badge-div)
-    (set! (.-className badge-div)
-      (str "ampie-badge" (when bold " ampie-badge-bold")))
+    (.. badge-div -classList (add "ampie-badge"))
+    (when bold (.. badge-div -classList (add "ampie-badge-bold")))
+    (when seen-already (.. badge-div -classList (add "ampie-badge-hidden")))
     (.setAttribute badge-div "role" "button")
     (.addEventListener badge-div
       "click"

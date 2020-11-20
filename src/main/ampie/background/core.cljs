@@ -43,7 +43,7 @@
       (fn [^js details]
         (let [previous-version
               (->> (re-matches #"(\d+).(\d+)(?:.(\d+)(?:.(\d+))?)?"
-                     (.-previousVersion details))
+                     (or (.-previousVersion details) "0.0.0.0"))
                 rest
                 (map (fnil js/parseInt "0"))
                 vec)]

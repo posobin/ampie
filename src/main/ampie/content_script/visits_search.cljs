@@ -80,8 +80,11 @@
          ^{:key (:tag result)}[search-result result]))]))
 
 (defstate google-results
-  :start (when (re-matches #"https://(www\.)?google\..{1,6}/search.*"
-                 (.. js/document -location -href))
+  :start (when (and (re-matches #"https://(www\.)?google\..{1,6}/search.*"
+                      (.. js/document -location -href))
+                 ;; Prevents showing ampie results when searching in local maps
+                 (not (string/includes? (.. js/document -location -href)
+                        "tbm=lcl")))
            (let [rhs-el        (. js/document getElementById "rhs")
                  shadow-holder (. js/document createElement "div")
                  shadow        (. shadow-holder (attachShadow #js {"mode" "open"}))

@@ -1,8 +1,8 @@
 :root {--font-color: #332222; --link-color: #2e2eb0; --green: hsl(107,94%,35%);
        --secondary-font-color: #4a3d43; --red: #d03e3e; --red-shadow: #ff8888;}
-html, body {font: 11pt Roboto; margin: 0; color: var(--font-color);}
-code {font: 11pt "Roboto Mono";}
-b, h3 {font-weight: 500;}
+html, body {font: 11pt Source Sans Pro; margin: 0; color: var(--font-color);}
+code {font: 11pt "Source Code Pro"; font-family: "Source Code Pro", monospace;}
+b, h3 {font-weight: 600;}
 
 .header {padding: 1em 0; width: 900px; margin: auto;}
 .header h1 {font-size: 18pt; font-weight: bold;}

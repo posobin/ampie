@@ -15,7 +15,8 @@
 
 .info-bar:hover {opacity: 1; box-shadow: 0 0 5px var(--accent-color-shadow);}
 .info-bar {
-    text-align: left; color: var(--font-color); font: 10pt Roboto, sans-serif; letter-spacing: 0;
+    text-align: left; color: var(--font-color); font: 10.5pt Source Sans Pro, Roboto, sans-serif; letter-spacing: 0;
+    line-height: 1.25em;
     position: fixed; bottom: 0; right: 0; width: 450px;
     pointer-events: auto;
     background: var(--background);
@@ -44,7 +45,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
  transition-property: border-bottom; transition-duration: 0.15s; transition-timing-function: ease;}
 .bottom-row .url .part.highlight:hover {border-bottom: 1px solid var(--accent-color);}
 
-.pane .header {font-weight: 500;}
+.pane .header {font-weight: 600;}
 .pane .header + .row {margin-top: 0.4em;}
 .pane > .row {margin-top: 12px;}
 .pane .row .info {color: grey;}
@@ -173,7 +174,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 }
 .mini-tags {
     cursor: pointer;
-    color: var(--font-color); font: 10pt Roboto, sans-serif; text-align: left; letter-spacing: 0;
+    color: var(--font-color); font: 10.5pt Source Sans Pro, Roboto, sans-serif; text-align: left; letter-spacing: 0;
     position: fixed; bottom: 0; right: 50px; padding: 6px 8px;
     border: 1px solid var(--accent-color); border-bottom: none;
     transition-property: box-shadow, padding; transition-duration: 0.15s; transition-timing-function: ease;
@@ -194,7 +195,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags .sharing {position: absolute; top:0; left: 0; width: 100%; background: var(--background); color: white;
                      text-align: center;
                      border-right: 1px solid var(--accent-color);
-                     font-size: 9pt; font-weight: 500; transform: translateY(calc(-100% + 6px));}
+                     font-size: 9.5pt; font-weight: 600; transform: translateY(calc(-100% + 6px));}
 .sharing .buttons {display: none;}
 .mini-tags:hover .sharing .buttons {display: initial;}
 

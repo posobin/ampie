@@ -1,6 +1,6 @@
 :root {--accent-color-shadow: #1344cc80;}
 body, html {font-size: 18px; line-height: 1.3em;}
-b {font-weight: 500;}
+b {font-weight: 600;}
 .header h1 {margin-bottom: 0;}
 .header {padding-bottom: 0px; width: 600px; margin: auto;}
 .hello-container, .update-container {width: 600px; margin: auto;}

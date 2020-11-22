@@ -14,7 +14,8 @@
 
 .amplify-dialog:hover, .amplify-dialog:focus-within {opacity: 1; box-shadow: 0 0 5px var(--accent-color-shadow);}
 .amplify-dialog {
-    text-align: left; color: var(--font-color); font: 10pt Roboto, sans-serif; letter-spacing: 0;
+    text-align: left; color: var(--font-color); font: 10.5pt Source Sans Pro, Roboto, sans-serif; letter-spacing: 0;
+    line-height: 1.25em;
     position: fixed; width: 180px;
     bottom: 10px; left: 50%; top: initial; right: initial; transform: translateX(-50%);
     pointer-events: auto;

@@ -52,7 +52,8 @@
   ;; a request for ampie version, so that the page gets the ampie version
   ;; no matter the order in which content script and the page script ran.
   (send-ampie-version)
-  (. js/window addEventListener "message" respond-to-ampie-version-message)
+  (when (demo/is-ampie-domain? (.. js/document -location -href))
+    (. js/window addEventListener "message" respond-to-ampie-version-message))
   ;; Don't attempt to load the background services in the content script
   (mount/start (mount/only
                  #{#'page-service

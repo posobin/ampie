@@ -222,7 +222,7 @@
      [:div.close {:on-click close-page-info :role "button"}
       [:span.icon.close-icon]]]))
 
-(defn window [{:keys [overscroll-handler window-atom tight]}]
+(defn window [{:keys [overscroll-handler window-atom tight class]}]
   (letfn [(change-height [el propagate delta-y]
             (let [current-height    (js/parseFloat
                                       (. (js/getComputedStyle el)
@@ -252,7 +252,7 @@
                     ;; Return false not to propagate the scroll
                     false))))]
     (into [:div.window
-           {:class (when tight "tight")
+           {:class [(when tight "tight") class]
             :ref
             (fn [el]
               (when el
@@ -283,6 +283,7 @@
     (into [:div.stack]
       (map #(vector window
               {:window-atom        %2
+               :class              (-> %1 meta :window-class)
                :tight              (-> %1 meta :tight)
                :overscroll-handler (partial update-heights %3)}
               %1)
@@ -484,8 +485,10 @@
             [this-page-preview normalized-url counts load-page-info])
           (when history ^{:key :seen-at} [seen-at history])
           (when visits ^{:key :visits} [visits-component visits])
-          (when twitter ^{:key :tweets} [tweets twitter normalized-url])
-          (when hn ^{:key :hn-stories} [hn-stories hn])
+          (when twitter ^{:key :tweets :window-class :twitter-window}
+            [tweets twitter normalized-url])
+          (when hn ^{:key :hn-stories :window-class :hn-window}
+            [hn-stories hn])
           (when (and prefix-info (seq (second prefix-info)))
             ^{:key [:prefix-info (first prefix-info)]}
             [adjacent-links prefix-info load-page-info

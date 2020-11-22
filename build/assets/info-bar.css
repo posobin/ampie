@@ -13,13 +13,15 @@
     pointer-events: none;
 }
 
-.info-bar:hover {opacity: 1; box-shadow: 0 0 5px var(--accent-color-shadow);}
+.info-bar:hover {opacity: 1; box-shadow: 0 0 30px -20px rgb(230 45 138);}
 .info-bar {
     text-align: left; color: var(--font-color); font: 10.5pt Source Sans Pro, Roboto, sans-serif; letter-spacing: 0;
     line-height: 1.25em;
     position: fixed; bottom: 0; right: 0; width: 450px;
     pointer-events: auto;
-    background: var(--background);
+    background: linear-gradient(-10deg, rgb(166 239 149), rgba(255,0,0,0)),
+                linear-gradient(87deg, rgb(232 133 165), rgba(0,255,0,0)),
+                linear-gradient(336deg, rgb(71 71 216), rgb(23 23 202));
     transition-property: opacity, box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
 }
 .info-bar.hidden {display: none;}
@@ -27,15 +29,25 @@
 .info-bar.left {right: initial; left: 0; padding-right: 2px;}
 
 /* .stack > *:first-child {border-top: 2px solid var(--accent-color);} */
-.info-bar > * {margin-left: 2px; width: 100%;}
+.info-bar > * {width: 100%;}
 .info-bar.left > * {margin-left: 0; width: 100%;}
 .stack .window, .bottom-row {background: white;}
-.window:not(:first-child), .bottom-row {margin-top: 1px;}
-.stack {margin-top: 2px;}
-.stack:empty {margin-top: 1px;}
-.window {height: 7em; overflow-y: hidden; box-sizing: border-box; padding: 8px 8px; position: relative; z-index: 0;}
+.stack .window {margin-top: 2px; margin-left: 2px;}
+.window:not(:first-child), .bottom-row {}
+.stack {}
+.stack:empty {}
+.window {
+    height: 7em; overflow-y: hidden; box-sizing: border-box;
+    padding: 8px 8px; position: relative; z-index: 0;
+}
 .window.tight {height: initial;}
-.bottom-row {padding: 5px 8px; box-sizing: border-box; font-weight: 500; display:flex; justify-content:space-between;}
+.bottom-row {
+    padding: 5px 8px; box-sizing: border-box;
+    font-weight: 600; display:flex; justify-content:space-between;
+    margin-top: 2px; margin-left: 2px;
+}
+.window.hn-window {margin: 0; border-top: 2px solid #fb651e; border-left: 2px solid #fb651e;}
+.window.twitter-window {margin: 0; border-top: 2px solid #55acee; border-left: 2px solid #55acee;}
 
 a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: underline;}
 

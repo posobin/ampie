@@ -294,6 +294,8 @@
   (let [page-links        (array-seq (.querySelectorAll element "a[href]"))
         unprocessed-links (filter #(nil? (.getAttribute % "processed-by-ampie"))
                             page-links)
+        is-gmail?         (string/starts-with? (.. js/document -location -href)
+                            "https://mail.google.com/")
         current-nurl      (url/normalize (.. js/document -location -href))]
     (doseq [link-element unprocessed-links]
       (.setAttribute link-element "processed-by-ampie" ""))
@@ -312,9 +314,13 @@
                          (for [target chunk
                                :let   [target-url (get-target-url target)
                                        target-seen-at (url->seen-at target-url)]
-                               :when  (and target-seen-at
-                                        (not= (url/normalize target-url)
-                                          current-nurl))]
+                               :when
+                               (and target-seen-at
+                                 ;; Don't add to gmail compose box
+                                 (or (not is-gmail?)
+                                   (nil? (.closest target ".editable")))
+                                 (not= (url/normalize target-url)
+                                   current-nurl))]
                            (let [target-id (dec (swap! next-target-id inc))]
                              (add-ampie-badge target target-id target-seen-at
                                on-badge-click)

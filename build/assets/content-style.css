@@ -36,7 +36,7 @@
     --font-color: #332222;
     cursor: pointer;
     position: absolute;
-    padding: 5px 5px;
+    padding: 3px 5px 4px 5px;
     top: 0;
     left: 5px;
     max-width: 200px;
@@ -49,10 +49,14 @@
     box-shadow: 0px 0px 2px var(--accent-color-shadow);
 }
 .ampie-badge-tooltip:hover {box-shadow: 0px 2px 5px var(--accent-color-shadow);}
-.ampie-badge-tooltip > .ampie-badge-mini-tag {display: inline-block;}
+.ampie-badge-tooltip > .ampie-badge-mini-tag {
+    font-size: 11pt;
+    display: inline-flex;
+    align-items: center;
+}
 .ampie-badge-tooltip > .ampie-badge-mini-tag:not(:first-child) {margin-left: 6px;}
 .ampie-badge-tooltip > .ampie-who-shared {
-    display: block; line-height: 1.3em; margin-top: 1px;
+    display: block; line-height: 1.3em; margin-top: -1px;
     margin-bottom: -2px; width: min-content;
     overflow-wrap: break-word;
 }

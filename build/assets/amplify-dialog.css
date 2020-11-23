@@ -24,7 +24,8 @@
     padding: 8px;
     transition-property: opacity, box-shadow, width; transition-duration: 0.15s; transition-timing-function: ease;
 }
-.amplify-dialog.suggest-sharing {opacity: 0.6; border-bottom: none; bottom: 0;}
+.amplify-dialog.suggest-sharing .close {top: 7px;}
+.amplify-dialog.suggest-sharing {opacity: 0.6; border-bottom: none; bottom: 0; padding: 6px;}
 .amplify-dialog.suggest-sharing:hover {opacity: 1;}
 .amplify-dialog.upper-right {right: 120px; top: 15px; left: initial; bottom: initial; transform: none;}
 .amplify-dialog.expanded {width: 350px;}
@@ -36,8 +37,9 @@
            vertical-align: middle;
            padding: 1px 3px; min-width: 1em; margin: 0 4px;
            background: white; color: black;}
+button {font: 10.5pt Source Sans Pro, Roboto, Helvetica, sans-serif;}
 button.small {background: black; color: white; border: none; outline: none; cursor: pointer;
-              padding: 2px 4px; border-radius: 4px; box-shadow: 0 1px 4px var(--green);
+              padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 4px var(--green);
               vertical-align: middle;
               transition-property: opacity, box-shadow, width, background, color; transition-duration: 0.15s; transition-timing-function: ease;}
 button.small:hover, button.small:focus {box-shadow: 0 2px 7px var(--green);}

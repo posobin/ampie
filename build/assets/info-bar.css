@@ -187,7 +187,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags {
     cursor: pointer;
     color: var(--font-color); font: 10.5pt Source Sans Pro, Roboto, sans-serif; text-align: left; letter-spacing: 0;
-    position: fixed; bottom: 0; right: 50px; padding: 6px 8px;
+    position: fixed; bottom: 0; right: 50px; padding: 4px 8px;
     border: 1px solid var(--accent-color); border-bottom: none;
     transition-property: box-shadow, padding; transition-duration: 0.15s; transition-timing-function: ease;
     background: white;

@@ -247,6 +247,22 @@
           :handler #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
 
+(defn search-result-clicked []
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "log/search-result-clicked")
+        (assoc (base-request-options)
+          :handler    #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(defn search-visit-clicked []
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "log/search-visit-clicked")
+        (assoc (base-request-options)
+          :handler    #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
 (defn problem-getting-cache [cache-key error-text]
   (js/Promise.
     (fn [resolve reject]

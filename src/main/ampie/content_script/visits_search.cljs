@@ -57,7 +57,13 @@
                       :as         result}]
   [:div.search-result
    [:div.domain-name (url/get-domain url)]
-   [:a.title (b/ahref-opts url) title]
+   [:a.title (assoc (b/ahref-opts url)
+               :on-click
+               (fn []
+                 (.. browser -runtime
+                   (sendMessage
+                     (clj->js {:type :search-result-clicked})))))
+    title]
    (when (seq content-headline)
      [:div.headline (highlight-headline content-headline)])
    [:div.visits
@@ -66,7 +72,14 @@
        [:div.comment (highlight-headline comment-headline)]
        #_[:div.no.comment])
      [:div.info
-      [:div.username [:a (b/ahref-opts (str "https://ampie.app/" username)) username]]
+      [:div.username
+       [:a (assoc (b/ahref-opts (str "https://ampie.app/" username))
+             :on-click
+             (fn []
+               (.. browser -runtime
+                 (sendMessage
+                   (clj->js {:type :search-visit-clicked})))))
+        username]]
       [:div.created-at (ampie.time/timestamp->date (* 1000 created-at))]
       (when reaction [:div.reaction reaction])]]]])
 

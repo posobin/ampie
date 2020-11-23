@@ -201,6 +201,12 @@
     (.then #(clj->js % :keyword-fn i/name-with-ns))
     (.catch clj->js)))
 
+(defn search-result-clicked [request sender]
+  (backend/search-result-clicked))
+
+(defn search-visit-clicked [request sender]
+  (backend/search-visit-clicked))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -229,6 +235,8 @@
       :delete-amplified-page     (delete-amplified-page request sender)
       :amplify-dialog-enabled?   (amplify-dialog-enabled? request sender)
       :search-friends-visits     (search-friends-visits request sender)
+      :search-result-clicked     (search-result-clicked request sender)
+      :search-visit-clicked      (search-visit-clicked request sender)
 
       (log/error "Unknown request type" request-type))))
 

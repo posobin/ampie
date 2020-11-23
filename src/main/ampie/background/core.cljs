@@ -63,7 +63,9 @@
                 (.then (fn [] (mount/start)))))))
 
         (when (or (= (.-reason details) "install")
-                (= (.-reason details) "update"))
+                (and (= (.-reason details) "update")
+                  (not (string/starts-with? (.-previousVersion details)
+                         "2.3."))))
           (.. browser -tabs
             (create #js {:url "https://ampie.app/hello"}))))))
 

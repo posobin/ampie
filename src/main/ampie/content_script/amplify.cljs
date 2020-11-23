@@ -135,7 +135,6 @@
    [:div.close {:on-click    #(close-amplify-dialog amplify-info)
                 :role        "button"
                 :tab-index   0
-                :style       {:top "8px"}
                 :on-key-down #(when (or (= (.-code %) "Enter")
                                       (= (.-code %) "Space"))
                                 (.stopPropagation %)

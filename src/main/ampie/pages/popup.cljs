@@ -1,14 +1,14 @@
 (ns ampie.pages.popup
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
-            [taoensso.timbre :as log]
             [ampie.components.visit :as components.visit]
             [ampie.components.basics :as b]
             [ampie.settings :refer [settings]]
             [ampie.background.backend :as backend]
             [ampie.background.messaging]
+            [clojure.string :as string]
             ["webextension-polyfill" :as browser]
-            [mount.core :as mount :refer [defstate]]))
+            [mount.core :as mount]))
 
 (defonce state (r/atom {}))
 
@@ -18,41 +18,63 @@
 
 (defn show-badges []
   (let [show-badges (:show-badges @@settings)]
-    [:div.show-badges
-     [:a {:href "#" :on-click (fn [evt]
-                                (.preventDefault evt)
-                                (swap! @settings update :show-badges not))}
-      (if show-badges "Disable" "Enable")] " badges"
-     (when show-badges
-       [:div.ampie-badge.demo-badge
-        [:div.ampie-badge-icon]])]))
+    [:div.show-badges.setting
+     [:div.header
+      [:div.title "Badges"]
+      [:div.toggle-wrapper
+       [:div.toggle
+        {:on-click (fn [evt]
+                     (.preventDefault evt)
+                     (swap! @settings update :show-badges not))}
+        [:div.option.enabled {:class (when-not show-badges :off)} "Enabled"]
+        [:div.option.disabled "Disabled"]]]]
+     [:div.description
+      "Badges are the little ampersands that appear near potentially interesting links"
+      [:div.ampie-badge.demo-badge
+       [:div.ampie-badge-icon]] "."]]))
 
 (defn auto-show-domain-links []
   (let [show-domain-links (:auto-show-domain-links @@settings)]
-    [:div.show-domain-links
-     [:a {:href     "#"
-          :on-click (fn [evt]
-                      (.preventDefault evt)
-                      (swap! @settings update :auto-show-domain-links not))}
-      (if show-domain-links "Don't open" "Open")] " interesting links "
-     "on a new domain automatically."]))
+    [:div.show-domain-links.setting
+     [:div.header
+      [:div.title "Auto-open infobar"]
+      [:div.toggle-wrapper
+       [:div.toggle
+        {:on-click (fn [evt]
+                     (.preventDefault evt)
+                     (swap! @settings update :auto-show-domain-links not))}
+        [:div.option.enabled {:class (when-not show-domain-links :off)} "Enabled"]
+        [:div.option.disabled "Disabled"]]]]
+     [:div.description
+      "Automatically open the infobar in the bottom right corner the first time you "
+      "visit a new domain if there are conversations about some pages on the domain."]]))
 
 (defn enable-amplify-dialog []
   (let [enabled (:amplify-dialog-enabled @@settings)]
-    [:<>
-     [:div.enable-amplify-dialog
-      [:a {:href     "#"
-           :on-click (fn [evt]
-                       (.preventDefault evt)
-                       (swap! @settings update :amplify-dialog-enabled not))}
-       (if enabled "Disable" "Enable")] " amplify dialog."]
-     [:div "Change the amplify keyboard shortcut in "
+    [:div.enable-amplify-dialog.setting
+     [:div.header
+      [:div.title "Amplify suggestion"]
+      [:div.toggle-wrapper
+       [:div.toggle
+        {:on-click (fn [evt]
+                     (.preventDefault evt)
+                     (swap! @settings update :amplify-dialog-enabled not))}
+        [:div.option.enabled {:class (when-not enabled :off)} "Enabled"]
+        [:div.option.disabled "Disabled"]]]]
+     [:div.description
+      "Show a small pop-up suggesting that you amplify the page after "
+      "you have spent two minutes on it. "
+      "You can change the amplify keyboard shortcut in the "
       [:a {:href "#"
            :on-click
            #(.. browser -tabs
               (create #js
-                {:url "chrome://extensions/shortcuts"}))}
-       "settings"] "."]]))
+                {:url
+                 (if (string/includes? (.. js/window -navigator -userAgent) "Firefox")
+                   "https://bug1303384.bmoattachments.org/attachment.cgi?id=9051647"
+                   "chrome://extensions/shortcuts")}))}
+       "browser settings"] "."]]
+    ))
 
 (defn blacklisted-urls []
   ;; Creating a separate atom because updating settings very quickly might be
@@ -60,26 +82,29 @@
   ;; updates.
   (let [urls (r/atom (:blacklisted-urls @@settings))]
     (fn []
-      [:div.blacklisted-urls
-       [:p "Don't show the amplify popup on pages whose url contains:"]
-       (for [[index url] (map-indexed vector (conj @urls ""))]
-         ^{:key index}
-         [:div.blacklisted-row
-          [:input {:type        "text"
-                   :placeholder "Add url substring"
-                   :on-change
-                   (fn [e]
-                     (swap! urls
-                       #(->> (assoc % index (.. e -target -value))
-                          (filter seq)
-                          vec))
-                     (swap! @settings assoc :blacklisted-urls @urls))
-                   :value       url}]])])))
+      [:div.blacklisted-urls.setting
+       [:div.header
+        [:div.title "Disable amplify on"]]
+       [:div.description
+        "Don't show the amplify pop-up for the URLs containing:"]
+       [:div.blacklist
+        (for [[index url] (map-indexed vector (conj @urls ""))]
+          ^{:key index}
+          [:div.blacklisted-row
+           [:input {:type        "text"
+                    :placeholder "Add url substring"
+                    :on-change
+                    (fn [e]
+                      (swap! urls
+                        #(->> (assoc % index (.. e -target -value))
+                           (filter seq)
+                           vec))
+                      (swap! @settings assoc :blacklisted-urls @urls))
+                    :value       url}]])]])))
 
 (defn settings-form []
   [:div.settings-form
-   [:h3 "Ampie"]
-   [:p "To load the tweets / HN submissions / friend's shares of the page, click on the bar in the lower right corner."]
+   [:h2 "Ampie settings"]
    [show-badges]
    [auto-show-domain-links]
    [enable-amplify-dialog]
@@ -87,7 +112,6 @@
 
 (defn settings-page []
   [:div.settings
-   [:h3 ""]
    [settings-form]])
 
 (defn popup-page []
@@ -118,7 +142,7 @@
                                      (case page :settings :home :home :settings))}
           (case page :home "Settings" :settings "Back")]
        [:a {:href "#" :on-click ampie.background.messaging/amplify-current-tab}
-        "Amplify this page"]
+        "Amplify current page"]
        [:a.href (b/ahref-opts "https://forms.gle/CdAhxhu9ym2mQjgX6")
         "Give feedback"]]]]))
 
@@ -152,5 +176,9 @@
                              #'ampie.settings/settings-watcher}))
   #_(set-download-status)
   #_(js/setInterval set-download-status 500)
-  (rdom/render [popup-page]
-    (. js/document getElementById "popup-content")))
+  ;; Need a delay because otherwise firefox doesn't load blacklisted urls in time
+  (js/setTimeout
+    (fn []
+      (rdom/render [popup-page]
+        (. js/document getElementById "popup-content")))
+    500))

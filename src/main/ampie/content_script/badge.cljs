@@ -97,13 +97,16 @@
       (set! (.. tooltip -style -left) "0px")
       (set! (.. tooltip -style -top) "0px")
       (let [tooltip-rect (.getBoundingClientRect tooltip)
-            client-x     (if (< (- window-width (.-left badge-rect)) 300)
-                           (- (.-left badge-rect) (.-width tooltip-rect) 2)
+            on-left      (< (- window-width (.-left badge-rect)) 300)
+            client-x     (if on-left
+                           (- (.-right badge-rect) (.-width tooltip-rect))
                            (+ (.-right badge-rect) 2))
             client-y     (if (< (- window-height (.-bottom badge-rect))
                                150)
-                           (- (.-bottom badge-rect) (.-height tooltip-rect) 2)
-                           (.-top badge-rect))
+                           (- (.-bottom badge-rect) (.-height tooltip-rect)
+                             (if on-left 12 2))
+                           (+ (.-top badge-rect)
+                             (if on-left 20 0)))
             fixed        (is-fixed? badge)]
         (if (and fixed
               (not (.. badge -classList (contains "ampie-badge-tooltip-fixed"))))

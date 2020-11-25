@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.3.0.1"
+ :version          "2.3.3"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"
@@ -25,9 +25,9 @@
  :permissions              ["webNavigation" "tabs"
                             "storage" "cookies"
                             "unlimitedStorage"
-                            #_"http://localhost/"
-                            #_"http://localhost:5000/"
-                            #_"https://ampie-dev.s3.amazonaws.com/"
+                            ;; "http://localhost/"
+                            ;; "http://localhost:5000/"
+                            ;; "https://ampie-dev.s3.amazonaws.com/"
                             "https://ampie.s3.amazonaws.com/"
                             "https://hacker-news.firebaseio.com/"
                             "https://*.ampie.app/"]

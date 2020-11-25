@@ -655,7 +655,7 @@
                                          :url  (-> @pages-info :info-bars peek :url)})
                                       (swap! pages-info update :info-bars pop))
                    :style/opacity   (- 1.0 (* index-from-end 0.2))
-                   :style/right     (str "-" (* index-from-end 10) "px")
+                   :style/right     (str (* index-from-end 10) "px")
                    :show-prefix-info
                    (fn [prefix-info]
                      (swap! pages-info

@@ -11,6 +11,7 @@ html, body {width: 350px; --link-color: #2e2eb0; --green: hsl(107,94%,35%); font
 .footer .row {display: flex;}
 .footer .row > *:not(:first-child) {margin-left: 12px;}
 
+a[href] {text-decoration: underline;}
 h2 {margin: 8px 0 -2px 0; font-weight: normal;}
 p {margin: 0;}
 p + p {margin-top: 1em;}

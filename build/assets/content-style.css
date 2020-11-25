@@ -21,7 +21,7 @@
     font-size: 13px;
 }
 
-.ampie-badge-hidden { visibility: hidden; }
+.ampie-badge-hidden { visibility: hidden; position: absolute; }
 
 .ampie-badge-icon:after {content: "&"; }
 

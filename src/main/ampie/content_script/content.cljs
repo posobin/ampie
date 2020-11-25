@@ -20,6 +20,7 @@
 (defn message-listener [message]
   (let [message (js->clj message :keywordize-keys true)]
     (case (keyword (:type message))
+      :popup-opened (demo/send-message-to-page {:type "ampie-popup-opened"})
       :url-updated  (do (mount/stop)
                         (mount/start
                           (mount/only

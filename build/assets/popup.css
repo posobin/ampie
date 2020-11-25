@@ -1,4 +1,4 @@
-html, body {width: 350px; --link-color: #2e2eb0; --green: hsl(107,94%,35%); font: 12pt Source Sans Pro, Roboto, sans-serif;}
+html, body {width: 375px; --link-color: #2e2eb0; --green: hsl(107,94%,35%); font: 12pt Source Sans Pro, Roboto, sans-serif;}
 
 .login-notice {position: fixed; top: 8px; right: 8px; background: white; padding: 4px 8px;
                border-radius: 5px; box-shadow: 0 0 5px grey;}
@@ -11,14 +11,15 @@ html, body {width: 350px; --link-color: #2e2eb0; --green: hsl(107,94%,35%); font
 .footer .row {display: flex;}
 .footer .row > *:not(:first-child) {margin-left: 12px;}
 
-a[href] {text-decoration: underline;}
+.content a[href] {text-decoration: underline;}
 h2 {margin: 8px 0 -2px 0; font-weight: normal;}
 p {margin: 0;}
 p + p {margin-top: 1em;}
 
 .ampie-badge-icon {cursor: initial;}
 
-.setting { margin-top: 8px; }
+.setting { margin-top: 16px; }
+h2 + .setting { margin-top: 8px; }
 
 .setting .header {display: flex; justify-content: space-between; width: initial; position: relative; margin: initial; padding: initial;}
 .setting .header:before {content: ""; position: absolute; width: 100%; border-top: 1px dotted black; top: 12px; z-index: -1;}
@@ -26,7 +27,7 @@ p + p {margin-top: 1em;}
 .setting .header .title {padding-right: 5px; font-size: 14pt;}
 .setting .header .toggle-wrapper {padding-left: 5px; margin-top: 2px; margin-bottom: -4px;}
 .setting .header .toggle {padding: 0.1em 4px; height: 1.2em; line-height: 1.2em; cursor: pointer; overflow: hidden; position: relative;
-                          text-align: center; background: #e0f2f5; border-radius: 4px;}
+                          text-align: center; background: #e0f2f5; border-radius: 4px; user-select: none;}
 .setting .header .toggle .option {transition: margin-top 0.3s ease;}
 .setting .header .toggle .option.enabled {color: blue;}
 .setting .header .toggle .option.disabled {color: grey;}

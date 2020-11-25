@@ -12,6 +12,7 @@
             [ampie.time]
             [ampie.content-script.amplify :as amplify]
             [ampie.links :as links]
+            [ampie.utils]
             [ampie.content-script.info-bar.tweet :refer [tweet hydrate-tweets]]
             [mount.core :as mount :refer [defstate]]))
 
@@ -751,29 +752,19 @@
             (.stopPropagation e)
             (swap! pages-info update :info-bars pop)))))
     ;; Hiding the info bar when full screen and when focused in a text field
-    (let [text-node-types
-          #{"text" "password" "number" "email" "tel" "url" "search" "date"
-            "datetime" "datetime-local" "time" "month" "week"}
-          is-text-node?
-          (fn is-text-node? [el]
-            (let [tag-name (.. el -tagName (toLowerCase))]
-              (or (= (.-contentEditable el) "true")
-                (= tag-name "textarea")
-                (and (= tag-name "input")
-                  (contains? text-node-types (.. el -type (toLowerCase)))))))]
-      (. js/document addEventListener "focusin"
-        (fn [e]
-          (when (is-text-node? (.-activeElement js/document))
-            (swap! pages-info assoc :hidden true))))
-      (. js/document addEventListener "focusout"
-        (fn [e]
-          (when (not (.-fullscreenElement js/document))
-            (swap! pages-info assoc :hidden false))))
-      (. js/document addEventListener "fullscreenchange"
-        (fn [e]
-          (if (.-fullscreenElement js/document)
-            (swap! pages-info assoc :hidden true)
-            (swap! pages-info assoc :hidden false)))))
+    (. js/document addEventListener "focusin"
+      (fn [_]
+        (when (ampie.utils/is-text-node? (.-activeElement js/document))
+          (swap! pages-info assoc :hidden true))))
+    (. js/document addEventListener "focusout"
+      (fn [_]
+        (when (not (.-fullscreenElement js/document))
+          (swap! pages-info assoc :hidden false))))
+    (. js/document addEventListener "fullscreenchange"
+      (fn [_]
+        (if (.-fullscreenElement js/document)
+          (swap! pages-info assoc :hidden true)
+          (swap! pages-info assoc :hidden false))))
     (.. js/document -body (appendChild shadow-root-el))
     ;; Return a function to be called with a page url we want to display an info
     ;; bar for.

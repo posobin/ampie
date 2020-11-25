@@ -90,6 +90,55 @@
      [:div.description
       "Do you want to see links from the orange website?"]]))
 
+(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
+(defn windows? [] (clojure.string/starts-with? (.-platform js/navigator) "Win32"))
+
+(defn badge-toggle-key []
+  (let [changed (r/atom false)]
+    (fn []
+      (let [chosen-key (:badge-toggle-key @@settings)]
+        [:div.badge-toggle-key.setting
+         [:div.header
+          [:div.title "Badge tooltip key"]
+          [:div.toggle-wrapper
+           (let [options      [{:key  "Alt"
+                                :text (if (mac?) "⌥ Option" "Alt")}
+                               {:key "Shift"}
+                               {:key  "Meta"
+                                :text (cond (mac?)     "⌘ Cmd"
+                                            (windows?) "Win"
+                                            :else      "Meta")}
+                               {:key "Control" :text "Ctrl"}
+                               {:key "disabled" :text "Disabled"}]
+                 chosen-index (->> options
+                                (map-indexed vector)
+                                (filter #(= (-> % second :key) chosen-key))
+                                first first)
+                 margin-top   (let [m (* chosen-index 12)]
+                                (str "-" (quot m 10) "." (mod m 10) "em"))]
+             [:div.toggle
+              {:on-click
+               (fn [evt]
+                 (.preventDefault evt)
+                 (reset! changed true)
+                 (swap! @settings update
+                   :badge-toggle-key
+                   (fn [old-key]
+                     (or (->> (map vector options (rest options))
+                           (filter #(= (-> % first :key) old-key))
+                           first second :key)
+                       (-> options first :key)))))}
+              (for [[idx {:keys [key text]}] (map-indexed vector options)]
+                ^{:key idx}
+                [:div.option
+                 {:class (if (= key "disabled") :disabled :enabled)
+                  :style {:margin-top (when (zero? idx) margin-top)}}
+                 (or text key)])])]]
+         [:div.description
+          "Hold this key down to show tooltips near interesting links. "
+          (when @changed
+            [:b "New key will work on a page once you have reloaded it."])]]))))
+
 (defn blacklisted-urls []
   ;; Creating a separate atom because updating settings very quickly might be
   ;; problematic due to local storage updates triggering an infinite loop of
@@ -120,6 +169,7 @@
   [:div.settings-form
    [:h2 "Ampie settings"]
    [show-badges]
+   [badge-toggle-key]
    [auto-show-domain-links]
    [enable-amplify-dialog]
    [hn-enabled]

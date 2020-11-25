@@ -15,6 +15,7 @@
                                                    "messenger.com"
                                                    "overleaf.com"
                                                    "docs.google.com"]
+                       :badge-toggle-key          "Alt"
                        :blacklisted-domains       []})
 (def settings-keys (set (keys default-settings)))
 

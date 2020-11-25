@@ -5,6 +5,7 @@
             [mount.core :refer [defstate]]
             [clojure.string :as string]
             [ampie.links :as links]
+            [ampie.utils]
             [cljs.core.async :refer [go >! chan]])
   (:require-macros [mount.core :refer [defstate]]))
 
@@ -311,21 +312,28 @@
           (swap! @on-badge-remove dissoc target-id))
         (swap! target-ids disj target-id)))))
 
+(def tooltip-toggle-key (atom "Alt"))
+
 (defn on-alt-down [^js evt]
-  (when (= (.-key evt) "Alt")
+  (when (and (= (.-key evt) @tooltip-toggle-key)
+          (not (ampie.utils/is-text-node? (.-activeElement js/document))))
     (doseq [badge-id @@visible-badges
             :let     [f (:show (@@existing-badges badge-id))]
             :when    f]
       (f))))
 
 (defn on-alt-up [^js evt]
-  (when (= (.-key evt) "Alt")
+  (when (= (.-key evt) @tooltip-toggle-key)
     (doseq [badge-id @@visible-badges
             :let     [f (:hide (@@existing-badges badge-id))]
             :when    f]
       (f))))
 
 (defn start [on-badge-click]
+  (.then (.. browser -storage -local (get "badge-toggle-key"))
+    (fn [^js res] (reset! tooltip-toggle-key
+                    (or (aget res "badge-toggle-key")
+                      "Alt"))))
   (let [target-ids           (atom #{})
         next-target-id       (atom 0)
         badge-redraw-timeout (atom nil)

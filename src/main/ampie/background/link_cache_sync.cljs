@@ -144,14 +144,14 @@
           :handler
           #(resolve (js->clj % :keywordize-keys true))
           :error-handler
-          (fn [{:keys [status status-text]}]
-            (do (log/error "Couldn't download cache diff:"
-                  status-text)
-                (resolve nil))))
+          (fn [{:keys [status-text]}]
+            (log/error "Couldn't download cache diff:"
+              status-text)
+            (resolve nil)))
         (POST (backend/endpoint "links/get-next-cache-diff"))
         (fn [resolve])
         (js/Promise.))
-    (.then (fn [{:keys [new-key url] :as response}]
+    (.then (fn [{:keys [new-key url]}]
              (if new-key
                (-> (update-link-cache new-key url)
                  (.then (constantly new-key))
@@ -272,8 +272,7 @@
               (fn [resolve reject]) (js/Promise.)))
 
           (visit->local-link [{:keys [user-tag username reaction comment
-                                      created-at normalized-url]
-                               :as   visit}]
+                                      created-at]}]
             (merge
               {:source       "vf"
                :v-user-tag   user-tag

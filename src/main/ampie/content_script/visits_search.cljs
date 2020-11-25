@@ -1,17 +1,11 @@
 (ns ampie.content-script.visits-search
   (:require ["webextension-polyfill" :as browser]
-            ["react-shadow-dom-retarget-events" :as retargetEvents]
             [reagent.dom :as rdom]
             [reagent.core :as r]
             [ampie.url :as url]
-            [ampie.interop :as i]
-            [taoensso.timbre :as log]
-            [ajax.core :refer [GET]]
             [clojure.string :as string]
             [ampie.components.basics :as b]
             [ampie.time]
-            [ampie.content-script.amplify :as amplify]
-            [ampie.links :as links]
             [mount.core :as mount :refer [defstate]]))
 
 (def state (r/atom {}))
@@ -53,8 +47,7 @@
 (defn search-result [{:keys       [comment-headline content-headline]
                       :link/keys  [url]
                       :users/keys [username]
-                      :visit/keys [reaction comment title created-at]
-                      :as         result}]
+                      :visit/keys [reaction title created-at]}]
   [:div.search-result
    [:div.domain-name (url/get-domain url)]
    [:a.title (assoc (b/ahref-opts url)
@@ -90,7 +83,7 @@
      [:h2 "Ampie results"]
      (doall
        (for [result (:search-results @state)]
-         ^{:key (:tag result)}[search-result result]))]))
+         ^{:key (:visit/tag result)}[search-result result]))]))
 
 (defstate google-results
   :start (when (and (re-matches #"https://(www\.)?google\..{1,6}/search.*"

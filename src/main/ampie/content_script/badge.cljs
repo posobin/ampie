@@ -1,12 +1,11 @@
 (ns ampie.content-script.badge
   (:require ["webextension-polyfill" :as browser]
-            [ampie.interop :as i]
             [ampie.url :as url]
             [taoensso.timbre :as log]
             [mount.core :refer [defstate]]
             [clojure.string :as string]
             [ampie.links :as links]
-            [cljs.core.async :refer [go go-loop >! <! alts! chan]])
+            [cljs.core.async :refer [go >! chan]])
   (:require-macros [mount.core :refer [defstate]]))
 
 (defn- send-urls-to-background
@@ -31,24 +30,6 @@
                                (into {}))]
             (response-handler cleaned-up)))))))
 
-(defn- get-z-index
-  "Compute z-index of the given element."
-  [element]
-  (let [style   (. js/window getComputedStyle element)
-        z-index (.getPropertyValue style "z-index")]
-    (when-not (= z-index "auto")
-      (int z-index))))
-
-(defn- is-visible?
-  "Check if the element is displayed on the page, `element` has to be not null."
-  [element]
-  (let [style     (. js/window getComputedStyle element)
-        transform (= (. style getPropertyValue "transform")
-                    "matrix(1, 0, 0, 0, 0, 0)")
-        hidden    (= (. style getPropertyValue "visibility") "hidden")
-        display   (= (. style getPropertyValue "display") "none")]
-    (not (or transform hidden display))))
-
 (defn- table-element?
   "Check if the element is td, th or table.
   Useful because positioning is disallowed in the offsetParents of those kinds."
@@ -61,30 +42,6 @@
     (or (= (-> (. js/window getComputedStyle element) (. -position))
           "fixed")
       #_(recur (.-offsetParent element)))))
-
-(defn- get-offsets
-  ([badge element target-fixed?]
-   (let [badge-rect    (.getBoundingClientRect badge)
-         target-rect   (.getBoundingClientRect element)
-         element-width (.-offsetWidth element)
-         style         (. js/window getComputedStyle element)
-         width         (if (and (= element-width 0)
-                             (.-firstChild element))
-                         (.. element -firstChild -offsetWidth)
-                         element-width)
-         x             (+ (- (.-left target-rect) (.-left badge-rect)
-                            (js/parseFloat (.-paddingRight style)))
-                         width)
-         y             (+ (- (.-top target-rect) (.-top badge-rect))
-                         (js/parseFloat (.-paddingTop style)))]
-     [x (- y 4)]
-     #_(if target-fixed?
-         [x (- y 4)]
-         (if-let [parent (find-non-table-offset-parent element)]
-           [x (- y 4)]
-           ;; If no offset parent, the element is either fixed or
-           ;; has display: none;
-           [0 0])))))
 
 (defn generate-tooltip [{:keys [twitter visits] :as target-info}]
   (let [tooltip-div (. js/document createElement "div")]
@@ -347,12 +304,12 @@
           badge  (. js/document querySelector
                    (str "[ampie-badge-id=\"" target-id "\"]"))]
       (when (or (nil? target) (nil? badge))
-        (do (when badge (.remove badge))
-            (when target (.removeAttribute target "processed-by-ampie"))
-            (when-let [on-remove (@@on-badge-remove target-id)]
-              (on-remove)
-              (swap! @on-badge-remove dissoc target-id))
-            (swap! target-ids disj target-id))))))
+        (when badge (.remove badge))
+        (when target (.removeAttribute target "processed-by-ampie"))
+        (when-let [on-remove (@@on-badge-remove target-id)]
+          (on-remove)
+          (swap! @on-badge-remove dissoc target-id))
+        (swap! target-ids disj target-id)))))
 
 (defn on-alt-down [^js evt]
   (when (= (.-key evt) "Alt")
@@ -407,11 +364,11 @@
      :update-cancelled update-cancelled
      :on-resize        on-resize}))
 
-(defn stop [{:keys [next-target-id target-ids update-cancelled on-resize]}]
+(defn stop [{:keys [update-cancelled on-resize]}]
   (. js/document removeEventListener "keydown" on-alt-down)
   (. js/document removeEventListener "keyup" on-alt-up)
   (reset! update-cancelled true)
-  (doseq [[badge-id on-remove] @@on-badge-remove] (on-remove))
+  (doseq [[_badge-id on-remove] @@on-badge-remove] (on-remove))
   (.. js/document (querySelectorAll ".ampie-badge") (forEach #(.remove %)))
   (.. js/document (querySelectorAll "[processed-by-ampie]")
     (forEach #(.removeAttribute % "processed-by-ampie")))

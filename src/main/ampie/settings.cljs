@@ -1,7 +1,6 @@
 (ns ampie.settings
   (:require [reagent.core :as r]
             ["webextension-polyfill" :as browser]
-            [taoensso.timbre :as log]
             [clojure.data]
             [mount.core :refer [defstate]]))
 
@@ -33,10 +32,9 @@
 
 (defn local-storage-updated
   "Handler for the changes to the local storage"
-  [changes area-name]
+  [changes _area-name]
   (reset! ignore-settings-watcher true)
-  (doseq [[name {old-value :oldValue
-                 new-value :newValue}]
+  (doseq [[name {new-value :newValue}]
           (js->clj changes :keywordize-keys true)]
     (when (contains? settings-keys (keyword name))
       (swap! @settings assoc (keyword name) new-value)))
@@ -45,13 +43,13 @@
 (defn settings-updated
   "Event handler for updates to `settings`, saves them to the
   local storage."
-  [key reference old-state new-state]
+  [_key _reference old-state new-state]
   (when-not @ignore-settings-watcher
-    (doseq [[key value] (second (clojure.data/diff old-state new-state))]
+    (doseq [[key _] (second (clojure.data/diff old-state new-state))]
       (assert (contains? settings-keys key))
       (.. browser -storage -local (set (clj->js {key (new-state key)}))))
-    (doseq [[key value] (first (clojure.data/diff old-state new-state))
-            :when       (= key :blacklisted-urls)]
+    (doseq [[key _] (first (clojure.data/diff old-state new-state))
+            :when   (= key :blacklisted-urls)]
       (assert (contains? settings-keys key))
       (.. browser -storage -local (set (clj->js {key (new-state key)}))))))
 

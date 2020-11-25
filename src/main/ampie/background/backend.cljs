@@ -268,7 +268,16 @@
     (fn [resolve reject]
       (POST (endpoint "problem-getting-cache")
         (assoc (base-request-options)
-          :params {:cache-key  cache-key
-                   :error-text error-text}
-          :handler    #(resolve (js->clj % :keywordize-keys true))
+          :params        {:cache-key  cache-key
+                          :error-text error-text}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(defn setting-updated [key value]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "log/setting-updated")
+        (assoc (base-request-options)
+          :params        {:key key :value value}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))

@@ -233,12 +233,24 @@
                 :link-cache-status
                 (swap! state assoc :link-cache-status)))))
 
+(defn settings-updated
+  [_key _reference old-state new-state]
+  (doseq [[key _] (second (clojure.data/diff old-state new-state))]
+    (when-not (= key :blacklisted-urls)
+      (backend/setting-updated key (new-state key)))))
+
 (defn ^:dev/after-load init []
   (mount/start (mount/only #{#'ampie.background.backend/user-info
                              #'ampie.background.backend/cookie-watcher
                              #'ampie.background.backend/auth-token
                              #'ampie.settings/settings
                              #'ampie.settings/settings-watcher}))
+  (add-watch @settings :backend-notifier settings-updated)
+  (.then (.. browser -tabs (query #js {:active true :currentWindow true}))
+    (fn [[tab]]
+      (.. browser -tabs
+        (sendMessage (.-id tab)
+          #js {:type "popup-opened"}))))
   #_(set-download-status)
   #_(js/setInterval set-download-status 500)
   ;; Need a delay because otherwise firefox doesn't load blacklisted urls in time
@@ -247,3 +259,7 @@
       (rdom/render [popup-page]
         (. js/document getElementById "popup-content")))
     500))
+
+(defn ^:dev/before-load stop []
+  (remove-watch @settings :backend-notifier)
+  (mount/stop))

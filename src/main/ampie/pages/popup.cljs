@@ -73,8 +73,22 @@
                  (if (string/includes? (.. js/window -navigator -userAgent) "Firefox")
                    "https://bug1303384.bmoattachments.org/attachment.cgi?id=9051647"
                    "chrome://extensions/shortcuts")}))}
-       "browser settings"] "."]]
-    ))
+       "browser settings"] "."]]))
+
+(defn hn-enabled []
+  (let [enabled (:hn-enabled @@settings)]
+    [:div.hn-enabled.setting
+     [:div.header
+      [:div.title "Hacker News"]
+      [:div.toggle-wrapper
+       [:div.toggle
+        {:on-click (fn [evt]
+                     (.preventDefault evt)
+                     (swap! @settings update :hn-enabled not))}
+        [:div.option.enabled {:class (when-not enabled :off)} "Enabled"]
+        [:div.option.disabled "Disabled"]]]]
+     [:div.description
+      "Do you want to see links from the orange website?"]]))
 
 (defn blacklisted-urls []
   ;; Creating a separate atom because updating settings very quickly might be
@@ -108,6 +122,7 @@
    [show-badges]
    [auto-show-domain-links]
    [enable-amplify-dialog]
+   [hn-enabled]
    [blacklisted-urls]])
 
 (defn settings-page []

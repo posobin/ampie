@@ -2,6 +2,7 @@
   (:require [ampie.db :refer [db]]
             [taoensso.timbre :as log]
             [ampie.background.backend :as backend]
+            [ampie.settings :refer [settings]]
             [ampie.interop :as i]
             [mount.core :refer [defstate]]))
 
@@ -18,7 +19,8 @@
 (defn transform-seen-at [seen-at]
   (let [str-ids (map (fn [[k v]] [(if (keyword? k) (name k) k) v]) seen-at)
         grouped (group-by-source str-ids)
-        hn      (concat (grouped "hnc") (grouped "hn"))
+        hn      (when-not (false? (:hn-enabled @@settings))
+                  (concat (grouped "hnc") (grouped "hn")))
         twitter (concat (grouped "tf") (grouped "tl"))]
     (merge (when (seq hn) {:hn hn})
       (when (seq twitter) {:twitter twitter})
@@ -117,6 +119,14 @@
        (.startsWith (str normalized-url-prefix "/"))
        (.or "normalizedUrl")
        (.equals normalized-url-prefix)
+       ((if (false? (:hn-enabled @@settings))
+          (fn [coll]
+            (.and coll
+              (fn [^js row]
+                (let [seen-at (.-seenAt row)]
+                  (some #(not= (.-source (aget seen-at %)) "hn")
+                    (array-seq (js/Object.keys seen-at)))))))
+          identity))
        (.limit 10000)
        (.reverse)
        (.sortBy "score")

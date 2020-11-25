@@ -10,6 +10,7 @@
                        :seen-domain-links-notice  false
                        :tried-clicking-subdomains false
                        :amplify-dialog-enabled    true
+                       :hn-enabled                true
                        :blacklisted-urls          ["mail.google.com"
                                                    "hey.com"
                                                    "messenger.com"

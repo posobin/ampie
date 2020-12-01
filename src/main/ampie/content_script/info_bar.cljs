@@ -628,49 +628,50 @@
                   (swap-info-bars! assoc-in [:seen-at :hn] hn-info))))))))))
 
 (defn info-bars-and-mini-tags [{:keys [pages-info close-info-bar]}]
-  [:div.info-bars-and-mini-tags
-   [:<>
-    (when (and (:open (:mini-tags @pages-info))
-            (not (:hidden @pages-info)))
-      ^{:key :mini-tags}
-      [mini-tags {:page-info (:mini-tags @pages-info)
-                  :open-info-bar
-                  #(load-page-info
-                     (get-current-url)
-                     pages-info
-                     false)
-                  :close-mini-tags
-                  #(swap! pages-info assoc-in [:mini-tags :open] false)}])
-    (doall
-      (for [[index page-info] (map-indexed vector (:info-bars @pages-info))
-            :let              [index-from-end (- (count (:info-bars @pages-info)) (inc index))]]
-        ^{:key [index (:url page-info)]}
-        [info-bar {:page-info       page-info
-                   :index           index
-                   :hidden          (:hidden @pages-info)
-                   :load-page-info  (fn [url] (load-page-info url pages-info false))
-                   :close-page-info (fn []
-                                      (send-message-to-page
-                                        {:type :ampie-infobar-closed
-                                         :url  (-> @pages-info :info-bars peek :url)})
-                                      (swap! pages-info update :info-bars pop))
-                   :style/opacity   (- 1.0 (* index-from-end 0.2))
-                   :style/right     (str (* index-from-end 10) "px")
-                   :show-prefix-info
-                   (fn [prefix-info]
-                     (swap! pages-info
-                       update :info-bars
-                       (fn [info-bars]
-                         (let [current
-                               (get-in info-bars
-                                 [(dec (count info-bars)) :prefix-info])]
-                           (when-not (= current prefix-info)
-                             (.. browser -runtime
-                               (sendMessage (clj->js
-                                              {:type :clicked-subdomain})))))
-                         (assoc-in info-bars
-                           [(dec (count info-bars)) :prefix-info]
-                           prefix-info))))}]))]])
+  (when-not (:removed @pages-info)
+    [:div.info-bars-and-mini-tags
+     [:<>
+      (when (and (:open (:mini-tags @pages-info))
+              (not (:hidden @pages-info)))
+        ^{:key :mini-tags}
+        [mini-tags {:page-info (:mini-tags @pages-info)
+                    :open-info-bar
+                    #(load-page-info
+                       (get-current-url)
+                       pages-info
+                       false)
+                    :close-mini-tags
+                    #(swap! pages-info assoc-in [:mini-tags :open] false)}])
+      (doall
+        (for [[index page-info] (map-indexed vector (:info-bars @pages-info))
+              :let              [index-from-end (- (count (:info-bars @pages-info)) (inc index))]]
+          ^{:key [index (:url page-info)]}
+          [info-bar {:page-info       page-info
+                     :index           index
+                     :hidden          (:hidden @pages-info)
+                     :load-page-info  (fn [url] (load-page-info url pages-info false))
+                     :close-page-info (fn []
+                                        (send-message-to-page
+                                          {:type :ampie-infobar-closed
+                                           :url  (-> @pages-info :info-bars peek :url)})
+                                        (swap! pages-info update :info-bars pop))
+                     :style/opacity   (- 1.0 (* index-from-end 0.2))
+                     :style/right     (str (* index-from-end 10) "px")
+                     :show-prefix-info
+                     (fn [prefix-info]
+                       (swap! pages-info
+                         update :info-bars
+                         (fn [info-bars]
+                           (let [current
+                                 (get-in info-bars
+                                   [(dec (count info-bars)) :prefix-info])]
+                             (when-not (= current prefix-info)
+                               (.. browser -runtime
+                                 (sendMessage (clj->js
+                                                {:type :clicked-subdomain})))))
+                           (assoc-in info-bars
+                             [(dec (count info-bars)) :prefix-info]
+                             prefix-info))))}]))]]))
 
 (defn reset-current-page-info! [pages-info]
   (let [current-url    (get-current-url)

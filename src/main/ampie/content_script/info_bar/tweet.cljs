@@ -4,38 +4,90 @@
             [clojure.string :as string]
             [goog.string]
             [ampie.utils :refer [assoc-when]]
+            [ampie.time]
             [ampie.url :as url]
             [ampie.components.basics :as b]
             [taoensso.timbre :as log]))
 
+(defmulti substr-entity->html (comp :type second))
+
+(defmethod substr-entity->html :url
+  [[_ {:keys [expanded_url display_url selected]}]]
+  [:a (assoc (b/ahref-opts expanded_url)
+        :class (when selected :selected-url))
+   display_url])
+
+(defmethod substr-entity->html :photo [[_ _]] [:<>])
+(defmethod substr-entity->html :user-mention [[text {:keys [screen_name]}]]
+  [:a (b/ahref-opts (str "https://twitter.com/" screen_name)) text])
+(defmethod substr-entity->html :default [[text _]] [:<> text])
+
+(defn- tweet-image [{:keys [expanded_url media_url_https]}]
+  [:div.image
+   [:a (b/ahref-opts expanded_url)
+    [:img {:src (str media_url_https "?name=small")}]]])
+
+(defn- tweet-images [images]
+  [:div.images
+   (for [image images]
+     ^{:key (:id_str image)}
+     [tweet-image image])])
+
 (defn- tweet->html-text
-  [{{:keys [screen_name]} :user
-    {urls :urls}          :entities
-    :keys                 [full_text]}
+  [{{:keys [urls media
+            user_mentions]} :entities
+    :keys                   [full_text]}
    selected-normalized-url]
-  (let [indices      (concat [0]
-                       (mapcat :indices urls)
-                       [(count full_text)])
-        text-substrs (->> (partition 2 indices)
-                       (map (fn [[start end]] (runes/substr full_text start (- end start))))
-                       (map goog.string/unescapeEntities))
-        links        (map-indexed
-                       (fn [idx {:keys [expanded_url display_url]}]
-                         ^{:key idx} [:a (assoc (b/ahref-opts expanded_url)
-                                           :class (when (= selected-normalized-url
-                                                          (url/normalize expanded_url))
-                                                    :selected-url))
-                                      display_url])
-                       urls)
-        result       (concat [(first text-substrs)]
-                       (interleave links (rest text-substrs)))]
+  (let [entity->indices  (fn [type]
+                           (fn [{[l r] :indices :as info}]
+                             [[l (assoc info :type type)] [r nil]]))
+        urls             (map #(assoc % :selected
+                                 (= selected-normalized-url
+                                   (-> % :expanded_url url/normalize)))
+                           urls)
+        urls-indices     (->> (concat [[0 nil]]
+                                (mapcat (entity->indices :url) urls)
+                                (mapcat (entity->indices :photo) media)
+                                (mapcat (entity->indices :user-mention) user_mentions)
+                                [[(count full_text) nil]])
+                           (sort (fn [[idx1 obj1] [idx2 obj2]]
+                                   (if (= idx1 idx2)
+                                     (cond (= obj1 obj2 nil) 0
+                                           (nil? obj1)       -1
+                                           (nil? obj2)       1
+                                           ;; Shouldn't happen, means there is
+                                           ;; a zero-width entity
+                                           :else             (compare obj1 obj2))
+                                     (compare idx1 idx2)))))
+        substrs-entities (->> (partition 2 1 urls-indices)
+                           (map (fn [[[start entity] [end]]]
+                                  [(-> full_text
+                                     (runes/substr start (- end start))
+                                     goog.string/unescapeEntities)
+                                   entity])))
+        result           (->> (map substr-entity->html substrs-entities)
+                           (map-indexed #(vary-meta %2 assoc :key %1)))]
     result))
 
-(defn tweet [{{urls :urls} :entities
-              :keys        [created_at id_str
-                            replies retweet-of reply-to quote-of
-                            user retweeted-by]
-              :as          tweet-info}
+(comment
+  ;; TODO This tweet is not parsed correctly rn
+  ;; It links to docs.google.com: https://twitter.com/jebarjonet/status/1079473806173970433
+  ;; The indices are off, both the ones returned by runes and the js .substring
+  (def s (str "Looking for a free privacy policy and terms of use generator? ⚖️ "
+           "Go on https://t.co/o4yTZY3BGi =&gt; create a new doc from template =&gt; "
+           "select \"Privacy policy\" or \"Terms of use\" templates 🤑 \n"
+           "No data selling or endless process asking for money in the end with this one https://t.co/RzJnJ0FBa8"))
+
+  (.-length "hello")
+  (.-length "🤑")
+  ;; These two substrings should evaluate to the full links from the string s
+  (.substring s 71 94)
+  (.substring s 270 293))
+
+(defn tweet [{{media :media} :entities
+              :keys          [created_at id_str replies reply-to quote-of
+                              user retweeted-by]
+              :as            tweet-info}
              selected-normalized-url]
   [:div.tweet.row
    (when reply-to [:div.reply-to [tweet reply-to selected-normalized-url]])
@@ -54,6 +106,7 @@
        (ampie.time/timestamp->date (js/Date.parse created_at))]]
      [:div.text (tweet->html-text tweet-info selected-normalized-url)]
      (when quote-of [:div.quote [tweet quote-of selected-normalized-url]])]]
+   (when (seq media) [tweet-images media])
    (when (seq replies)
      [:div.replies
       (for [{:keys [id_str] :as reply} replies]
@@ -109,7 +162,7 @@
                 retweeted-tweets
                 (->> (group-by (comp :id_str :retweet-of) hydrated-tweets)
                   (#(dissoc % nil))
-                  (map (fn [[tweet-id retweets]]
+                  (map (fn [[_ retweets]]
                          (-> (first retweets) :retweet-of
                            (assoc :retweeted-by (map :user retweets))))))
                 retweeted-id->tweet

@@ -93,6 +93,9 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .tweet .info {color: grey !important;}
 .tweet .info .date {color: grey;}
 .tweet .retweeted-by {margin-left: calc(2em + 6px);}
+.tweet .images {margin-left: calc(2em + 6px); margin-top: 4px;}
+.tweet .images .image img {max-width: 100%; border-radius: 8px;}
+.tweet .images .image img + img {margin-top: 4px;}
 
 .this-page-preview {cursor: pointer;}
 .this-page-preview .header {display: inline;}

@@ -2,13 +2,13 @@
                 "src/main"
                 "src/test"]
 
- :dependencies [[funcool/promesa "5.0.0"]
-                [reagent "1.0.0-alpha2"]
+ :dependencies [[funcool/promesa "6.0.0"]
+                [reagent "1.0.0"]
                 [mount "0.1.16"]
-                [binaryage/devtools "1.0.2"]
-                [lambdaisland/glogi "1.0.63"]
-                [com.taoensso/timbre "4.10.0"]
-                [cljs-ajax "0.8.0"]]
+                [binaryage/devtools "1.0.3"]
+                [lambdaisland/glogi "1.0.83"]
+                [com.taoensso/timbre "5.1.2"]
+                [cljs-ajax "0.8.3"]]
 
  :nrepl  {:port 9000}
  :builds {:extension

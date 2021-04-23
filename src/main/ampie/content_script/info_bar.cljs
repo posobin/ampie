@@ -176,6 +176,15 @@
       (not= normalized-url
         (-> links first :normalized-url)))))
 
+(defn open-context-in-new-tab-button [url]
+  [:div.new-tab {:on-click (fn [e] (.stopPropagation e)
+                             (.. browser -runtime
+                               (sendMessage (clj->js {:type :open-page-context
+                                                      :url  url})))
+                             nil)
+                 :role     "button"}
+   [:span.icon.open-in-new-tab-icon]])
+
 (defn bottom-row
   [{:keys [normalized-url prefixes-info close-page-info
            show-prefix-info]}]
@@ -220,6 +229,7 @@
                 :class    "highlight"})
              (js/decodeURI substr)]
             (when-not (empty? after) after)])))
+     [open-context-in-new-tab-button reversed-normalized-url]
      [:div.close {:on-click close-page-info :role "button"}
       [:span.icon.close-icon]]]))
 
@@ -332,7 +342,8 @@
                               :on-click #(load-page-info reversed-normalized-url)}
        [mini-tag :visits (links/count-visits visits)]
        [mini-tag :hn (links/count-hn hn)]
-       [mini-tag :twitter (links/count-tweets twitter)]]]
+       [mini-tag :twitter (links/count-tweets twitter)]]
+      [open-context-in-new-tab-button url]]
      (when (or (seq twitter) (seq visits))
        (let [batch (cond (= (count who-shared) 6)
                          who-shared
@@ -529,6 +540,7 @@
         (if (>= count 200)
           (str count "+")
           count))])
+   [open-context-in-new-tab-button (get-current-url)]
    [:div.close {:on-click (fn [e] (.stopPropagation e) (close-mini-tags) nil)
                 :role     "button"}
     [:span.icon.close-icon]]])

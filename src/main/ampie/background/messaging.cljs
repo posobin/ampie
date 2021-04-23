@@ -187,25 +187,29 @@
                  (not (some #(clojure.string/includes? url %)
                         (:blacklisted-urls @@settings))))))))
 
-(defn get-time-spent-on-url [request ^js sender]
+(defn get-time-spent-on-url [_request ^js sender]
   (let [url (.. sender -tab -url)]
     (visits.db/get-time-spent-on-url url)))
 
-(defn saw-amplify-before? [{url :url} sender]
+(defn saw-amplify-before? [{url :url} _sender]
   (visits.db/saw-amplify-before? url))
-(defn saw-amplify-dialog [{url :url} sender]
+(defn saw-amplify-dialog [{url :url} _sender]
   (visits.db/saw-amplify-dialog url))
 
-(defn search-friends-visits [{query :query} sender]
+(defn search-friends-visits [{query :query} _sender]
   (-> (backend/search-friends-visits query)
     (.then #(clj->js % :keyword-fn i/name-with-ns))
     (.catch clj->js)))
 
-(defn search-result-clicked [request sender]
+(defn search-result-clicked [_request _sender]
   (backend/search-result-clicked))
 
-(defn search-visit-clicked [request sender]
+(defn search-visit-clicked [_request _sender]
   (backend/search-visit-clicked))
+
+(defn open-page-context [{url :url} _]
+  (.. browser -tabs
+    (create #js {:url (str "https://ampie.app/url-context?src=extension&url=" url)})))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
@@ -237,6 +241,7 @@
       :search-friends-visits     (search-friends-visits request sender)
       :search-result-clicked     (search-result-clicked request sender)
       :search-visit-clicked      (search-visit-clicked request sender)
+      :open-page-context         (open-page-context request sender)
 
       (log/error "Unknown request type" request-type))))
 

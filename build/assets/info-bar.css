@@ -43,7 +43,8 @@
 .window.tight {height: initial;}
 .bottom-row {
     padding: 5px 8px; box-sizing: border-box;
-    font-weight: 600; display:flex; justify-content:space-between;
+    font-weight: 600; display:flex;
+    align-items: center;
     margin-top: 2px; margin-left: 2px;
 }
 .window.hn-window {margin: 0; border-top: 2px solid #fb651e; border-left: 2px solid #fb651e;}
@@ -56,6 +57,8 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 {cursor: pointer; border-bottom: 1px solid var(--accent-color-shadow);
  transition-property: border-bottom; transition-duration: 0.15s; transition-timing-function: ease;}
 .bottom-row .url .part.highlight:hover {border-bottom: 1px solid var(--accent-color);}
+
+.bottom-row .new-tab { margin-left: auto; margin-right: 8px; }
 
 .pane .header {font-weight: 600;}
 .pane .header + .row {margin-top: 0.4em;}
@@ -111,17 +114,32 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .twitter-icon {background: no-repeat url("icons/twitter.svg") center/contain;}
 .hn-icon {background: no-repeat url("icons/hn.svg") center/contain;}
 .history-icon {background: no-repeat url("icons/history.svg") center/contain;}
+.open-in-new-tab-icon {background: no-repeat url("icons/open-in-new-tab.svg") center/contain;}
 .close-icon {width: calc(1em - 2px); height: calc(1em - 2px); background: no-repeat url("icons/close.svg") center/contain;}
 .ampie-icon, .visits-icon {background: no-repeat url("icons/ampie-no-shadow.svg") center/contain; margin-left: -4px;}
 .mini-tags .domain-links-icon {margin-left: -4px;}
 .domain-links-icon::before {content: "/..."; letter-spacing: -0.1em; font-weight: 600; white-space: nowrap;}
 
 .bottom-row .close {margin-right: 10px; margin-top: 2px;}
-.close {cursor: pointer; display: block; position: relative; height: min-content; z-index: 0;}
+.new-tab, .close {cursor: pointer; display: block; position: relative; height: min-content; z-index: 0;}
 .close .close-icon {padding: 0; margin: 0; display: block;}
+.new-tab .open-in-new-tab-icon {padding: 0; margin: 0; height: 16px; width: 16px; display: block;}
 .mini-tags .close .close-icon {margin-bottom: -1px; margin-top: 1px;}
 .mini-tags::before {content: ""; position: absolute; top: -40px; left: -40px; width: calc(100% + 80px); pointer-events: none;}
-.close::after {transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;}
+.new-tab:hover::after, .close::after {transition-property: box-shadow; transition-duration: 0.15s; transition-timing-function: ease;}
+.new-tab:hover::after {
+    content:""; position:absolute; left:-3px; top:-3px; width:calc(100% + 6px); height:calc(100% + 6px);
+    background: #ffeffe; border-radius: 4px;
+    z-index: -1;
+}
+.new-tab:hover::before {
+    content: "Open context \A in a new tab"; position: absolute; right: -4px; top: 0; transform: translateY(calc(-100% - 2px));
+    font-weight: normal;
+    padding: 2px 4px; background: grey; color: white; border-radius: 4px;
+    white-space: pre;
+    text-align: right;
+    line-height: 1.1;
+}
 .close:hover::after {
     content:""; position:absolute; left:-4px; top:-4px; width:calc(100% + 8px); height:calc(100% + 8px);
     background: #ffeffe; border-radius: 4px;
@@ -141,7 +159,8 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .header .icon {margin-left: 0; margin-right: 3px;}
 
 .adjacent-link.row { position: relative; }
-.adjacent-link.row .upper-part {display: flex; justify-content: space-between;}
+.adjacent-link.row .upper-part { display: flex; }
+.adjacent-link.row .upper-part .inline-mini-tags { margin-left: auto; }
 .adjacent-link.row .url {word-break: break-all;}
 .adjacent-link.row .url .prefix {color: grey;}
 .adjacent-link.row .shared-usernames {/* text-align: right; */ margin-right: 8px; font-size: 9pt;}
@@ -195,6 +214,9 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
     transition-property: box-shadow, padding; transition-duration: 0.15s; transition-timing-function: ease;
     background: white;
     pointer-events: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
 }
 .mini-tags.left {bottom: initial; top: 50%; left: 0; right: initial;
                  border-left: none; border-bottom: 1px solid var(--accent-color); padding-right: 6px;
@@ -220,6 +242,7 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
 .mini-tags.left > *:not(:first-child), .mini-tags.right > *:not(:first-child)
 {margin-left: 0px; margin-top: 4px;}
 .mini-tags .close {display: inline-block; margin-left:8px;}
+.mini-tags .new-tab {margin-left:8px;}
 .mini-tags.left .close {margin-left:0;}
 .mini-tags .close .icon {margin-right: 0;}
 .mini-tag .icon {margin-right: 2px;}

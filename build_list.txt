@@ -13,6 +13,7 @@ assets/icons/history.svg
 assets/icons/hn.svg
 assets/icons/seen-at.svg
 assets/icons/twitter.svg
+assets/icons/open-in-new-tab.svg
 assets/images/mini-tags.png
 assets/info-bar.css
 assets/message.css

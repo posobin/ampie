@@ -176,14 +176,20 @@
       (not= normalized-url
         (-> links first :normalized-url)))))
 
+(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
+
 (defn open-context-in-new-tab-button [url]
-  [:div.new-tab {:on-click (fn [e] (.stopPropagation e)
-                             (.. browser -runtime
-                               (sendMessage (clj->js {:type :open-page-context
-                                                      :url  url})))
-                             nil)
-                 :role     "button"}
-   [:span.icon.open-in-new-tab-icon]])
+  (let [show-shortcut (= ((fnil url/normalize "") url) (url/normalize (.. js/document -location -href)))]
+    [:div.new-tab
+     {:class    [(when (mac?) :mac)
+                 (when show-shortcut :shortcut)]
+      :on-click (fn [e] (.stopPropagation e)
+                  (.. browser -runtime
+                    (sendMessage (clj->js {:type :open-page-context
+                                           :url  url})))
+                  nil)
+      :role     "button"}
+     [:span.icon.open-in-new-tab-icon]]))
 
 (defn bottom-row
   [{:keys [normalized-url prefixes-info close-page-info

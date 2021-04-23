@@ -16,7 +16,12 @@
 (defn handle-shortcut [command]
   (case command
     "amplify_page"
-    (background.messaging/amplify-current-tab)))
+    (background.messaging/amplify-current-tab)
+    "open_page_context"
+    (-> (.. browser -tabs (query #js {:active true :currentWindow true}))
+      (.then #(js->clj % :keywordize-keys true))
+      (.then (fn [[{url :url}]]
+               (background.messaging/open-page-context {:url url} nil))))))
 
 (defstate shortcut-handler
   :start (.. browser -commands -onCommand

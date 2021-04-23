@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.3.3"
+ :version          "2.3.4"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"
@@ -41,7 +41,12 @@
                             {:suggested_key
                              {:default "Ctrl+Shift+A"
                               :mac     "Command+Shift+A"}
-                             :description "Amplify the page you are on"}}
+                             :description "Amplify the page you are on"}
+                            "open_page_context"
+                            {:suggested_key
+                             {:default "Ctrl+Shift+E"
+                              :mac     "Command+Shift+E"}
+                             :description "Open current page context in a new tab"}}
 
  :content-security-policy ["default-src 'self';"
                            "connect-src *;"

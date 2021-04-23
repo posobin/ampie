@@ -97,8 +97,8 @@
                                (backend/problem-getting-cache
                                  cache-key
                                  (str "type=save-problem; "
-                        (.toString error)))
-          (js/Promise.reject error)))))
+                                   (.toString error)))
+                               (js/Promise.reject error)))))
                  (partition-all 1000 (keys buffer)))
                 (js/Promise.resolve))))]
       (|vv

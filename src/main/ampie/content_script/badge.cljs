@@ -337,43 +337,45 @@
     (fn [^js res] (reset! tooltip-toggle-key
                     (or (aget res "badge-toggle-key")
                       "Alt"))))
-  (let [target-ids           (atom #{})
-        next-target-id       (atom 0)
-        badge-redraw-timeout (atom nil)
-        badge-redraw
-        (fn []
-          (when-not @badge-redraw-timeout
-            (reset! badge-redraw-timeout
-              (js/setTimeout
-                (fn [] (reset! badge-redraw-timeout nil)
-                  (screen-update target-ids))
-                5000))))
+  (when-not (string/starts-with? (url/normalize (.. js/window -location -href))
+              "app.ampie/")
+    (let [target-ids           (atom #{})
+          next-target-id       (atom 0)
+          badge-redraw-timeout (atom nil)
+          badge-redraw
+          (fn []
+            (when-not @badge-redraw-timeout
+              (reset! badge-redraw-timeout
+                (js/setTimeout
+                  (fn [] (reset! badge-redraw-timeout nil)
+                    (screen-update target-ids))
+                  5000))))
 
-        update-cancelled (atom false)
-        update-page
-        (fn update-page [update-cancelled]
-          (when-not @update-cancelled
-            (when-not (.-hidden js/document)
-              (process-child-links js/document.body target-ids next-target-id
-                on-badge-click)
-              (badge-redraw))
-            (js/setTimeout #(update-page update-cancelled) 1000)))
+          update-cancelled (atom false)
+          update-page
+          (fn update-page [update-cancelled]
+            (when-not @update-cancelled
+              (when-not (.-hidden js/document)
+                (process-child-links js/document.body target-ids next-target-id
+                  on-badge-click)
+                (badge-redraw))
+              (js/setTimeout #(update-page update-cancelled) 1000)))
 
-        resize-event-timeout (atom nil)
-        on-resize
-        (fn []
-          (js/clearTimeout @resize-event-timeout)
-          (reset! resize-event-timeout
-            (js/setTimeout #(screen-update target-ids) 25)))]
-    (. js/document addEventListener "keydown" on-alt-down)
-    (. js/document addEventListener "keyup" on-alt-up)
-    (. js/window addEventListener "resize" on-resize)
-    (process-child-links js/document.body target-ids next-target-id on-badge-click)
-    (js/setTimeout #(update-page update-cancelled) 2000)
-    {:next-target-id   next-target-id
-     :target-ids       target-ids
-     :update-cancelled update-cancelled
-     :on-resize        on-resize}))
+          resize-event-timeout (atom nil)
+          on-resize
+          (fn []
+            (js/clearTimeout @resize-event-timeout)
+            (reset! resize-event-timeout
+              (js/setTimeout #(screen-update target-ids) 25)))]
+      (. js/document addEventListener "keydown" on-alt-down)
+      (. js/document addEventListener "keyup" on-alt-up)
+      (. js/window addEventListener "resize" on-resize)
+      (process-child-links js/document.body target-ids next-target-id on-badge-click)
+      (js/setTimeout #(update-page update-cancelled) 2000)
+      {:next-target-id   next-target-id
+       :target-ids       target-ids
+       :update-cancelled update-cancelled
+       :on-resize        on-resize})))
 
 (defn stop [{:keys [update-cancelled on-resize]}]
   (. js/document removeEventListener "keydown" on-alt-down)

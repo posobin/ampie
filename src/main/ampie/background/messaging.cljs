@@ -65,21 +65,21 @@
     (.then
       (.. browser -storage -local (get "show-badges"))
       (fn [show-badges]
-        (if (or (not show-badges) (aget show-badges "show-badges"))
-          (.then (links/get-nurls-badge-sightings-counts normalized-urls)
-            (fn [counts]
-              (.then (get-nurls-info normalized-urls)
-                (fn [infos]
-                  (->> (map #(assoc %1 :url %2 :normalized-url %3 :badge-sightings %4)
-                         infos urls normalized-urls counts)
-                    (map (fn [info]
-                           (update info :history
-                             (fn [history]
-                               (vec
-                                 (filter #(not= visit-hash (:visit-hash %))
-                                   history))))))
-                    clj->js)))))
-          (clj->js (map (constantly {}) normalized-urls)))))))
+        (.then (links/get-nurls-badge-sightings-counts normalized-urls)
+          (fn [counts]
+            (.then (get-nurls-info normalized-urls)
+              (fn [infos]
+                (->> (map #(assoc %1 :url %2 :normalized-url %3 :badge-sightings %4)
+                       infos urls normalized-urls counts)
+                  (map (fn [info]
+                         (update info :history
+                           (fn [history]
+                             (vec
+                               (filter #(not= visit-hash (:visit-hash %))
+                                 history))))))
+                  (assoc {:show-badges (or (not show-badges) (aget show-badges "show-badges"))}
+                    :urls-info)
+                  clj->js)))))))))
 
 (defn inc-badge-sightings [{:keys [url]} sender]
   (links/inc-nurl-badge-sightings-counts (url/normalize url))

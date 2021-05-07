@@ -1,0 +1,99 @@
+.search-results-ampie-block {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.search-results-tags {
+    display: inline-flex;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid lightblue;
+    transition-property: transform, box-shadow, background;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.1s;
+}
+
+.search-results-tags:hover {
+    background: #f7f8ff;
+    // transform: translateY(-1px);
+    box-shadow: 0 4px 8px lightgrey;
+    cursor: pointer;
+}
+
+.open-in-new-tab {
+    margin-left: 4px;
+    transition-property: border, box-shadow, background;
+    transition-timing-function: ease-in-out;
+    transition-duration: 0.1s;
+    border-radius: 4px;
+    padding: 4px;
+    border: 1px solid transparent;
+    position: relative; /* for the ::before element */
+}
+
+.open-in-new-tab:hover {
+    background: #f7f8ff;
+    cursor: pointer;
+    border: 1px solid lightblue;
+}
+
+.open-in-new-tab:hover::before {
+    content: "Open context in a new tab";
+    width: 100px;
+    border-radius: 4px;
+    padding: 2px 4px;
+    background: grey;
+    color: white;
+    position: absolute;
+    right: 0;
+    top: 0;
+    line-height: 1;
+    transform: translateX(100%) translateX(4px);
+}
+
+.mini-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mini-tag-icon {
+    height: 16px;
+    width: 16px;
+}
+
+.hn-icon {
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/hn.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/hn.svg') center/contain,
+        no-repeat url('assets/icons/hn.svg') center/contain;
+}
+.twitter-icon {
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/twitter.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/twitter.svg') center/contain,
+        no-repeat url('assets/icons/twitter.svg') center/contain;
+}
+.history-icon {
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/history.svg') center/contain,
+        no-repeat url('assets/icons/history.svg') center/contain;
+}
+.visits-icon {
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/ampie-no-shadow.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/ampie-no-shadow.svg') center/contain,
+        no-repeat url('assets/icons/ampie-no-shadow.svg') center/contain;
+    margin-left: -2px;
+}
+.open-in-new-tab-icon {
+    height: 16px;
+    width: 16px;
+    background:
+        no-repeat url('chrome-extension://__MSG_@@extension_id__/assets/icons/open-in-new-tab.svg') center/contain,
+        no-repeat url('moz-extension://__MSG_@@extension_id__/assets/icons/open-in-new-tab.svg') center/contain,
+        no-repeat url('assets/icons/open-in-new-tab.svg') center/contain;
+}

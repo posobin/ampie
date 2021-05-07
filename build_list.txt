@@ -19,6 +19,7 @@ assets/info-bar.css
 assets/message.css
 assets/popup.css
 assets/search-results.css
+assets/search-result-info.css
 assets/weekly-links-style.css
 icons/ampie-128.png
 icons/ampie-32.png

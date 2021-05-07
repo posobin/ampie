@@ -6,6 +6,7 @@
             [clojure.string :as string]
             [ampie.links :as links]
             [ampie.utils]
+            [reagent.dom :as rdom]
             [cljs.core.async :refer [go >! chan]])
   (:require-macros [mount.core :refer [defstate]]))
 
@@ -20,8 +21,9 @@
                                  :urls     (vec (set urls))
                                  :page-url (.. js/window -location -href)})))
       (.then
-        (fn [urls-info]
-          (let [urls-info    (js->clj urls-info :keywordize-keys true)
+        (fn [response]
+          (let [{:keys [urls-info show-badges]}
+                (js->clj response :keywordize-keys true)
                 current-nurl (url/normalize (.. js/window -location -href))
                 cleaned-up   (->> urls-info
                                (filter #(and (not= (:normalized-url %) current-nurl)
@@ -29,7 +31,7 @@
                                             (seq (:visits %)))))
                                (map #(vector (:url %) %))
                                (into {}))]
-            (response-handler cleaned-up)))))))
+            (response-handler cleaned-up show-badges)))))))
 
 (defn- table-element?
   "Check if the element is td, th or table.
@@ -162,52 +164,112 @@
                                      :url  target-url})))))))
     #js {:threshold 1.0}))
 
+(defn- google-result-tags [url-info on-badge-click]
+  (let [tags (for [[source-tag count-fn]
+                   [[:history count] [:hn links/count-hn]
+                    [:twitter links/count-tweets] [:visits links/count-visits]]
+                   :when (source-tag url-info)
+                   :let  [n-entries (count-fn (source-tag url-info))]
+                   :when (pos? n-entries)]
+               ^{:key source-tag}
+               [:div.mini-tag
+                [:div.mini-tag-icon {:class (str (name source-tag) "-icon")}]
+                [:div.mini-tag-count n-entries]])]
+    (when (seq tags)
+      [:div.search-results-ampie-block
+       [:div.search-results-tags {:role     :button
+                                  :on-click (fn [e] (.stopPropagation e)
+                                              (on-badge-click (:url url-info)))}
+        tags]
+       [:div.open-in-new-tab
+        {:role     :button
+         :on-click (fn [e] (.stopPropagation e)
+                     (.. browser -runtime
+                       (sendMessage (clj->js {:type :open-page-context
+                                              :url  (:url url-info)})))
+                     nil)}
+        [:div.open-in-new-tab-icon]]])))
+
 (defstate on-badge-remove :start (atom {}))
-(defn add-ampie-badge [^js target target-id target-info on-badge-click]
-  (let [badge-div    (. js/document createElement "span")
-        badge-icon   (. js/document createElement "span")
-        tooltip      (generate-tooltip target-info)
-        seen-already (>= (:badge-sightings target-info) 3)
-        bold         (or (>= (count (:hn target-info)) 3)
-                       (>= (count (:twitter target-info)) 5)
-                       (>= (count (:visits target-info)) 1))]
-    (.observe intersection-observer badge-div)
-    (.. badge-div -classList (add "ampie-badge"))
-    (when bold (.. badge-div -classList (add "ampie-badge-bold")))
-    (when seen-already (.. badge-div -classList (add "ampie-badge-hidden")))
-    (.setAttribute badge-div "role" "button")
-    (.addEventListener badge-div
-      "click"
-      (fn [e]
-        (.preventDefault e)
-        (on-badge-click (get-target-url target))))
-    (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
-    (set! (.-className badge-icon) "ampie-badge-icon")
-    (.appendChild badge-div badge-icon)
+
+(defn- add-google-result-tags
+  [^js target target-id target-info on-badge-click google-result-root]
+  (let [badge-div    (. js/document createElement "div")
+        shadow-style (. js/document createElement "link")
+        shadow       (. badge-div (attachShadow #js {"mode" "open"}))]
+    (set! (.-rel shadow-style) "stylesheet")
+    (.setAttribute badge-div "style"  "display: none;")
+    (set! (.-onload shadow-style) #(.setAttribute badge-div "style" ""))
+    (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-result-info.css")))
     (.setAttribute badge-div "ampie-badge-id" target-id)
-    (let [mouse-out? (atom true)
-          on-mouse-over
-          (fn []
-            (reset! mouse-out? false)
-            (show-tooltip badge-icon tooltip))
-          on-mouse-out
-          (fn []
-            (reset! mouse-out? true)
-            (js/setTimeout #(when @mouse-out? (.remove tooltip)) 200))]
-      (.addEventListener badge-div "mouseover" on-mouse-over)
-      (.addEventListener target "mouseover" on-mouse-over)
-      (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
-      (doseq [el [badge-div target tooltip]]
-        (.addEventListener el "mouseout" on-mouse-out))
-      (swap! @existing-badges assoc target-id
-        {:show #(show-tooltip badge-icon tooltip)
-         :hide #(when @mouse-out? (.remove tooltip))})
-      (swap! @on-badge-remove assoc target-id
-        (fn []
-          (swap! @existing-badges dissoc target-id)
-          (.removeEventListener target "mouseover" on-mouse-over)
-          (.removeEventListener target "mouseout" on-mouse-out))))
-    (.appendChild target badge-div)))
+    (rdom/render [google-result-tags target-info on-badge-click] shadow)
+    (.appendChild shadow shadow-style)
+    (.appendChild google-result-root badge-div)
+    (swap! @on-badge-remove assoc target-id
+      #(.remove badge-div))))
+
+(defn- get-google-result-link-root [^js node]
+  (when (string/includes? (.. js/document -location -href)
+          "google.")
+    (let [root (reduce #(.-parentElement %1) node (range 4))]
+      (when (= (.-className root) "g")
+        root))))
+
+(defn add-ampie-badge [^js target target-id target-info on-badge-click show-badges]
+  (if-let [google-result-root (get-google-result-link-root target)]
+    ;; Show ampie context in google results even if badges are disabled in settings
+    (add-google-result-tags target target-id target-info on-badge-click google-result-root)
+    (if-not show-badges
+      (let [badge-div (. js/document createElement "span")]
+        ;; Need to add the empty badge div because otherwise
+        ;; it will be repeatedly cleaned up and added over and over.
+        (.setAttribute badge-div "ampie-badge-id" target-id)
+        (.setAttribute badge-div "style"  "display: none;")
+        (.appendChild target badge-div))
+      (let [badge-div    (. js/document createElement "span")
+            badge-icon   (. js/document createElement "span")
+            tooltip      (generate-tooltip target-info)
+            seen-already (>= (:badge-sightings target-info) 3)
+            bold         (or (>= (count (:hn target-info)) 3)
+                           (>= (count (:twitter target-info)) 5)
+                           (>= (count (:visits target-info)) 1))]
+        (.observe intersection-observer badge-div)
+        (.. badge-div -classList (add "ampie-badge"))
+        (when bold (.. badge-div -classList (add "ampie-badge-bold")))
+        (when seen-already (.. badge-div -classList (add "ampie-badge-hidden")))
+        (.setAttribute badge-div "role" "button")
+        (.addEventListener badge-div
+          "click"
+          (fn [e]
+            (.preventDefault e)
+            (on-badge-click (get-target-url target))))
+        (set! (.-onclick tooltip) #(on-badge-click (get-target-url target)))
+        (set! (.-className badge-icon) "ampie-badge-icon")
+        (.appendChild badge-div badge-icon)
+        (.setAttribute badge-div "ampie-badge-id" target-id)
+        (let [mouse-out? (atom true)
+              on-mouse-over
+              (fn []
+                (reset! mouse-out? false)
+                (show-tooltip badge-icon tooltip))
+              on-mouse-out
+              (fn []
+                (reset! mouse-out? true)
+                (js/setTimeout #(when @mouse-out? (.remove tooltip)) 200))]
+          (.addEventListener badge-div "mouseover" on-mouse-over)
+          (.addEventListener target "mouseover" on-mouse-over)
+          (.addEventListener tooltip "mouseover" #(reset! mouse-out? false))
+          (doseq [el [badge-div target tooltip]]
+            (.addEventListener el "mouseout" on-mouse-out))
+          (swap! @existing-badges assoc target-id
+            {:show #(show-tooltip badge-icon tooltip)
+             :hide #(when @mouse-out? (.remove tooltip))})
+          (swap! @on-badge-remove assoc target-id
+            (fn []
+              (swap! @existing-badges dissoc target-id)
+              (.removeEventListener target "mouseover" on-mouse-over)
+              (.removeEventListener target "mouseout" on-mouse-out))))
+        (.appendChild target badge-div)))))
 
 (defn show-too-many-badges-message []
   (let [shadow-holder   (.createElement js/document "div")
@@ -268,7 +330,7 @@
                                (filter url/should-store-url?))]
            (send-urls-to-background
              urls-to-query
-             (fn [url->seen-at]
+             (fn [url->seen-at show-badges]
                (let [updated-badges-added
                      (+ badges-added
                        (count
@@ -284,7 +346,7 @@
                                    current-nurl))]
                            (let [target-id (dec (swap! next-target-id inc))]
                              (add-ampie-badge target target-id target-seen-at
-                               on-badge-click)
+                               on-badge-click show-badges)
                              (.setAttribute target
                                "processed-by-ampie" target-id)
                              (swap! target-ids conj target-id)))))]

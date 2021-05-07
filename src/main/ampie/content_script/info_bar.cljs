@@ -362,7 +362,7 @@
        [mini-tag :visits (links/count-visits visits)]
        [mini-tag :hn (links/count-hn hn)]
        [mini-tag :twitter (links/count-tweets twitter)]]
-      [open-context-in-new-tab-button url]]
+      [open-context-in-new-tab-button reversed-normalized-url]]
      (when (or (seq twitter) (seq visits))
        (let [batch (cond (= (count who-shared) 6)
                          who-shared

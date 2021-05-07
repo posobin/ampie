@@ -9,6 +9,7 @@
             [ampie.settings :refer [settings]]
             [ampie.background.link-cache-sync :as link-cache-sync]
             [clojure.set]
+            [clojure.string]
             [taoensso.timbre :as log]
             ["webextension-polyfill" :as browser]
             [mount.core])
@@ -209,7 +210,8 @@
 
 (defn open-page-context [{url :url} _]
   (.. browser -tabs
-    (create #js {:url (str "https://ampie.app/url-context?src=extension&url=" url)})))
+    (create #js {:url (str "https://ampie.app/url-context?src=extension&url="
+                        (js/encodeURIComponent url))})))
 
 (defn get-command-shortcuts []
   (.. browser -commands (getAll)))

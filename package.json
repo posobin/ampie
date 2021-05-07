@@ -1,9 +1,9 @@
 {
   "name": "ampie",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "private": true,
   "devDependencies": {
-    "shadow-cljs": "2.12.4"
+    "shadow-cljs": "2.12.5"
   },
   "dependencies": {
     "dexie": "^3.0.3",

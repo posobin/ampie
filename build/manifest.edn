@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.3.4"
+ :version          "2.3.5"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"
@@ -39,13 +39,13 @@
                             ;; replaces hypen with underscore.
                             "amplify_page"
                             {:suggested_key
-                             {:default "Ctrl+Shift+A"
-                              :mac     "Command+Shift+A"}
+                             {:default "Alt+Shift+A"
+                              :mac     "Alt+Shift+A"}
                              :description "Amplify the page you are on"}
                             "open_page_context"
                             {:suggested_key
-                             {:default "Ctrl+Shift+E"
-                              :mac     "Command+Shift+E"}
+                             {:default "Alt+Shift+C"
+                              :mac     "Alt+Shift+C"}
                              :description "Open current page context in a new tab"}}
 
  :content-security-policy ["default-src 'self';"

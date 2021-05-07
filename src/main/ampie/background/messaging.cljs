@@ -211,6 +211,9 @@
   (.. browser -tabs
     (create #js {:url (str "https://ampie.app/url-context?src=extension&url=" url)})))
 
+(defn get-command-shortcuts []
+  (.. browser -commands (getAll)))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -242,6 +245,7 @@
       :search-result-clicked     (search-result-clicked request sender)
       :search-visit-clicked      (search-visit-clicked request sender)
       :open-page-context         (open-page-context request sender)
+      :get-command-shortcuts     (get-command-shortcuts)
 
       (log/error "Unknown request type" request-type))))
 

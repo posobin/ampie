@@ -132,14 +132,8 @@ a {text-decoration: none; color: var(--link-color);} a:hover {text-decoration: u
     background: #ffeffe; border-radius: 4px;
     z-index: -1;
 }
-.new-tab.shortcut.mac:hover::before {
-    content: "Open context \A in a new tab \A ⌘-Shift-E";
-}
-.new-tab.shortcut:hover::before {
-    content: "Open context \A in a new tab \A Ctrl-Shift-E";
-}
 .new-tab:hover::before {
-    content: "Open context \A in a new tab";
+    content: attr(data-tooltip-text);
     position: absolute; right: -4px; top: 0; transform: translateY(calc(-100% - 2px));
     font-weight: normal;
     padding: 2px 4px; background: grey; color: white; border-radius: 4px;

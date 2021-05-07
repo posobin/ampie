@@ -121,8 +121,17 @@
       (when-not (= old-comment new-comment)
         (swap! amplify-info assoc :comment new-comment)))))
 
-(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
-(def amplify-page-shortcut (str (if (mac?) "⌘" "Ctrl") "-Shift-A"))
+(def shortcuts (r/atom {}))
+
+(defn load-enabled-shortcuts []
+  (.then
+    (.. browser -runtime
+      (sendMessage (clj->js {:type :get-command-shortcuts})))
+    (fn [^js js-shortcuts]
+      (->> (js->clj js-shortcuts :keywordize-keys true)
+        (reduce #(assoc %1 (keyword (:name %2)) %2) {})
+        (reset! shortcuts))
+      (js/console.log @shortcuts))))
 
 (defn suggest-sharing [amplify-info]
   [:div.amplify-dialog.suggest-sharing
@@ -131,7 +140,9 @@
          [:button.small {:disabled true} "Sending"]
          [:button.small {:on-click #(amplify-page! amplify-info)}
           "Amplify"])
-    [:span.shortcut amplify-page-shortcut]]
+    (let [s (-> @shortcuts :amplify_page :shortcut)]
+      (when-not (clojure.string/blank? s)
+        [:span.shortcut s]))]
    [:div.close {:on-click    #(close-amplify-dialog amplify-info)
                 :role        "button"
                 :tab-index   0
@@ -168,11 +179,11 @@
         "The pages you amplify are available at "
         [:a (b/ahref-opts "https://ampie.app") "ampie.app"] "."]
        [:div.comment-holder
-        [:div.shortcut.appearing
-         {:class (when @comment-focused "right")}
-         (if @comment-focused
-           "Shift-↵"
-           amplify-page-shortcut)]
+        (let [s (-> @shortcuts :amplify_page :shortcut)]
+          (cond @comment-focused
+                [:div.shortcut.appearing.right "Shift-↵"]
+                (not (clojure.string/blank? s))
+                [:div.shortcut.appearing s]))
         ;; Without key reagent re-renders the textarea on focus on atom
         ;; update.
         ^{:key "comment-field"}
@@ -373,6 +384,7 @@
   (when (. js/document querySelector ".ampie-amplify-dialog-holder")
     (when goog.DEBUG (js/alert "ampie: amplify dialog already exists"))
     (throw "amplify dialog already exists"))
+  (load-enabled-shortcuts)
   (let [amplify-dialog-div (. js/document createElement "div")
         shadow-root-el     (. js/document createElement "div")
         shadow             (. shadow-root-el (attachShadow #js {"mode" "open"}))

@@ -176,13 +176,26 @@
       (not= normalized-url
         (-> links first :normalized-url)))))
 
-(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
+(def shortcuts (r/atom {}))
+
+(defn load-enabled-shortcuts []
+  (.then
+    (.. browser -runtime
+      (sendMessage (clj->js {:type :get-command-shortcuts})))
+    (fn [^js js-shortcuts]
+      (->> (js->clj js-shortcuts :keywordize-keys true)
+        (reduce #(assoc %1 (keyword (:name %2)) %2) {})
+        (reset! shortcuts)))))
 
 (defn open-context-in-new-tab-button [url]
   (let [show-shortcut (= ((fnil url/normalize "") url) (url/normalize (.. js/document -location -href)))]
     [:div.new-tab
-     {:class    [(when (mac?) :mac)
-                 (when show-shortcut :shortcut)]
+     {:data-tooltip-text
+      (let [shortcut (-> @shortcuts :open_page_context :shortcut)]
+        (cond (not show-shortcut) "Open context \nin a new tab"
+              (string/blank? shortcut)
+              "Open context \nin a new tab \n(add shortcut \nin settings)"
+              :else               (str "Open context \nin a new tab \n" shortcut)))
       :on-click (fn [e] (.stopPropagation e)
                   (.. browser -runtime
                     (sendMessage (clj->js {:type :open-page-context
@@ -747,6 +760,7 @@
       (js/alert "ampie: attaching a second info bar")
       (js/console.trace))
     (throw "Info bar already exists"))
+  (load-enabled-shortcuts)
   (let [info-bar-div   (. js/document createElement "div")
         shadow-root-el (. js/document createElement "div")
         shadow         (. shadow-root-el (attachShadow #js {"mode" "open"}))

@@ -130,8 +130,7 @@
     (fn [^js js-shortcuts]
       (->> (js->clj js-shortcuts :keywordize-keys true)
         (reduce #(assoc %1 (keyword (:name %2)) %2) {})
-        (reset! shortcuts))
-      (js/console.log @shortcuts))))
+        (reset! shortcuts)))))
 
 (defn suggest-sharing [amplify-info]
   [:div.amplify-dialog.suggest-sharing

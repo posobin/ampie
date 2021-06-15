@@ -341,6 +341,83 @@
                     #(max (or % 0) last-timestamp)))))
             (log/info "No new visits by friends")))))))
 
+(def last-downloaded-vote-timestamp (atom nil))
+
+(defn update-my-votes
+  "Requests the latest pages the current user has voted on, saves them to the links db."
+  []
+  (letfn [(url-vote->local-link [{:url-vote/keys [comment upvote? created-at]}]
+            (cond-> {:source     "+-"
+                     :upvote?    upvote?
+                     :created-at created-at}
+              comment (assoc :has-comment true)))
+
+          (page->local-format [page]
+            (->> page
+              (map #(vector (str (:link/id %)) (url-vote->local-link %)
+                      (:link/normalized %)))
+              (group-by last)
+              (map (fn [[nurl seen-at]]
+                     [nurl (->> (map pop seen-at) (into {}))]))
+              (into {})))
+
+          (load-next-page [page depth accum last-timestamp]
+            (js/console.log "load-next-page" page)
+            (let [latest-timestamp-on-page   (-> page first :url-vote/created-at)
+                  earliest-timestamp-on-page (-> page last :url-vote/created-at)
+                  filtered-page
+                  (if @last-downloaded-vote-timestamp
+                    (filter #(<= @last-downloaded-vote-timestamp (:url-vote/created-at %))
+                      page)
+                    page)
+                  page-in-local-format       (page->local-format filtered-page)]
+              (if (seq filtered-page)
+                (-> (.-links @db)
+                  (.bulkGet (clj->js (keys page-in-local-format)))
+                  (.then
+                    (fn [current-entries]
+                      (let [existing-ids
+                            (->> (i/js->clj current-entries)
+                              (mapcat :seen-at)
+                              ;; The ids will be keywords, cast to str with name
+                              (map (comp name first))
+                              (into #{}))
+                            ;; Don't recurse if we have one of the links
+                            ;; in the cache already.
+                            stop-download (some existing-ids
+                                            ;; Link ids from the server are ints
+                                            (map (comp str :link/id) page))]
+                        ;; Stop if the page is too small or we reached
+                        ;; a previously seen link. Curent logic will cause
+                        ;; problems if there are hundreds votes per second though.
+                        (if-not (or stop-download (< (count page) 100))
+                          (-> (backend/get-my-last-url-votes earliest-timestamp-on-page)
+                            (.then :url-votes)
+                            (.then #(load-next-page % (inc depth)
+                                      (merge-with merge accum
+                                        page-in-local-format)
+                                      (max last-timestamp
+                                        latest-timestamp-on-page))))
+                          [(merge-with merge accum page-in-local-format)
+                           (max last-timestamp latest-timestamp-on-page)])))))
+                [accum last-timestamp])))]
+    (-> (backend/get-my-last-url-votes nil)
+      ;; Just :url-votes wasn't working for some reason, the value was passing
+      ;; through unchanged. Maybe because (fn? :url-votes) is false so
+      ;; the js interop doesn't quite work?
+      (.then #(:url-votes %))
+      (.then #(load-next-page % 0 nil nil))
+      (.then
+        (fn [[links last-timestamp]]
+          (if (seq links)
+            (-> (get-updated-entries links)
+              (.then save-links)
+              (.then
+                (fn []
+                  (swap! last-downloaded-vote-timestamp
+                    #(max (or % 0) last-timestamp)))))
+            (log/info "No new URL votes")))))))
+
 (defn load-demo-data! []
   (-> (get-updated-entries (demo/staas-links))
     (.then #(save-links % :demo-staas))
@@ -357,9 +434,15 @@
                          (log/info "Cache check complete")
                          (log/info "Updating friends visits")
                          (update-friends-visits)))
+                     (.then
+                       (fn []
+                         (log/info "Friends visits updated")
+                         (log/info "Updating user's URL votes")
+                         ;; TODO(page_votes)
+                         #_(update-my-votes)))
                      (.finally
                        (fn [_]
-                         (log/info "Friends visits updated")
+                         (log/info "User's URL votes updated")
                          (let [timeout (js/setTimeout run-cache-check time time)]
                            (reset! @link-cache-sync timeout))))))]
            (load-demo-data!)

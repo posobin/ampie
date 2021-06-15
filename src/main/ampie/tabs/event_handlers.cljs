@@ -215,6 +215,7 @@
               ;; Ignore the new tab page and all extension pages
               (or (= url "chrome-search://local-ntp/local-ntp.html")
                 (= url "chrome://newtab/")
+                (= url "chrome://new-tab-page/")
                 (string/starts-with? url "chrome-extension://")
                 (string/starts-with? url "moz-extension://"))
               :ignore

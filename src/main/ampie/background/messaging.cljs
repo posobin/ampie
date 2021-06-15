@@ -19,7 +19,8 @@
   (-> (visits.db/get-past-visits-to-the-url url 5)
     (.then
       (fn [past-visits]
-        (->> (map :parent)
+        (->> past-visits
+          (map :parent)
           (filter some?)
           visits.db/get-visits-info)))
     (.then
@@ -227,6 +228,7 @@
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
+    (when goog.DEBUG (log/info request-type request))
     (case (keyword request-type)
       :get-past-visits-parents   (get-past-visits-parents request sender)
       :add-seen-urls             (add-seen-urls request sender)

@@ -81,6 +81,7 @@
   (.-length "hello")
   (.-length "🤑")
   ;; These two substrings should evaluate to the full links from the string s
+  (runes/substr "👨‍👩‍👧‍👦" 0 1)
   (.substring s 71 94)
   (.substring s 270 293))
 

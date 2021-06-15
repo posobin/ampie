@@ -6,6 +6,7 @@
             [ampie.interop :as i]
             [ampie.macros :refer [|vv]]
             [ajax.core :refer [GET POST]]
+            [cljs.pprint]
             [taoensso.timbre :as log]
             ["dexie" :default Dexie]
             ["webextension-polyfill" :as browser]
@@ -37,6 +38,18 @@
                        (assoc result nurl merged)
                        result)))
                  {} new-nurl->seen-at))))))
+
+(comment
+  (doseq [[nurl name]
+          [["com.eugenewei/blog/2019/2/19/status-as-a-service" 'staas-links]
+           ["com.eugenewei/blog/2018/5/21/invisible-asymptotes"
+            'invisible-asymptotes-links]]]
+    (.then
+      (get-updated-entries {nurl {:a :b}})
+      (fn [result]
+        (let [filtered (update result nurl dissoc :a)]
+          (cljs.pprint/pprint
+            `(def ~name ~filtered)))))))
 
 (defn- save-links
   "Takes a map nurl -> seen-at, rewrites entries in the links table

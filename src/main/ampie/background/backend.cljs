@@ -282,6 +282,15 @@
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
 
+(defn get-my-last-visits []
+  (js/Promise.
+    (fn [resolve reject]
+      (GET (endpoint "visits/get-users-last-visits")
+        (assoc (base-request-options)
+          :params        {:username (:username  @@user-info)}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
 (defn get-my-last-url-votes [until]
   (js/Promise.
     (fn [resolve reject]

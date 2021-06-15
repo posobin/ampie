@@ -208,6 +208,14 @@
 (defn search-visit-clicked [_request _sender]
   (backend/search-visit-clicked))
 
+(defn get-my-last-visits [sender]
+  (let [sender     (i/js->clj sender)
+        tab-id     (-> sender :tab :id)
+        visit-hash (:visit-hash (@@tabs/open-tabs tab-id))]
+    (-> (backend/get-my-last-visits)
+      (.then #(clj->js % :keyword-fn i/name-with-ns))
+      (.catch clj->js))))
+
 (defn open-page-context [{url :url} _]
   (.. browser -tabs
     (create #js {:url (str "https://ampie.app/url-context?src=extension&url="
@@ -246,6 +254,7 @@
       :search-friends-visits     (search-friends-visits request sender)
       :search-result-clicked     (search-result-clicked request sender)
       :search-visit-clicked      (search-visit-clicked request sender)
+      :get-my-last-visits        (get-my-last-visits sender)
       :open-page-context         (open-page-context request sender)
       :get-command-shortcuts     (get-command-shortcuts)
 

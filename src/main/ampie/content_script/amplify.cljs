@@ -5,8 +5,60 @@
             [reagent.core :as r]
             [ampie.content-script.demo :refer [is-demo-url? send-message-to-page]]
             [ampie.components.basics :as b]
+            [ampie.visits.db :as visits.db]
+            [taoensso.timbre :as log]
             [mount.core :as mount :refer [defstate]]
             [clojure.string]))
+
+(declare my-last-visits)
+
+(defn- get-current-hashless-url []
+  (-> (.. js/document -location -href)
+    ;; Split on hashes not followed by !
+    (clojure.string/split #"#(?!!)")
+    first))
+
+(defn- group-visits
+  "Returns a map with keys :timeline, :tag->visit, :tag->journey.
+  `timeline` contains a vector of maps, each either {:type :journey :journey-tag journey-tag}
+  or {:type :visit :visit-tag visit-tag}, in the order they should be shown.
+  Only root-level visits that are not in a journey are in this list and journeys,
+  each only once. `tag->visit` maps visit tag to a visit, plus each visit has :child-tags -
+  a vector with all its childrens tags.
+  `tag->journey` maps journey tag to a journey, plus each journey has a :child-tags -
+  a vector with all the root-level visits with this journey."
+  [visits]
+  (let [tags           (set (map :visit/tag visits))
+        tag->visit     (->> (map (juxt :visit/tag identity) visits)
+                         (into {}))
+        roots          (remove (comp tags :visit/parent-tag) visits)
+        [tag->visit
+         tag->journey] ;; Add child-tags
+        (reduce (fn [[tag->visit tag->journey]
+                     {:visit/keys [tag parent-tag journey-tag]}]
+                  [(cond-> tag->visit
+                     parent-tag
+                     (update-in [parent-tag :child-tags] (fnil #(conj % tag) [])))
+                   (cond-> tag->journey
+                     (and journey-tag
+                       ;; Only add root-level nodes to the journeys
+                       (not (tags parent-tag)))
+                     (update-in [journey-tag :child-tags] (fnil #(conj % tag) [])))])
+          [tag->visit {}] visits)
+        {:keys [timeline]}
+        (reduce (fn [{:keys [seen-journeys] :as result} {:visit/keys [journey-tag tag] :as visit}]
+                  (cond (not (:visit/journey-tag visit))
+                        (update result :timeline conj {:type :visit :visit-tag tag})
+                        (not (seen-journeys (:visit/journey-tag visit)))
+                        (-> (update result :timeline conj {:type :journey :journey-tag journey-tag})
+                          (update result :seen-journeys conj journey-tag))
+                        :else result))
+          {:seen-journeys #{}
+           :timeline      []}
+          roots)]
+    {:timeline     timeline
+     :tag->visit   tag->visit
+     :tag->journey tag->journey}))
 
 (defn amplify-page!
   "Sends a message to the extension backend to amplify the current page, updates
@@ -21,10 +73,7 @@
             (querySelector ".comment-field")
             (focus))
           (catch :default _)))
-    (let [url (-> (.. js/document -location -href)
-                ;; Split on hashes not followed by !
-                (clojure.string/split #"#(?!!)")
-                first)]
+    (let [url (get-current-hashless-url)]
       (when (zero? (:uploading @amplify-info))
         (if (is-demo-url? (.. js/document -location -href))
           (do
@@ -60,7 +109,14 @@
                            :amplified true
                            :failure false
                            :submission-tag (:submission-tag response)
-                           :mode :edit)))))))))))
+                           :mode :edit))))
+              ;; TODO(journeys)
+              #_(.then #(.. browser -runtime
+                          (sendMessage (clj->js {:type :get-my-last-visits}))))
+              #_(.then #(js->clj % :keywordize-keys true))
+              #_(.then (fn [response]
+                         (reset! my-last-visits
+                           (group-visits (:visits response))))))))))))
 
 (defn update-amplified-page!
   "Takes the amplify-info atom, sends the message to extension backend to update
@@ -218,6 +274,117 @@
    (when (:failure @amplify-info)
      [:p.error "Couldn't upload the data. " (:error @amplify-info)])])
 
+(defonce my-last-visits (r/atom nil))
+
+(defonce chosen-visit-tag (r/atom nil))
+
+(defn is-ancestor? [tag-child tag-ancestor]
+  (if (= tag-child tag-ancestor)
+    true
+    (let [child (get-in @my-last-visits [:tag->visit tag-child])]
+      (if-let [parent-tag (:visit/parent-tag child)]
+        (is-ancestor? parent-tag tag-ancestor)
+        false))))
+
+(defn visit-component [{:keys [amplify-info tag]}]
+  (let [state (r/atom {})]
+    (fn [{:keys [amplify-info tag]}]
+      (let [visit (get-in @my-last-visits [:tag->visit tag])]
+        [:div.visit
+         {:class             (when (= tag (:submission-tag @amplify-info)) "this-visit")
+          :draggable         (when (= tag (:submission-tag @amplify-info)) "true")
+          #_#_:on-drag-end   #(reset! dragging false)
+          :on-drag-start     (fn [^js evt]
+                               (.. evt -dataTransfer (setData "text/plain" (:link/original visit)))
+                               (.. evt -dataTransfer (setData "text/uuid" tag))
+                               #_(.. evt -dataTransfer
+                                   (setData "edn"
+                                     (pr-str (select-keys link
+                                               [:title :url :time-spent
+                                                :hash :comment]))))
+                               (set! (.. evt -dataTransfer -effectAllowed) "move")
+                               #_(reset! dragging true))
+          :on-drag-over      #(.preventDefault %)
+          #_#_:on-drag-leave (fn [evt] (swap! dropping-empty #(max (dec %) 0)))
+          #_#_:on-drag-enter (fn [evt] (swap! dropping-empty inc) (.preventDefault evt))
+          :on-drop
+          (fn [^js evt]
+            (.preventDefault evt)
+            (when-let [drop-tag (.. evt -dataTransfer (getData "text/uuid"))]
+              (when-not (is-ancestor? tag drop-tag)
+                (.stopPropagation evt)
+                (swap! my-last-visits
+                  (fn [my-last-visits]
+                    (let [{:visit/keys [journey-tag parent-tag]}
+                          (get-in my-last-visits [:tag->visit drop-tag])]
+                      (cond-> (update-in my-last-visits [:tag->visit drop-tag]
+                                merge {:visit/journey-tag (:visit/journey-tag visit)
+                                       :visit/parent-tag  tag})
+                        parent-tag  (update-in [:tag->visit parent-tag :child-tags]
+                                      #(filterv (complement #{drop-tag}) %))
+                        journey-tag (update-in [:tag->journey journey-tag :child-tags]
+                                      #(filterv (complement #{drop-tag}) %))
+                        true        (update-in
+                                      [:tag->visit tag :child-tags]
+                                      (fnil #(conj % drop-tag) [])))))))))
+          #_#_:on-drop       (fn [evt] (reset! dropping 0) (on-drop evt))
+          #_#_:on-drag-over  (fn [evt] (.preventDefault evt))
+          #_#_:on-drag-leave (fn [evt] (swap! dropping #(max (dec %) 0)))
+          #_#_:on-drag-enter (fn [evt] (swap! dropping inc) (.preventDefault evt))
+          #_#_:on-click
+          #(swap! amplify-info
+             (fn [{:keys [parent-tag] :as amplify-info}]
+               (assoc amplify-info
+                 :parent-tag
+                 (if (not= parent-tag tag)
+                   tag
+                   nil))))}
+         [:div.top-line
+          (if-let [favicon-url (:page/favicon-url visit)]
+            [:img.icon {:src favicon-url}]
+            [:div.icon])
+          [:div.title (:visit/title visit)]]
+         [:div.children
+          (for [child-tag (:child-tags visit)]
+            ^{:key child-tag}
+            [visit-component {:amplify-info amplify-info
+                              :tag          child-tag}])]]))))
+
+(defn journey-component [amplify-info journey-tag]
+  (let [journey (get-in @my-last-visits [:tag->journey journey-tag])]
+    [:div.journey
+     [:div.journey-name (:journey/name journey)]
+     [:div.children
+      (for [child-tag (:child-tags journey)]
+        ^{:key child-tag}
+        [visit-component {:amplify-info amplify-info
+                          :tag          child-tag}])]]))
+
+(defn last-amplified-pages [amplify-info]
+  (let [{:keys [timeline tag->visit]} @my-last-visits
+        current-url                   (get-current-hashless-url)
+        amplified-tag                 (:submission-tag @amplify-info)
+        amplified-visit               (get-in @my-last-visits [:tag->visit amplified-tag])]
+    (when (seq timeline)
+      [:div
+       [:p "Drag this page on one you amplified previously to create a journey."]
+       (when-not (or (:visit/parent-tag amplified-visit) (:visit/journey-tag amplified-visit))
+         (js/console.log amplified-visit)
+         [:div.my-visits
+          [visit-component {:amplify-info amplify-info
+                            :tag          amplified-tag}]])
+       [:div.my-visits
+        (doall
+          (for [{:keys [type visit-tag journey-tag]}
+                timeline
+                :when (not= (:link/original (tag->visit visit-tag))
+                        current-url)]
+            (with-meta
+              (case type
+                :visit   [visit-component {:amplify-info amplify-info :tag visit-tag}]
+                :journey [journey-component journey-tag])
+              {:key (or visit-tag journey-tag)})))]])))
+
 (defn edit-amplify [_amplify-info]
   (let [comment-focused (r/atom false)]
     (fn [amplify-info]
@@ -238,6 +405,8 @@
           (:failure @amplify-info) [:<> "Error"]
           (:updated @amplify-info) [:<> "Updated" [:span.checkmark]]
           :else                    [:<> "Page amplified" [:span.checkmark]])]
+       ;; TODO(journeys)
+       #_[last-amplified-pages amplify-info]
        [:p "Your followers will now see that you found this page worth visiting. "
         "The pages you amplify are available at "
         [:a (b/ahref-opts "https://ampie.app") "ampie.app"] "."]
@@ -445,7 +614,7 @@
 
 (defn create-amplify-dialog []
   (when (. js/document querySelector ".ampie-amplify-dialog-holder")
-    (when goog.DEBUG (js/alert "ampie: amplify dialog already exists"))
+    (when goog.DEBUG #_(js/alert "ampie: amplify dialog already exists"))
     (throw "amplify dialog already exists"))
   (load-enabled-shortcuts)
   (let [amplify-dialog-div (. js/document createElement "div")

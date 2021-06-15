@@ -21,7 +21,11 @@
     (-> (.. browser -tabs (query #js {:active true :currentWindow true}))
       (.then #(js->clj % :keywordize-keys true))
       (.then (fn [[{url :url}]]
-               (background.messaging/open-page-context {:url url} nil))))))
+               (background.messaging/open-page-context {:url url} nil))))
+    "upvote_page"
+    (background.messaging/upvote-current-tab)
+    "downvote_page"
+    (background.messaging/downvote-current-tab)))
 
 (defstate shortcut-handler
   :start (.. browser -commands -onCommand

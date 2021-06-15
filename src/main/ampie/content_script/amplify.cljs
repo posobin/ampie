@@ -111,6 +111,56 @@
                  :amplified false
                  :updated false))))))
 
+(defn vote-on-page! [amplify-info upvote?]
+  (if (:amplified @amplify-info)
+    (do (swap! amplify-info assoc :mode :edit :interacted true)
+        (try
+          (.. js/document
+            (querySelector ".ampie-amplify-dialog-holder")
+            -shadowRoot
+            (querySelector ".comment-field")
+            (focus))
+          (catch :default _)))
+    (let [url (get-current-hashless-url)]
+      (when (zero? (:uploading @amplify-info))
+        (if (is-demo-url? (.. js/document -location -href))
+          (comment
+            (send-message-to-page {:type :ampie-amplify-page :url url})
+            (swap! amplify-info assoc
+              :interacted true
+              :amplified true
+              :failure false
+              :submission-tag nil
+              :mode :edit))
+          (do
+            (.. browser -runtime
+              (sendMessage (clj->js {:type :saw-amplify-dialog
+                                     :url  url})))
+            (swap! amplify-info
+              (fn [{:keys [uploading mode] :as info}]
+                (assoc info
+                  :uploading (inc uploading)
+                  :mode (or mode :suggest-sharing)
+                  :failure false
+                  :interacted true)))
+            (-> (.. browser -runtime
+                  (sendMessage (clj->js {:type :vote-on-page :upvote? upvote?
+                                         :url  url})))
+              (.then #(js->clj % :keywordize-keys true))
+              (.then (fn [response]
+                       (swap! amplify-info update :uploading dec)
+                       (if (:fail response)
+                         (swap! amplify-info assoc
+                           :mode :suggest-sharing
+                           :failure true
+                           :error (:message response))
+                         (swap! amplify-info assoc
+                           :amplified true
+                           :upvoted true
+                           :failure false
+                           :vote-id (:url-vote/id response)
+                           :mode :edit)))))))))))
+
 (defn close-amplify-dialog [amplify-info]
   (swap! amplify-info assoc :mode nil :interacted true))
 
@@ -135,13 +185,27 @@
 (defn suggest-sharing [amplify-info]
   [:div.amplify-dialog.suggest-sharing
    {:class (when (:fullscreen @amplify-info) :upper-right)}
-   [:p (if (pos? (:uploading @amplify-info))
-         [:button.small {:disabled true} "Sending"]
-         [:button.small {:on-click #(amplify-page! amplify-info)}
-          "Amplify"])
+   [:div (if (pos? (:uploading @amplify-info))
+           [:button.small {:disabled true} "Sending"]
+           [:button.small {:on-click #(amplify-page! amplify-info)}
+            "Amplify"])
     (let [s (-> @shortcuts :amplify_page :shortcut)]
       (when-not (clojure.string/blank? s)
         [:span.shortcut s]))]
+   ;; TODO(page_votes)
+   #_[:div {:role     :button
+            :on-click #(vote-on-page! amplify-info true)}
+      (let [s (-> @shortcuts :upvote_page :shortcut)]
+        (when-not (clojure.string/blank? s)
+          [:span.shortcut s]))
+      "Upvote"]
+   ;; TODO(page_votes)
+   #_[:div {:role     :button
+            :on-click #(vote-on-page! amplify-info false)}
+      (let [s (-> @shortcuts :downvote_page :shortcut)]
+        (when-not (clojure.string/blank? s)
+          [:span.shortcut s]))
+      "Downvote"]
    [:div.close {:on-click    #(close-amplify-dialog amplify-info)
                 :role        "button"
                 :tab-index   0
@@ -448,6 +512,7 @@
           (start-counting-time amplify-info))))
     {:show-dialog  #(swap! amplify-info assoc :mode :suggest-sharing)
      :amplify-page #(amplify-page! amplify-info)
+     :vote-on-page #(vote-on-page! amplify-info %)
      :on-key-down  on-key-down
      :amplify-info amplify-info}))
 

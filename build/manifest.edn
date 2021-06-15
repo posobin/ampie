@@ -46,7 +46,18 @@
                             {:suggested_key
                              {:default "Alt+Shift+C"
                               :mac     "Alt+Shift+C"}
-                             :description "Open current page context in a new tab"}}
+                             :description "Open current page context in a new tab"}
+                            ;; TODO(page_votes)
+                            #_#_ "upvote_page"
+                            {:suggested_key
+                             {:default "Alt+Shift+Up"
+                              :mac     "Alt+Shift+Up"}
+                             :description "Upvote current page"}
+                            #_#_ "downvote_page"
+                            {:suggested_key
+                             {:default "Alt+Shift+Down"
+                              :mac     "Alt+Shift+Down"}
+                             :description "Downvote current page"}}
 
  :content-security-policy ["default-src 'self';"
                            "connect-src *;"

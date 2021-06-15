@@ -20,20 +20,22 @@
 (defn message-listener [message]
   (let [message (js->clj message :keywordize-keys true)]
     (case (keyword (:type message))
-      :popup-opened (demo/send-message-to-page {:type "ampie-popup-opened"})
-      :url-updated  (do (mount/stop)
-                        (mount/start
-                          (mount/only
-                            #{#'page-service
-                              #'badge/seen-badges-ids #'badge/on-badge-remove
-                              #'badge/existing-badges 'badge/visible-badges
-                              #'google-results
-                              #'ddg-results
-                              ;; Info bar should start lazily because it is referenced
-                              ;; in page-service.
-                              ;; #'info-bar-state
-                              #'amplify})))
-      :amplify-page ((:amplify-page @amplify))
+      :popup-opened  (demo/send-message-to-page {:type "ampie-popup-opened"})
+      :url-updated   (do (mount/stop)
+                         (mount/start
+                           (mount/only
+                             #{#'page-service
+                               #'badge/seen-badges-ids #'badge/on-badge-remove
+                               #'badge/existing-badges 'badge/visible-badges
+                               #'google-results
+                               #'ddg-results
+                               ;; Info bar should start lazily because it is referenced
+                               ;; in page-service.
+                               ;; #'info-bar-state
+                               #'amplify})))
+      :amplify-page  ((:amplify-page @amplify))
+      :upvote-page   ((:vote-on-page @amplify) true)
+      :downvote-page ((:vote-on-page @amplify) false)
       (log/error "Unknown message type" message))))
 
 (defn send-ampie-version []

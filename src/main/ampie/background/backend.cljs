@@ -281,3 +281,12 @@
           :params        {:key key :value value}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
+
+(defn get-my-last-url-votes [until]
+  (js/Promise.
+    (fn [resolve reject]
+      (GET (endpoint "url-votes/get-users-votes")
+        (assoc (base-request-options)
+          :params        (when until {:until until})
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))

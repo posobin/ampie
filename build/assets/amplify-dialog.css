@@ -25,7 +25,9 @@
     transition-property: opacity, box-shadow, width; transition-duration: 0.15s; transition-timing-function: ease;
 }
 .amplify-dialog.suggest-sharing .close {top: 7px;}
-.amplify-dialog.suggest-sharing {opacity: 0.6; border-bottom: none; bottom: 0; padding: 6px;}
+.amplify-dialog.suggest-sharing
+{opacity: 0.6; border-bottom: none; bottom: 0; padding: 6px;
+ display: flex; flex-direction: row;}
 .amplify-dialog.suggest-sharing:hover {opacity: 1;}
 .amplify-dialog.upper-right {right: 120px; top: 15px; left: initial; bottom: initial; transform: none;}
 .amplify-dialog.expanded {width: 350px;}
@@ -48,6 +50,42 @@ button.small:hover, button.small:focus {box-shadow: 0 2px 7px var(--green);}
 .delete button.small:active {background: var(--red); color: white;}
 button[disabled] {background: grey; cursor: initial;}
 button.inline {border: none; background: transparent; color: inherit; padding: 0; margin: 0; cursor: pointer; font: inherit;}
+
+.my-visits {
+    overflow-y: auto; max-height: 150px;
+    border-radius: 4px;
+    border: 1px solid lightgrey;
+}
+
+.my-visits .visit {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    padding: 4px 4px;
+    overflow-x: hidden;
+}
+
+.my-visits .visit .top-line {
+    display: flex;
+    align-items: center;
+}
+
+.my-visits .visit .icon {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    margin-right: 4px;
+    border-radius: 2px;
+    align-self: center;
+}
+
+.my-visits .visit.this-visit {
+    background: lightgrey;
+}
+
+.my-visits .visit + .visit {
+    border-top: 1px solid lightgrey;
+}
 
 .error {background: #f9ebeb; padding: 4px; border-radius: 4px; margin-top: 4px;}
 

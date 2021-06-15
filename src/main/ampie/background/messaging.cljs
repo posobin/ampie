@@ -259,11 +259,15 @@
 
 (defstate messages-handler :start (start) :stop (stop))
 
-(defn amplify-current-tab []
+(defn send-message-to-active-tab [message]
   (-> (.. browser -tabs (query #js {:active true :currentWindow true}))
     (.then #(js->clj % :keywordize-keys true))
     (.then (fn [[{tab-id :id}]]
              (when tab-id
                (.. browser -tabs
                  (sendMessage tab-id
-                   (clj->js {:type :amplify-page}))))))))
+                   (clj->js message))))))))
+
+(defn amplify-current-tab [] (send-message-to-active-tab {:type :amplify-page}))
+(defn upvote-current-tab [] (send-message-to-active-tab {:type :upvote-page}))
+(defn downvote-current-tab [] (send-message-to-active-tab {:type :downvote-page}))

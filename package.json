@@ -3,7 +3,10 @@
   "version": "2.3.5",
   "private": true,
   "devDependencies": {
-    "shadow-cljs": "2.12.5"
+    "autoprefixer": "^10.2.6",
+    "postcss": "^8.3.5",
+    "shadow-cljs": "2.12.5",
+    "tailwindcss": "^2.2.2"
   },
   "dependencies": {
     "dexie": "^3.0.3",
@@ -13,5 +16,9 @@
     "react-shadow-dom-retarget-events": "^1.0.11",
     "runes": "^0.4.3",
     "webextension-polyfill": "^0.7.0"
+  },
+  "scripts": {
+    "watch:tw": "NODE_ENV=development npx tailwindcss -i resources/tailwind.css -o ./build/assets/tailwind.css -w",
+    "release:tw": "NODE_ENV=production npx tailwindcss build -i resources/tailwind.css -o build/assets/tailwind.css"
   }
 }

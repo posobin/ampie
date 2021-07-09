@@ -1,0 +1,23 @@
+:host {all: initial;}
+
+.sidebar-container {
+    position: fixed;
+    right: 0; /* TODO: -300px; */
+    /* Leave enough space in case there is a top or bottom bar on the site */
+    top: 50px;
+    bottom: 50px;
+    width: 450px;
+    background: white;
+    border-left: 1px solid black;
+    border-top: 1px solid black;
+    border-bottom: 1px solid black;
+
+    font-size: 14px;
+
+    transition-property: right, box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
+}
+
+.sidebar-container:hover {
+    right: 0;
+    box-shadow: 0 0 30px -20px rgb(230 45 138);
+}

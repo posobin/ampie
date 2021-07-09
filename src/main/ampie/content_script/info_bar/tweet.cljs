@@ -13,13 +13,13 @@
 
 (defmethod substr-entity->html :url
   [[_ {:keys [expanded_url display_url selected]}]]
-  [:a (assoc (b/ahref-opts expanded_url)
-        :class (when selected :selected-url))
+  [:a.text-link-color (assoc (b/ahref-opts expanded_url)
+                        :class (when selected :selected-url))
    display_url])
 
 (defmethod substr-entity->html :photo [[_ _]] [:<>])
 (defmethod substr-entity->html :user-mention [[text {:keys [screen_name]}]]
-  [:a (b/ahref-opts (str "https://twitter.com/" screen_name)) text])
+  [:a.text-link-color (b/ahref-opts (str "https://twitter.com/" screen_name)) text])
 (defmethod substr-entity->html :default [[text _]] [:<> text])
 
 (defn- tweet-image [{:keys [expanded_url media_url_https]}]
@@ -33,10 +33,11 @@
      ^{:key (:id_str image)}
      [tweet-image image])])
 
-(defn- tweet->html-text
+(defn tweet->html-text
   [{{:keys [urls media
             user_mentions]} :entities
-    :keys                   [full_text]}
+    :keys                   [full_text]
+    :or                     {full_text ""}}
    selected-normalized-url]
   (let [entity->indices  (fn [type]
                            (fn [{[l r] :indices :as info}]

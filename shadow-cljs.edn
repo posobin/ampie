@@ -2,11 +2,10 @@
                 "src/main"
                 "src/test"]
 
- :dependencies [[funcool/promesa "6.0.0"]
-                [reagent "1.0.0"]
+ :dependencies [[reagent "1.1.0"]
                 [mount "0.1.16"]
+                [metosin/malli "0.5.1"]
                 [binaryage/devtools "1.0.3"]
-                [lambdaisland/glogi "1.0.83"]
                 [com.taoensso/timbre "5.1.2"]
                 [cljs-ajax "0.8.3"]]
 

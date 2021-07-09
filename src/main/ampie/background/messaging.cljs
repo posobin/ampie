@@ -15,7 +15,7 @@
             [mount.core])
   (:require-macros [mount.core :refer [defstate]]))
 
-(defn get-past-visits-parents [{url :url} sender]
+(defn get-past-visits-parents [{url :url} _sender]
   (-> (visits.db/get-past-visits-to-the-url url 5)
     (.then
       (fn [past-visits]
@@ -46,12 +46,12 @@
   that resolves with the js object describing for each of the urls
   in the request where it was seen before, of the form
   {:url url :twitter twitter-links :normalized-url nurl :hn hn}."
-  [{:keys [urls page-url] :as request} sender]
+  [{:keys [urls page-url] :as _request} sender]
   (let [sender              (i/js->clj sender)
         tab-id              (-> sender :tab :id)
         visit-hash          (:visit-hash (@@tabs/open-tabs tab-id))
         normalized-page-url (url/normalize page-url)
-        domain              (url/get-top-domain-normalized normalized-page-url)
+        _domain             (url/get-top-domain-normalized normalized-page-url)
         normalized-urls     (map url/normalize urls)]
     #_(when page-url
         (let [filtered-urls (filter #(not= domain (url/get-top-domain-normalized %))
@@ -83,13 +83,13 @@
                     :urls-info)
                   clj->js)))))))))
 
-(defn inc-badge-sightings [{:keys [url]} sender]
+(defn inc-badge-sightings [{:keys [url]} _sender]
   (links/inc-nurl-badge-sightings-counts (url/normalize url))
   nil)
 
-(defn get-url-info
+(defn get-url-info-based-on-local-cache
   "Returns a Promise that resolves to a js map :source -> [info+]."
-  [{url :url} sender include-links-info]
+  [{url :url} _sender include-links-info]
   (let [normalized-url (url/normalize url)]
     (.then
       (js/Promise.all
@@ -105,15 +105,23 @@
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
-(defn get-links-pages-info [{link-ids :link-ids} sender]
+(defn get-all-url-info [{url :url}]
+  (-> (backend/get-url-context url)
+    (.then #(clj->js % :keyword-fn i/name-with-ns))
+    (.catch #(clj->js % :keyword-fn i/name-with-ns))))
+
+(defn get-links-pages-info [{link-ids :link-ids} _sender]
   (-> (backend/get-links-pages-info link-ids)
     (.then clj->js)
     (.catch clj->js)))
 
-(defn get-tweets [{ids :ids} sender]
-  (.then (backend/get-tweets ids) clj->js))
+(defn get-tweets [{ids :ids} _sender]
+  (.then (backend/get-tweets ids) clj->js clj->js))
 
-(defn get-prefixes-info [{url :url} sender]
+(defn get-parent-thread [{tweet-id :tweet-id} _sender]
+  (.then (backend/get-parent-thread tweet-id) clj->js clj->js))
+
+(defn get-prefixes-info [{url :url} _sender]
   (let [normalized-url (url/normalize url)
         prefixes       (rest
                          (url/get-prefixes-normalized normalized-url))]
@@ -134,7 +142,7 @@
   (if (:auto-show-domain-links @@settings)
     (let [normalized-url (url/normalize url)
           domain         (url/get-domain-normalized normalized-url)
-          tab-id         (-> sender i/js->clj :tab :id)]
+          _tab-id        (-> sender i/js->clj :tab :id)]
       (-> (visits.db/domain-visited? domain)
         (.then (fn [result]
                  (visits.db/mark-domain-visited domain)
@@ -171,7 +179,7 @@
       (.catch clj->js))))
 
 (defn delete-amplified-page [{:keys [submission-tag]} sender]
-  (let [tab-info (-> sender i/js->clj :tab)]
+  (let [_tab-info (-> sender i/js->clj :tab)]
     (-> (backend/delete-amplified-page submission-tag)
       (.then
         (fn [{:keys [normalized-url link-id] :as x}]
@@ -210,9 +218,9 @@
   (backend/search-visit-clicked))
 
 (defn get-my-last-visits [sender]
-  (let [sender     (i/js->clj sender)
-        tab-id     (-> sender :tab :id)
-        visit-hash (:visit-hash (@@tabs/open-tabs tab-id))]
+  (let [sender      (i/js->clj sender)
+        tab-id      (-> sender :tab :id)
+        _visit-hash (:visit-hash (@@tabs/open-tabs tab-id))]
     (-> (backend/get-my-last-visits)
       (.then #(clj->js % :keyword-fn i/name-with-ns))
       (.catch clj->js))))
@@ -233,10 +241,12 @@
       :get-past-visits-parents   (get-past-visits-parents request sender)
       :add-seen-urls             (add-seen-urls request sender)
       :inc-badge-sightings       (inc-badge-sightings request sender)
-      :get-url-info              (get-url-info request sender true)
-      :get-local-url-info        (get-url-info request sender false)
+      :get-all-url-info          (get-all-url-info request)
+      :get-url-info              (get-url-info-based-on-local-cache request sender true)
+      :get-local-url-info        (get-url-info-based-on-local-cache request sender false)
       :get-links-pages-info      (get-links-pages-info request sender)
       :get-tweets                (get-tweets request sender)
+      :get-parent-thread         (get-parent-thread request sender)
       :get-prefixes-info         (get-prefixes-info request sender)
       :get-time-spent-on-url     (get-time-spent-on-url request sender)
       :saw-amplify-before?       (saw-amplify-before? request sender)

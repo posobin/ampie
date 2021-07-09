@@ -158,11 +158,26 @@
           (fn [resolve]
             (POST (endpoint "twitter/get-tweets-by-ids")
               (assoc (base-request-options)
-                :params {:ids ids}
+                :params {:tweet-ids ids}
                 :handler #(resolve (-> %
                                      (js->clj :keywordize-keys true)
                                      :tweets))))))))
     #(apply concat %)))
+
+(defn get-parent-thread
+  "Returns the hydrated tweet objects as returned by twitter.
+  The tweets are the thread of parents for the given tweet id,
+  including the tweet itself."
+  [tweet-id]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "twitter/get-parent-thread")
+        (assoc (base-request-options)
+          :params {:tweet-id tweet-id}
+          :handler #(resolve (-> %
+                               (js->clj :keywordize-keys true)
+                               :tweets))
+          :error-handler #(reject (error->map %)))))))
 
 (defn load-url-info
   "Requests url info from the ampie server, returns a Promise
@@ -297,5 +312,18 @@
       (GET (endpoint "url-votes/get-users-votes")
         (assoc (base-request-options)
           :params        (when until {:until until})
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(defn get-url-context
+  "Returns all the social context for the given url."
+  [url]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "links/get-url-occurrences-details-all-origins")
+        (assoc (base-request-options)
+          :params        {:url                 url
+                          :fast-but-incomplete true
+                          :src                 :sidebar}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))

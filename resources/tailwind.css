@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    @variants hover {
+        .text-link-color {@apply text-blue-600;}
+    }
+}

@@ -102,7 +102,7 @@
     (filterv identity)))
 
 (defn load-next-batch-of-tweets!
-  "Takes the twitter context for the given url, fetches necessary tweets,
+  "Takes the twitter context for the given url from the db, fetches necessary tweets,
   and shows the next batch of tweets."
   [url]
   (let [{:keys [showing]}   (get-in @db [:url->ui-state url :twitter])

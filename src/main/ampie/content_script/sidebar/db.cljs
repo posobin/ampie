@@ -1,13 +1,15 @@
 (ns ampie.content-script.sidebar.db
   (:require [malli.core :as m]
             [malli.error :as me]
+            [cljs.pprint :as pp :refer [pprint]]
             [malli.util :as mu]
             [reagent.core :as r]))
 
 (def LoadStatus [:enum :loaded :loading :error])
 
 (def TwitterState
-  [:map [:showing [:vector string?]]
+  [:map {:closed true}
+   [:showing [:vector string?]]
    [:ampie/status LoadStatus]
    [:tweet-id->state {:optional true}
     [:map-of :string
@@ -16,7 +18,19 @@
         [:show-replies [:enum :showing :hidden :loading]]])]]])
 
 (def HNStoriesState
-  [:map [:n-showing int?]])
+  [:map {:closed true}
+   [:showing [:vector int?]]
+   [:ampie/status LoadStatus]])
+
+(def HNItemsState
+  [:map {:closed true}
+   [:hn-item-id->state {:optional true}
+    [:map-of int?
+     (mu/optional-keys
+       [:map
+        [:full-text boolean?]
+        [:kids-showing [:vector int?]]
+        [:kids-status LoadStatus]])]]])
 
 (def HNCommentsState
   [:map [:n-showing int?]])
@@ -61,11 +75,51 @@
 
    [:tweet/reply-ids [:maybe [:vector string?]]]])
 
+(def HNItem
+  [:or
+   [:map [:ampie/status [:enum :loading :error]
+          :id number?]]
+   [:map [:deleted [:= true]]]
+   [:map
+    [:type [:= "comment"]]
+    [:by string?]
+    [:id number?]
+    [:kids {:optional true} [:vector number?]]
+    [:parent number?]
+    [:text string?]
+    [:time number?]
+    [:ampie/status LoadStatus]]
+   [:map
+    [:time number?]
+    [:type [:enum "poll" "story"]]
+    [:descendants number?]
+    [:title string?]
+    [:text {:optional true} string?]
+    [:kids [:vector number?]]
+    [:ampie/status LoadStatus]
+    [:id number?]
+    [:score number?]
+    [:url {:optional true} string?]
+    [:by string?]]])
+
+(def HNStoryInfo
+  [:map {:closed true}
+   [:link/original string?]
+   [:link/normalized string?]
+   [:hn-item/title string?]
+   [:hn-item/author string?]
+   [:hn-item/item-type [:enum "story" "poll"]]
+   [:hn-item/descendants number?]
+   [:hn-item/posted-at number?]
+   [:hn-item/id number?]
+   [:hn-item/score number?]])
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
      [:url [:sequential string?]]
      [:tweet-id->tweet [:map-of :string Tweet]]
+     [:hn-item-id->hn-item [:map-of number? HNItem]]
      [:url->ui-state
       [:map-of :string
        (mu/optional-keys
@@ -73,6 +127,7 @@
           [:twitter TwitterState]
           [:hn_story HNStoriesState]
           [:hn_comment HNCommentsState]
+          [:hn HNItemsState]
           [:domain DomainState]
           [:ahref BacklinksState]])]]
      [:url->context
@@ -80,7 +135,7 @@
        [:map
         [:ampie/status LoadStatus]
         [:twitter {:optional true} [:vector TweetInfo]]
-        [:hn_story {:optional true} vector?]
+        [:hn_story {:optional true} [:vector HNStoryInfo]]
         [:hn_comment {:optional true} vector?]
         [:domain {:optional true} vector?]
         [:ahref {:optional true} vector?]]]]]))
@@ -100,11 +155,6 @@
   (validate-db @db))
 
 (comment
-  (require '[clojure.string :as str])
-  (try (subs nil 1 2)
-       (catch :default e "hello"))
-  (pp/pprint (-> @db :url->ui-state first second :twitter) )
-  (pp/pprint (-> @db :tweet-id->tweet (get "1091156574993870849")))
-  (->> (tweet-id->parent-ids (get @db :tweet-id->tweet)
-         "1200868587180830723")
-    butlast))
+  (pp/pprint (-> @db :url->context first second :hn_story) )
+  (-> @db :url->ui-state first second :hn :hn-item-id->state (get 19297283))
+  (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 19297283))))))

@@ -5,6 +5,7 @@
             [ampie.content-script.sidebar.hn-views :as hn-views]
             [ampie.content-script.sidebar.twitter-views :as twitter-views]
             [ampie.content-script.sidebar.twitter :refer [load-next-batch-of-tweets!]]
+            [reagent.core :as r]
             [malli.core :as m]
             ["webextension-polyfill" :as browser]
             ["react-shadow-dom-retarget-events" :as retargetEvents]
@@ -14,7 +15,6 @@
             [mount.core :as mount :refer [defstate]]))
 
 (comment
-  (m/validate [:= :a] :a)
   (-> @db :url->ui-state first)
   (-> @db :tweet-id->tweet)
   (-> @db :url->ui-state first second :twitter))
@@ -38,32 +38,58 @@
     (then-fn []
       (load-next-batch-of-tweets! url)
       (hn/load-next-batch-of-stories! url)
-      #_(hn/load-next-batch-of-comments! url)))
+      (hn/load-next-batch-of-comments! url)))
   (swap! db update :url conj url))
 
 (declare display-sidebar! remove-sidebar!)
 
+;; For restoring the scroll position
+;; TODO: save it in the ui-state in the DB
+(defonce scroll-position (atom 0))
+
 (defn sidebar-component []
-  (let [url         (-> @db :url first)
-        url-context (get-in @db [:url->context url])]
-    [:<>
-     [:div.p-2.overscroll-contain.max-h-full.overflow-auto.font-sans
-      (if (= :loading (:ampie/status url-context))
-        [:div "Loading..."]
-        [:div.flex.flex-col.gap-2
-         #_[twitter-views/twitter-context url]
-         [hn-views/hn-stories-context url]
-         #_[hn-views/hn-comments-context url]])]
-     (when goog.DEBUG
-       [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
-        [:div.text-link-color.hover:underline
-         {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
-          :role     :button}
-         "Full"]
-        [:div.text-link-color.hover:underline
-         {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
-          :role     :button}
-         "Reload"]])]))
+  (let [resize-observer
+        (js/ResizeObserver.
+          (fn [[entry]]
+            ;; Restore the scroll position from the saved one on extension reload
+            (when (> (.. entry -target -scrollHeight) @scroll-position)
+              (set! (.. entry -target -scrollTop) @scroll-position))))
+        ;; Don't need a Ratom here, just the standard atom is enough
+        sidebar-element (atom nil)]
+    (r/create-class
+      {:component-did-mount
+       (fn [] (when @sidebar-element
+                (set! (.-scrollTop @sidebar-element)
+                  @scroll-position)))
+
+       :reagent-render
+       (fn []
+         (let [url         (first @(r/cursor db [:url]))
+               url-context (r/cursor db [:url->context url])]
+           [:<>
+            [:div.p-2.overscroll-contain.max-h-full.overflow-auto.font-sans
+             {:ref (fn [el]
+                     (reset! sidebar-element el)
+                     (when el
+                       (.observe resize-observer el)
+                       (.addEventListener el "scroll"
+                         #(reset! scroll-position (.-scrollTop el)))))}
+             (if (= :loading (:ampie/status url-context))
+               [:div "Loading..."]
+               [:div.flex.flex-col.gap-2
+                #_[twitter-views/twitter-context url]
+                [hn-views/hn-stories-context url]
+                [hn-views/hn-comments-context url]])]
+            (when goog.DEBUG
+              [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
+               [:div.text-link-color.hover:underline
+                {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
+                 :role     :button}
+                "Full"]
+               [:div.text-link-color.hover:underline
+                {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
+                 :role     :button}
+                "Reload"]])]))})))
 
 (defn setup-sidebar-html-element []
   (let [sidebar-div     (. js/document createElement "div")

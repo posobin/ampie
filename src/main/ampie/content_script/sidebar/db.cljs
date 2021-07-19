@@ -27,13 +27,15 @@
    [:hn-item-id->state {:optional true}
     [:map-of int?
      (mu/optional-keys
-       [:map
+       [:map {:closed true}
         [:full-text boolean?]
         [:kids-showing [:vector int?]]
         [:kids-status LoadStatus]])]]])
 
 (def HNCommentsState
-  [:map [:n-showing int?]])
+  [:map {:closed true}
+   [:showing [:vector int?]]
+   [:ampie/status LoadStatus]])
 
 (def DomainState
   [:map [:n-showing int?]])
@@ -114,6 +116,18 @@
    [:hn-item/id number?]
    [:hn-item/score number?]])
 
+(def HNCommentInfo
+  [:map {:closed true}
+   [:link/original string?]
+   [:link/normalized string?]
+   [:hn-item/author string?]
+   [:hn-item/item-type [:= "comment"]]
+   [:hn-item/posted-at number?]
+   [:hn-item/id number?]
+   [:hn-item/title nil?]
+   [:hn-item/descendants nil?]
+   [:hn-item/score nil?]])
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
@@ -136,7 +150,7 @@
         [:ampie/status LoadStatus]
         [:twitter {:optional true} [:vector TweetInfo]]
         [:hn_story {:optional true} [:vector HNStoryInfo]]
-        [:hn_comment {:optional true} vector?]
+        [:hn_comment {:optional true} [:vector HNCommentInfo]]
         [:domain {:optional true} vector?]
         [:ahref {:optional true} vector?]]]]]))
 
@@ -155,6 +169,6 @@
   (validate-db @db))
 
 (comment
-  (pp/pprint (-> @db :url->context first second :hn_story) )
-  (-> @db :url->ui-state first second :hn :hn-item-id->state (get 19297283))
-  (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 19297283))))))
+  (pp/pprint (-> @db :url->context first second :hn_comment) )
+  (-> @db :url->ui-state first second :hn :hn-item-id->state (get 23662795))
+  (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 23662795))))))

@@ -5,6 +5,7 @@
             [ampie.url :as url]
             [reagent.core :as r]
             [ampie.content-script.sidebar.hn :as hn]
+            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
             ["webextension-polyfill" :as browser]))
 
 (defn element->hiccup [^js el nurl]
@@ -85,8 +86,8 @@
                      #(if (= (set %) (set (:kids comment))) [] (:kids comment))))}
                 (let [count (count (:kids comment))]
                   (str count " repl" (if (= count 1) "y" "ies")))])
-             [:span.ml-auto.opacity-50 (:by comment)]
-             [:a.ml-2.text-link-color.hover:underline.opacity-50.hover:opacity-100
+             [:span.ml-auto.text-gray-500 (:by comment)]
+             [:a.ml-2.hover:underline.text-blue-400.hover:text-link-color
               (b/ahref-opts (hn-item-id->url comment-id))
               (ampie.time/timestamp->date (* (:time comment) 1000))]]]
            (when (seq (:kids-showing @state))
@@ -145,7 +146,10 @@
         whole-url-context              (get-in @db [:url->context url :hn_story])
         stories-left-to-show           (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
-    [:div [:div.text-xl.mb-2 "HN threads"]
+    [:div
+     [:div.mb-1
+      [sticky-controller/sticky-element
+       [:div.text-xl.pb-1 "HN threads"]]]
      [:div.flex.flex-col.gap-2
       (for [item-id showing]
         ^{:key item-id}
@@ -169,7 +173,10 @@
         whole-url-context              @(r/cursor db [:url->context url :hn_comment])
         comments-left-to-show          (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
-    [:div [:div.text-xl.mb-2 "HN comments"]
+    [:div
+     [:div.mb-1
+      [sticky-controller/sticky-element
+       [:div.text-xl.pb-1 "HN comments"]]]
      [:div.flex.flex-col.gap-2
       (doall
         (for [item-id showing]

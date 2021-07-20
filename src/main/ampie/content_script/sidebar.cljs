@@ -5,6 +5,7 @@
             [ampie.content-script.sidebar.hn-views :as hn-views]
             [ampie.content-script.sidebar.twitter-views :as twitter-views]
             [ampie.content-script.sidebar.twitter :refer [load-next-batch-of-tweets!]]
+            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
             [reagent.core :as r]
             [malli.core :as m]
             ["webextension-polyfill" :as browser]
@@ -54,6 +55,7 @@
             ;; Restore the scroll position from the saved one on extension reload
             (when (> (.. entry -target -scrollHeight) @scroll-position)
               (set! (.. entry -target -scrollTop) @scroll-position))))
+        sticky          (sticky-controller/sticky-controller)
         ;; Don't need a Ratom here, just the standard atom is enough
         sidebar-element (atom nil)]
     (r/create-class
@@ -73,13 +75,16 @@
                      (when el
                        (.observe resize-observer el)
                        (.addEventListener el "scroll"
-                         #(reset! scroll-position (.-scrollTop el)))))}
-             (if (= :loading (:ampie/status url-context))
-               [:div "Loading..."]
-               [:div.flex.flex-col.gap-2
-                #_[twitter-views/twitter-context url]
-                [hn-views/hn-stories-context url]
-                [hn-views/hn-comments-context url]])]
+                         (fn []
+                           (reset! scroll-position (.-scrollTop el))
+                           ((:on-scroll sticky) el)))))}
+             [(:render-context-provider sticky)
+              (if (= :loading (:ampie/status url-context))
+                [:div "Loading..."]
+                [:div.flex.flex-col.gap-2
+                 [twitter-views/twitter-context url]
+                 [hn-views/hn-stories-context url]
+                 [hn-views/hn-comments-context url]])]]
             (when goog.DEBUG
               [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
                [:div.text-link-color.hover:underline

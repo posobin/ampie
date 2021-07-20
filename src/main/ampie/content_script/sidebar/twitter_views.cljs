@@ -5,6 +5,7 @@
             [ampie.content-script.sidebar.db :refer [db]]
             [ampie.time]
             [ampie.content-script.info-bar.tweet :refer [tweet->html-text]]
+            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
             [ampie.components.basics :as b]))
 
 (defn tweet-body [{:keys [created_at id_str user] :as tweet} url]
@@ -14,7 +15,7 @@
       [:img.w-6.h-6.rounded-full {:src (:profile_image_url_https user)}]
       [:div.flex.flex-col.mr-2
        #_[:span.font-bold.leading-4 (:name user)]
-       [:span.opacity-70 "@" screen_name]]
+       [:span.text-gray-500 "@" screen_name]]
       [:a.text-link-color.leading-4.ml-auto.min-w-max
        (b/ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
        (ampie.time/timestamp->date (js/Date.parse created_at))]]
@@ -136,7 +137,10 @@
         whole-url-context              (get-in @db [:url->context url :twitter])
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
-    [:div [:div.text-xl "Twitter"]
+    [:div
+     [:div.mb-1
+      [sticky-controller/sticky-element
+       [:div.text-xl.pb-1 "Tweets"]]]
      [:div
       (for [tweet-id showing]
         ^{:key tweet-id}

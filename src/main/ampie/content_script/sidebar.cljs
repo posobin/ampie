@@ -5,7 +5,7 @@
             [ampie.content-script.sidebar.hn-views :as hn-views]
             [ampie.content-script.sidebar.twitter-views :as twitter-views]
             [ampie.content-script.sidebar.twitter :refer [load-next-batch-of-tweets!]]
-            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
+            [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [reagent.core :as r]
             [malli.core :as m]
             ["webextension-polyfill" :as browser]
@@ -49,13 +49,13 @@
 (defonce scroll-position (atom 0))
 
 (defn sidebar-component []
-  (let [resize-observer
-        (js/ResizeObserver.
-          (fn [[entry]]
-            ;; Restore the scroll position from the saved one on extension reload
-            (when (> (.. entry -target -scrollHeight) @scroll-position)
-              (set! (.. entry -target -scrollTop) @scroll-position))))
-        sticky          (sticky-controller/sticky-controller)
+  (let [sticky          (sticky-manager/sticky-manager)
+        resize-observer (js/ResizeObserver.
+                          (fn [[entry]]
+                            ((:on-resize sticky) (.-target entry))
+                            ;; Restore the scroll position from the saved one on extension reload
+                            (when (> (.. entry -target -scrollHeight) @scroll-position)
+                              (set! (.. entry -target -scrollTop) @scroll-position))))
         ;; Don't need a Ratom here, just the standard atom is enough
         sidebar-element (atom nil)]
     (r/create-class
@@ -71,6 +71,7 @@
            [:<>
             [:div.p-2.overscroll-contain.max-h-full.overflow-auto.font-sans
              {:ref (fn [el]
+                     ((:container-ref sticky) el)
                      (reset! sidebar-element el)
                      (when el
                        (.observe resize-observer el)

@@ -5,7 +5,7 @@
             [ampie.url :as url]
             [reagent.core :as r]
             [ampie.content-script.sidebar.hn :as hn]
-            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
+            [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             ["webextension-polyfill" :as browser]))
 
 (defn element->hiccup [^js el nurl]
@@ -148,8 +148,11 @@
                                          whole-url-context)]
     [:div
      [:div.mb-1
-      [sticky-controller/sticky-element
-       [:div.text-xl.pb-1 "HN threads"]]]
+      [sticky-manager/sticky-element
+       [:div.text-xl.pb-1 "HN threads"]
+       [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+        {:role :button}
+        "HN threads"]]]
      [:div.flex.flex-col.gap-2
       (for [item-id showing]
         ^{:key item-id}
@@ -175,8 +178,11 @@
                                          whole-url-context)]
     [:div
      [:div.mb-1
-      [sticky-controller/sticky-element
-       [:div.text-xl.pb-1 "HN comments"]]]
+      [sticky-manager/sticky-element
+       [:div.text-xl.pb-1 "HN comments"]
+       [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+        {:role :button}
+        "HN comments"]]]
      [:div.flex.flex-col.gap-2
       (doall
         (for [item-id showing]

@@ -108,8 +108,6 @@
       (-> (fetch-items! batch)
         (then-fn load-parents! [loaded-items]
           (doseq [child-id (map :id loaded-items)]
-            #_(when (= child-id 23662795)
-                (js/console.log loaded-items))
             (swap! hn-id->ui-state assoc-in [child-id :full-text] true))
           ;; Load parents for each loaded comment
           (let [with-parents (filter :parent loaded-items)]
@@ -118,8 +116,6 @@
                       (map vector (map :id with-parents)
                         (map :parent with-parents)
                         parent-items)]
-                (when (= parent-id 23662795)
-                  (js/console.log child-id))
                 (swap! hn-id->ui-state update parent-id
                   (fn [{:keys [kids-showing] :as state}]
                     (assoc state
@@ -129,10 +125,6 @@
                                           :else              kids-showing)
                       :kids-status :loaded))))
               (when (seq parent-items)
-                (js/console.log parent-items)
-                (js/console.log (mapv vector (map :id with-parents)
-                                  (map :parent with-parents)
-                                  parent-items))
                 (load-parents! parent-items)))))
         (then-fn []
           (swap! db update-in [:url->ui-state url :hn_comment :showing]

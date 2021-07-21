@@ -5,7 +5,7 @@
             [ampie.content-script.sidebar.db :refer [db]]
             [ampie.time]
             [ampie.content-script.info-bar.tweet :refer [tweet->html-text]]
-            [ampie.content-script.sidebar.sticky-controller :as sticky-controller]
+            [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [ampie.components.basics :as b]))
 
 (defn tweet-body [{:keys [created_at id_str user] :as tweet} url]
@@ -138,9 +138,11 @@
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
     [:div
-     [:div.mb-1
-      [sticky-controller/sticky-element
-       [:div.text-xl.pb-1 "Tweets"]]]
+     [sticky-manager/sticky-element
+      [:div.text-xl.pb-1 "Tweets"]
+      [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+       {:role :button}
+       "Tweets"]]
      [:div
       (for [tweet-id showing]
         ^{:key tweet-id}

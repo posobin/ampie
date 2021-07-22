@@ -76,16 +76,19 @@
                #(swap! state update :full-text (fnil not false))])
             [:div.flex.text-grey-500.mt-1
              (when (-> (:kids comment) count pos?)
-               [:div.flex-grow
-                {:role  :button
-                 :class [:text-link-color "hover:underline"]
-                 :on-click
-                 (fn []
-                   (hn/fetch-items! (:kids comment))
-                   (swap! state update :kids-showing
-                     #(if (= (set %) (set (:kids comment))) [] (:kids comment))))}
-                (let [count (count (:kids comment))]
-                  (str count " repl" (if (= count 1) "y" "ies")))])
+               [:<> [:div.flex-grow.text-link-color.hover:underline
+                     {:role :button
+                      :on-click
+                      (fn []
+                        (hn/fetch-items! (:kids comment))
+                        (swap! state update :kids-showing
+                          #(if (= (set %) (set (:kids comment))) [] (:kids comment))))}
+                     (let [count (count (:kids comment))]
+                       (str count " repl" (if (= count 1) "y" "ies")))]
+                [:div.text-link-color.hover:underline.mr-2
+                 {:role     :button
+                  :on-click #(hn/load-all-kids-recursively! url comment-id)}
+                 "Expand all"]])
              [:span.ml-auto.text-gray-500 (:by comment)]
              [:a.ml-2.hover:underline.text-blue-400.hover:text-link-color
               (b/ahref-opts (hn-item-id->url comment-id))
@@ -135,11 +138,6 @@
                  {:on-click #(hn/load-next-kids-batch! url item-id)
                   :role     :button}
                  "Show more comments"])])])))
-
-(def hello (r/atom {:hello     {:world 0}
-                    :something {1 1
-                                2 2}
-                    :chosen    1}))
 
 (defn hn-stories-context [url]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :hn_story])

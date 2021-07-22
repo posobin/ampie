@@ -137,3 +137,13 @@
     (if parent
       (item-id->ultimate-parent-id parent)
       item-id)))
+
+(defn load-all-kids-recursively! [url item-id]
+  (let [item     (get-in @db [:hn-item-id->hn-item item-id])
+        ui-state (r/cursor db [:url->ui-state url :hn :hn-item-id->state item-id])]
+    (when (seq (:kids item))
+      (then-fn (fetch-items! (:kids item)) [loaded-kids]
+        (doseq [loaded-kid loaded-kids
+                :when      (= (:ampie/status loaded-kid) :loaded)]
+          (load-all-kids-recursively! url (:id loaded-kid))))
+      (swap! ui-state assoc :kids-showing (:kids item)))))

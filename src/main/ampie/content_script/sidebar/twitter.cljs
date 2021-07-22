@@ -65,22 +65,30 @@
 (defn load-and-show-parent-tweets!
   "Given a tweet id, loads it and its parents and sets show-parent to true
   for the first 10 loaded parents."
-  [tweet-id url]
-  (-> (fetch-parent-thread! tweet-id)
-    (then-fn []
-      (let [parents (->> (tweet-id->parent-ids (get @db :tweet-id->tweet) tweet-id)
-                      ;; Need to drop the first tweet in the chain because
-                      ;; it doesn't have a parent
-                      (take 10))]
-        (doseq [parent-id parents
-                :let      [next-id (get-in @db [:tweet-id->tweet parent-id
-                                                :in_reply_to_status_id_str])
-                           next-tweet (get-in @db [:tweet-id->tweet next-id])]]
-          (when next-tweet
-            (swap! db assoc-in
-              [:url->ui-state url :twitter :tweet-id->state
-               parent-id :show-parent]
-              true)))))))
+  ([tweet-id url] (load-and-show-parent-tweets! tweet-id url 0))
+  ([tweet-id url loaded-so-far]
+   (-> (fetch-parent-thread! tweet-id)
+     (then-fn []
+       (let [parents (->> (tweet-id->parent-ids (get @db :tweet-id->tweet) tweet-id)
+                       ;; Need to drop the first tweet in the chain because
+                       ;; it doesn't have a parent
+                       (take 10))]
+         (doseq [parent-id parents
+                 :let      [next-id (get-in @db [:tweet-id->tweet parent-id
+                                                 :in_reply_to_status_id_str])
+                            next-tweet (get-in @db [:tweet-id->tweet next-id])]]
+           (cond next-tweet
+                 (swap! db assoc-in
+                   [:url->ui-state url :twitter :tweet-id->state
+                    parent-id :show-parent]
+                   true)
+                 (and next-id (< loaded-so-far 10))
+                 (then-fn (load-and-show-parent-tweets!
+                            next-id url (+ loaded-so-far (count parents))) []
+                   (swap! db assoc-in
+                     [:url->ui-state url :twitter :tweet-id->state
+                      parent-id :show-parent]
+                     true)))))))))
 
 (defn load-and-show-replies!
   "Given a tweet id, loads replies to it and sets show-replies to :showing

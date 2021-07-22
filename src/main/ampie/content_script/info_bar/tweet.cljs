@@ -13,13 +13,14 @@
 
 (defmethod substr-entity->html :url
   [[_ {:keys [expanded_url display_url selected]}]]
-  [:a.text-link-color (assoc (b/ahref-opts expanded_url)
-                        :class (when selected :selected-url))
+  [:a.text-link-color.hover:underline
+   (assoc (b/ahref-opts expanded_url)
+     :class (when selected [:selected-url :pl-0.5 :pr-0.5 :bg-blue-50 :rounded :border]))
    display_url])
 
 (defmethod substr-entity->html :photo [[_ _]] [:<>])
 (defmethod substr-entity->html :user-mention [[text {:keys [screen_name]}]]
-  [:a.text-link-color (b/ahref-opts (str "https://twitter.com/" screen_name)) text])
+  [:a.text-link-color.hover:underline (b/ahref-opts (str "https://twitter.com/" screen_name)) text])
 (defmethod substr-entity->html :default [[text _]] [:<> text])
 
 (defn- tweet-image [{:keys [expanded_url media_url_https]}]

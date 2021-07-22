@@ -12,10 +12,10 @@
   (let [{:keys [screen_name]} user]
     [:div.flex.flex-col
      [:div.flex.flex-row.gap-1
-      [:img.w-6.h-6.rounded-full {:src (:profile_image_url_https user)}]
-      [:div.flex.flex-col.mr-2
-       #_[:span.font-bold.leading-4 (:name user)]
-       [:span.text-gray-500 "@" screen_name]]
+      [:a.flex.flex-row.gap-1.mr-2.group
+       (b/ahref-opts (str "https://twitter.com/" screen_name))
+       [:img.w-6.h-6.rounded-full {:src (:profile_image_url_https user)}]
+       [:span.text-gray-500.leading-none.group-hover:underline.self-center "@" screen_name]]
       [:a.text-link-color.leading-4.ml-auto.min-w-max
        (b/ahref-opts (str "https://twitter.com/" screen_name "/status/" id_str))
        (ampie.time/timestamp->date (js/Date.parse created_at))]]
@@ -65,7 +65,7 @@
                {:url             url
                 :showing-replies #{tweet-id}
                 :hide-tweet-ids  (conj hide-tweet-ids tweet-id)}]]
-             [:div.text-link-color.hover-underline.mb-1
+             [:div.text-link-color.hover:underline.mb-1
               {:role :button
                :on-click
                (fn []
@@ -152,7 +152,7 @@
        [:div "Loading tweets..."]
 
        (seq tweets-left-to-show)
-       [:div.text-link-color.hover:underline
+       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
         {:role     :button
          :on-click #(load-next-batch-of-tweets! url)}
         "Load more tweets"])]))

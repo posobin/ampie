@@ -146,11 +146,15 @@
                                          whole-url-context)]
     [:div
      [:div.mb-1
-      [sticky-manager/sticky-element
-       [:div.text-xl.pb-1 "HN threads"]
-       [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-        {:role :button}
-        "HN threads"]]]
+      (let [header-content
+            [:div.flex.items-center {:class :gap-1.5}
+             [:div.hn_story-icon.w-4.h-4.rounded]
+             [:span (str (count whole-url-context)  " HN threads")]]]
+        [sticky-manager/sticky-element
+         [:div.text-xl.pb-1 header-content]
+         [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+          {:role :button}
+          header-content]])]
      [:div.flex.flex-col.gap-2
       (for [item-id showing]
         ^{:key item-id}
@@ -176,11 +180,15 @@
                                          whole-url-context)]
     [:div
      [:div.mb-1
-      [sticky-manager/sticky-element
-       [:div.text-xl.pb-1 "HN comments"]
-       [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-        {:role :button}
-        "HN comments"]]]
+      (let [header-content
+            [:div.flex.items-center {:class :gap-1.5}
+             [:div.hn_comment-icon.w-4.h-4.rounded]
+             [:span (str (count whole-url-context)  " HN comments")]]]
+        [sticky-manager/sticky-element
+         [:div.text-xl.pb-1 header-content]
+         [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+          {:role :button}
+          header-content]])]
      [:div.flex.flex-col.gap-2
       (doall
         (for [item-id showing]

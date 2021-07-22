@@ -138,11 +138,14 @@
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
     [:div
-     [sticky-manager/sticky-element
-      [:div.text-xl.pb-1 "Tweets"]
-      [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-       {:role :button}
-       "Tweets"]]
+     (let [header-content
+           [:div.flex.items-center {:class :gap-1.5}
+            [:div.twitter-icon.w-4.h-4] [:span (str (count whole-url-context) " tweets")]]]
+       [sticky-manager/sticky-element
+        [:div.text-xl.pb-1 header-content]
+        [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+         {:role :button}
+         header-content]])
      [:div
       (for [tweet-id showing]
         ^{:key tweet-id}

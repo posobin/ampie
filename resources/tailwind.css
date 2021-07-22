@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+.twitter-icon {background: no-repeat url("/assets/icons/twitter.svg") center/contain;}
+.hn-icon {background: no-repeat url("/assets/icons/hn.svg") center/contain;}
+.hn_story-icon {background: no-repeat url("/assets/icons/hn.svg") center/contain;}
+.hn_comment-icon {background: no-repeat url("/assets/icons/hn comment.svg") center/contain;}
+.ahref-icon {background: no-repeat url("/assets/icons/backlink.svg") center/contain;}
+.domain-icon {background: no-repeat url("/assets/icons/same-domain.svg") center/contain;}
+
 @layer utilities {
     @variants hover {
         .text-link-color {@apply text-blue-600;}

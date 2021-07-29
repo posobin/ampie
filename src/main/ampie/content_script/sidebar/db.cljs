@@ -38,10 +38,14 @@
    [:ampie/status LoadStatus]])
 
 (def DomainState
-  [:map [:n-showing int?]])
+  [:map
+   [:showing [:vector string?]]
+   [:ampie/status LoadStatus]])
 
 (def BacklinksState
-  [:map [:n-showing int?]])
+  [:map
+   [:showing [:vector string?]]
+   [:ampie/status LoadStatus]])
 
 (def Tweet
   [:or
@@ -128,6 +132,30 @@
    [:hn-item/descendants nil?]
    [:hn-item/score nil?]])
 
+(def SameDomainLinksInfo
+  [:map {:closed true}
+   [:link/original string?]
+   [:link/normalized string?]
+   [:link/score number?]])
+
+(def OverviewOrigins [:enum :twitter :hn_story :hn_comment :domain :ahref :ahref_same_site :visit :upvote :pocket_link])
+
+(def UrlOverview
+  [:or
+   [:map
+    [:ampie/status [:enum :loading :error]]]
+   [:map {:closed true}
+    [:favicon-url [:or string? nil?]]
+    [:occurrences [:map-of OverviewOrigins [:map [:count number?]]]]
+    [:title [:or string? nil?]]
+    [:date {:optional true} [:or string? nil?]]
+    [:author [:or string? nil?]]
+    [:ampie/status LoadStatus]]
+   [:map
+    [:error string?]
+    [:occurrences [:map-of OverviewOrigins [:map [:count number?]]]]
+    [:ampie/status LoadStatus]]])
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
@@ -144,6 +172,8 @@
           [:hn HNItemsState]
           [:domain DomainState]
           [:ahref BacklinksState]])]]
+     [:url->overview
+      [:map-of :string UrlOverview]]
      [:url->context
       [:map-of :string
        [:map
@@ -169,6 +199,7 @@
   (validate-db @db))
 
 (comment
-  (pp/pprint (-> @db :url->context first second :hn_comment) )
+  (pp/pprint (-> @db :url->ui-state first second :domain))
+  (pp/pprint (-> @db :url->context first second :domain))
   (-> @db :url->ui-state first second :hn :hn-item-id->state (get 23662795))
   (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 23662795))))))

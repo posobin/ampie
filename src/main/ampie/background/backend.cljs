@@ -322,8 +322,21 @@
     (fn [resolve reject]
       (POST (endpoint "links/get-url-occurrences-details-all-origins")
         (assoc (base-request-options)
-          :params        {:url                 url
-                          :fast-but-incomplete true
+          :params        {:url url
+                          :src :sidebar}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(defn get-urls-overview
+  "Returns the overviews context for the given urls: counts for each origin
+  and page details."
+  [urls]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "links/get-urls-overview")
+        (assoc (base-request-options)
+          :params        {:urls                urls
+                          :fast-but-incomplete false
                           :src                 :sidebar}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))

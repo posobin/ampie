@@ -105,7 +105,12 @@
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
-(defn get-all-url-info [{url :url}]
+(defn get-urls-overview [{:keys [urls]}]
+  (-> (backend/get-urls-overview urls)
+    (.then #(clj->js % :keyword-fn i/name-with-ns))
+    (.catch #(clj->js % :keyword-fn i/name-with-ns))))
+
+(defn get-url-context [{:keys [url]}]
   (-> (backend/get-url-context url)
     (.then #(clj->js % :keyword-fn i/name-with-ns))
     (.catch #(clj->js % :keyword-fn i/name-with-ns))))
@@ -241,7 +246,8 @@
       :get-past-visits-parents   (get-past-visits-parents request sender)
       :add-seen-urls             (add-seen-urls request sender)
       :inc-badge-sightings       (inc-badge-sightings request sender)
-      :get-all-url-info          (get-all-url-info request)
+      :get-urls-overview         (get-urls-overview request)
+      :get-url-context           (get-url-context request)
       :get-url-info              (get-url-info-based-on-local-cache request sender true)
       :get-local-url-info        (get-url-info-based-on-local-cache request sender false)
       :get-links-pages-info      (get-links-pages-info request sender)

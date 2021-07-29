@@ -4,7 +4,9 @@
             [ampie.content-script.sidebar.hn :as hn]
             [ampie.content-script.sidebar.hn-views :as hn-views]
             [ampie.content-script.sidebar.twitter-views :as twitter-views]
-            [ampie.content-script.sidebar.twitter :refer [load-next-batch-of-tweets!]]
+            [ampie.content-script.sidebar.twitter :as twitter]
+            [ampie.content-script.sidebar.domain :as domain]
+            [ampie.content-script.sidebar.domain-views :as domain-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [reagent.core :as r]
             [malli.core :as m]
@@ -27,7 +29,7 @@
       (swap! db assoc-in [:url->context url :ampie/status]
         :loading)
       (-> (.. browser -runtime
-            (sendMessage (clj->js {:type :get-all-url-info
+            (sendMessage (clj->js {:type :get-url-context
                                    :url  url})))
         (.then #(js->clj % :keywordize-keys true))
         (then-fn [{:keys [occurrences]}]
@@ -37,7 +39,9 @@
 (defn set-sidebar-url! [url]
   (some-> (load-page-info! url)
     (then-fn []
-      (load-next-batch-of-tweets! url)
+      (domain/load-next-batch-of-domain-links! url)
+      (domain/load-next-batch-of-backlinks! url)
+      (twitter/load-next-batch-of-tweets! url)
       (hn/load-next-batch-of-stories! url)
       (hn/load-next-batch-of-comments! url)))
   (swap! db update :url conj url))
@@ -85,7 +89,9 @@
                 [:div.flex.flex-col.gap-2
                  [twitter-views/twitter-context url]
                  [hn-views/hn-stories-context url]
-                 [hn-views/hn-comments-context url]])]]
+                 [hn-views/hn-comments-context url]
+                 [domain-views/domain-context url]
+                 [domain-views/backlinks-context url]])]]
             (when goog.DEBUG
               [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
                [:div.text-link-color.hover:underline
@@ -105,7 +111,7 @@
         sidebar-styling (. js/document createElement "link")]
     (set! (.-rel tailwind) "stylesheet")
     (set! (.-rel sidebar-styling) "stylesheet")
-    (.setAttribute shadow-root-el "style"  "display: none;")
+    (.setAttribute shadow-root-el "style" "display: none;")
     (set! (.-href sidebar-styling) (.. browser -runtime (getURL "assets/sidebar.css")))
     ;; Put onload for the stylesheet that is attached last to the DOM
     (set! (.-onload tailwind) #(.setAttribute shadow-root-el "style" ""))

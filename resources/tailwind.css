@@ -8,6 +8,7 @@
 .hn_comment-icon {background: no-repeat url("/assets/icons/hn comment.svg") center/contain;}
 .ahref-icon {background: no-repeat url("/assets/icons/backlink.svg") center/contain;}
 .domain-icon {background: no-repeat url("/assets/icons/same-domain.svg") center/contain;}
+.visit-icon {background: no-repeat url("/assets/icons/ampie-no-shadow.svg") center/contain;}
 
 @layer utilities {
     @variants hover {

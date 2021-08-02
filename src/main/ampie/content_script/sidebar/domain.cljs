@@ -1,16 +1,16 @@
 (ns ampie.content-script.sidebar.domain
   (:require [ampie.content-script.sidebar.db :refer [db]]
             [reagent.core :as r]
+            [ampie.content-script.sidebar.hn :as hn]
+            [ampie.content-script.sidebar.twitter :as twitter]
+            [ampie.content-script.sidebar.amplified :as amplified]
             ["webextension-polyfill" :as browser]
             [ampie.macros :refer [then-fn]]))
 
 (def default-show-batch-size 5)
 
 (defn fetch-urls-info! [urls]
-  (let [overviews  (map (juxt
-                          identity
-                          #(get-in @db [:url->overview %]))
-                     urls)
+  (let [overviews  (map (juxt identity #(get-in @db [:url->overview %])) urls)
         not-loaded (remove
                      (fn [[_ {overview-status :ampie/status}]]
                        (#{:loading :loaded} overview-status))
@@ -63,3 +63,27 @@
           (swap! state (fn [state]
                          (-> (assoc state :ampie/status :loaded)
                            (update :showing into (map :page/original batch))))))))))
+
+(defn load-origin-context! [url origin]
+  (let [context (r/cursor db [:url->context url])]
+    (when-not (#{:loaded :loading} (get-in @context [:ampie/individual-statuses origin]))
+      (swap! context assoc-in [:ampie/individual-statuses origin]
+        :loading)
+      (-> (.. browser -runtime
+            (sendMessage (clj->js {:type   :get-partial-url-context
+                                   :origin origin
+                                   :url    url})))
+        (.then #(js->clj % :keywordize-keys true))
+        (then-fn [{:keys [occurrences]}]
+          (swap! context
+            #(-> (merge % occurrences)
+               (assoc-in [:ampie/individual-statuses origin] :loaded))))
+        (then-fn []
+          (case origin
+            :hn_comment (hn/load-next-batch-of-comments! url)
+            :hn_story   (hn/load-next-batch-of-stories! url)
+            :twitter    (twitter/load-next-batch-of-tweets! url)
+            :visit      (amplified/load-next-batch-of-amplified-links! url)
+            :ahref      (load-next-batch-of-backlinks! url)
+            :domain     (load-next-batch-of-domain-links! url)
+            nil))))))

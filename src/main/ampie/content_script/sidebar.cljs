@@ -7,20 +7,16 @@
             [ampie.content-script.sidebar.twitter :as twitter]
             [ampie.content-script.sidebar.domain :as domain]
             [ampie.content-script.sidebar.domain-views :as domain-views]
+            [ampie.content-script.sidebar.amplified :as amplified]
+            [ampie.content-script.sidebar.amplified-views :as amplified-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [reagent.core :as r]
-            [malli.core :as m]
             ["webextension-polyfill" :as browser]
             ["react-shadow-dom-retarget-events" :as retargetEvents]
             [ampie.macros :refer [then-fn]]
             [ampie.content-script.demo :refer [get-current-url send-message-to-page]]
             [reagent.dom :as rdom]
             [mount.core :as mount :refer [defstate]]))
-
-(comment
-  (-> @db :url->ui-state first)
-  (-> @db :tweet-id->tweet)
-  (-> @db :url->ui-state first second :twitter))
 
 (defn load-page-info! [url]
   (send-message-to-page {:type :ampie-load-page-info :url url})
@@ -42,6 +38,7 @@
       (domain/load-next-batch-of-domain-links! url)
       (domain/load-next-batch-of-backlinks! url)
       (twitter/load-next-batch-of-tweets! url)
+      (amplified/load-next-batch-of-amplified-links! url)
       (hn/load-next-batch-of-stories! url)
       (hn/load-next-batch-of-comments! url)))
   (swap! db update :url conj url))
@@ -87,6 +84,7 @@
               (if (= :loading (:ampie/status url-context))
                 [:div "Loading..."]
                 [:div.flex.flex-col.gap-2
+                 [amplified-views/amplified-context url]
                  [twitter-views/twitter-context url]
                  [hn-views/hn-stories-context url]
                  [hn-views/hn-comments-context url]

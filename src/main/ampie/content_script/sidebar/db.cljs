@@ -95,18 +95,21 @@
     [:text string?]
     [:time number?]
     [:ampie/status LoadStatus]]
-   [:map
-    [:time number?]
-    [:type [:enum "poll" "story"]]
-    [:descendants number?]
-    [:title string?]
-    [:text {:optional true} string?]
-    [:kids [:vector number?]]
-    [:ampie/status LoadStatus]
-    [:id number?]
-    [:score number?]
-    [:url {:optional true} string?]
-    [:by string?]]])
+   [:and
+    [:or
+     [:map [:descendants number?]]
+     [:map [:dead [:= true]]]]
+    [:map
+     [:time number?]
+     [:type [:enum "poll" "story"]]
+     [:title string?]
+     [:text {:optional true} string?]
+     [:kids [:vector number?]]
+     [:ampie/status LoadStatus]
+     [:id number?]
+     [:score number?]
+     [:url {:optional true} string?]
+     [:by string?]]]])
 
 (def HNStoryInfo
   [:map {:closed true}
@@ -156,12 +159,35 @@
     [:occurrences [:map-of OverviewOrigins [:map [:count number?]]]]
     [:ampie/status LoadStatus]]])
 
+(def PageState
+  [:map
+   [:open-origin [:or nil? OverviewOrigins]]])
+
+(def VisitInfo
+  [:map
+   [:users/username string?]
+   [:users/tag string?]
+   [:users/profile-image-url [:or string? nil?]]
+   [:link/original string?]
+   [:link/normalized string?]
+   [:visit/created-at number?]
+   [:visit/title string?]
+   [:visit/tag string?]
+   [:visit/reaction [:or [:enum "like" "to read"] nil?]]
+   [:visit/comment [:or nil? string?]]
+   [:visit/fav-icon-url [:or nil? string?]]])
+
+(def Visit
+  [:and VisitInfo
+   [:map [:ampie/status LoadStatus]]])
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
      [:url [:sequential string?]]
      [:tweet-id->tweet [:map-of :string Tweet]]
      [:hn-item-id->hn-item [:map-of number? HNItem]]
+     [:visit-tag->visit [:map-of :string Visit]]
      [:url->ui-state
       [:map-of :string
        (mu/optional-keys
@@ -171,18 +197,29 @@
           [:hn_comment HNCommentsState]
           [:hn HNItemsState]
           [:domain DomainState]
-          [:ahref BacklinksState]])]]
+          [:ahref BacklinksState]
+          [:page-state [:map-of :string PageState]]])]]
      [:url->overview
       [:map-of :string UrlOverview]]
      [:url->context
       [:map-of :string
        [:map
-        [:ampie/status LoadStatus]
+        [:ampie/status {:optional true} LoadStatus]
+        [:ampie/individual-statuses {:optional true}
+         (mu/optional-keys
+           [:map
+            [:twitter LoadStatus]
+            [:hn_story LoadStatus]
+            [:hn_comment LoadStatus]
+            [:domain LoadStatus]
+            [:ahref LoadStatus]
+            [:visit LoadStatus]])]
         [:twitter {:optional true} [:vector TweetInfo]]
         [:hn_story {:optional true} [:vector HNStoryInfo]]
         [:hn_comment {:optional true} [:vector HNCommentInfo]]
         [:domain {:optional true} vector?]
-        [:ahref {:optional true} vector?]]]]]))
+        [:ahref {:optional true} vector?]
+        [:visit {:optional true} [:vector VisitInfo]]]]]]))
 
 (defonce db (r/atom {}))
 
@@ -200,6 +237,7 @@
 
 (comment
   (pp/pprint (-> @db :url->ui-state first second :domain))
-  (pp/pprint (-> @db :url->context first second :domain))
+  (pp/pprint (-> @db :url->context first second keys))
+  (js/console.log @db)
   (-> @db :url->ui-state first second :hn :hn-item-id->state (get 23662795))
   (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 23662795))))))

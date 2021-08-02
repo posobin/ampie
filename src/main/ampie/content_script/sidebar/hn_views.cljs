@@ -4,6 +4,7 @@
             [ampie.components.basics :as b]
             [ampie.url :as url]
             [reagent.core :as r]
+            [clojure.string :as str]
             [ampie.content-script.sidebar.hn :as hn]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             ["webextension-polyfill" :as browser]))
@@ -115,7 +116,7 @@
           [:a.flex-none.hover:underline.text-link-color
            (b/ahref-opts (hn-item-id->url item-id))
            (:descendants story) " comment" (when (not= n-comments 1) "s")])]
-       (when (and (:url story)
+       (when (and (not (str/blank? (:url story)))
                (not= (url/normalize url) (url/normalize (:url story))))
          [:a.text-link-color.hover:underline.block.mb-1
           (b/ahref-opts (:url story)) (:url story)])
@@ -139,22 +140,23 @@
                   :role     :button}
                  "Show more comments"])])])))
 
-(defn hn-stories-context [url]
+(defn hn-stories-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :hn_story])
         whole-url-context              (get-in @db [:url->context url :hn_story])
         stories-left-to-show           (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
     [:div
-     [:div.mb-1
-      (let [header-content
-            [:div.flex.items-center {:class :gap-1.5}
-             [:div.hn_story-icon.w-4.h-4.rounded]
-             [:span (str (count whole-url-context)  " HN threads")]]]
-        [sticky-manager/sticky-element
-         [:div.text-xl.pb-1 header-content]
-         [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-          {:role :button}
-          header-content]])]
+     (when-not hide-header
+       [:div.mb-1
+        (let [header-content
+              [:div.flex.items-center {:class :gap-1.5}
+               [:div.hn_story-icon.w-4.h-4.rounded]
+               [:span (str (count whole-url-context)  " HN threads")]]]
+          [sticky-manager/sticky-element
+           [:div.text-xl.pb-1 header-content]
+           [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+            {:role :button}
+            header-content]])])
      [:div.flex.flex-col.gap-2
       (for [item-id showing]
         ^{:key item-id}
@@ -173,22 +175,23 @@
   (let [ultimate-parent @(r/track hn/item-id->ultimate-parent-id item-id)]
     [hn-story ultimate-parent url]))
 
-(defn hn-comments-context [url]
+(defn hn-comments-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} @(r/cursor db [:url->ui-state url :hn_comment])
         whole-url-context              @(r/cursor db [:url->context url :hn_comment])
         comments-left-to-show          (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
     [:div
      [:div.mb-1
-      (let [header-content
-            [:div.flex.items-center {:class :gap-1.5}
-             [:div.hn_comment-icon.w-4.h-4.rounded]
-             [:span (str (count whole-url-context)  " HN comments")]]]
-        [sticky-manager/sticky-element
-         [:div.text-xl.pb-1 header-content]
-         [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-          {:role :button}
-          header-content]])]
+      (when-not hide-header
+        (let [header-content
+              [:div.flex.items-center {:class :gap-1.5}
+               [:div.hn_comment-icon.w-4.h-4.rounded]
+               [:span (str (count whole-url-context)  " HN comments")]]]
+          [sticky-manager/sticky-element
+           [:div.text-xl.pb-1 header-content]
+           [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+            {:role :button}
+            header-content]]))]
      [:div.flex.flex-col.gap-2
       (doall
         (for [item-id showing]

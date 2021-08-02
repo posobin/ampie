@@ -120,7 +120,7 @@
              :hide-tweet-ids  #{root-tweet-id}}]])
         (when (seq reply-ids)
           [:div.pl-2.flex.flex-col.pb-1
-           [replies reply-ids
+           [replies (distinct reply-ids)
             {:url            url
              :hide-tweet-ids #{root-tweet-id}}]])]
 
@@ -132,20 +132,21 @@
         [:a.text-link-color {:href (str "https://twitter.com/_/status/" root-tweet-id)}
          "tweet"]])]))
 
-(defn twitter-context [url]
+(defn twitter-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :twitter])
         whole-url-context              (get-in @db [:url->context url :twitter])
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
     [:div
-     (let [header-content
-           [:div.flex.items-center {:class :gap-1.5}
-            [:div.twitter-icon.w-4.h-4] [:span (str (count whole-url-context) " tweets")]]]
-       [sticky-manager/sticky-element
-        [:div.text-xl.pb-1 header-content]
-        [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-         {:role :button}
-         header-content]])
+     (when-not hide-header
+       (let [header-content
+             [:div.flex.items-center {:class :gap-1.5}
+              [:div.twitter-icon.w-4.h-4] [:span (str (count whole-url-context) " tweets")]]]
+         [sticky-manager/sticky-element
+          [:div.text-xl.pb-1 header-content]
+          [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+           {:role :button}
+           header-content]]))
      [:div
       (for [tweet-id showing]
         ^{:key tweet-id}

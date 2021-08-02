@@ -315,6 +315,19 @@
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
 
+(defn get-partial-url-context
+  "Returns the social context for the given url from the given origin."
+  [url origin]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "links/get-url-occurrences-details")
+        (assoc (base-request-options)
+          :params        {:url    url
+                          :origin origin
+                          :src    :sidebar}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
 (defn get-url-context
   "Returns all the social context for the given url."
   [url]

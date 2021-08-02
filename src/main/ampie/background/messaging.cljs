@@ -115,6 +115,11 @@
     (.then #(clj->js % :keyword-fn i/name-with-ns))
     (.catch #(clj->js % :keyword-fn i/name-with-ns))))
 
+(defn get-partial-url-context [{:keys [url origin]}]
+  (-> (backend/get-partial-url-context url origin)
+    (.then #(clj->js % :keyword-fn i/name-with-ns))
+    (.catch #(clj->js % :keyword-fn i/name-with-ns))))
+
 (defn get-links-pages-info [{link-ids :link-ids} _sender]
   (-> (backend/get-links-pages-info link-ids)
     (.then clj->js)
@@ -248,6 +253,7 @@
       :inc-badge-sightings       (inc-badge-sightings request sender)
       :get-urls-overview         (get-urls-overview request)
       :get-url-context           (get-url-context request)
+      :get-partial-url-context   (get-url-context request)
       :get-url-info              (get-url-info-based-on-local-cache request sender true)
       :get-local-url-info        (get-url-info-based-on-local-cache request sender false)
       :get-links-pages-info      (get-links-pages-info request sender)

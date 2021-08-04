@@ -62,6 +62,9 @@ module.exports = {
       '4': '16px',
       '5': '20px',
       '6': '24px',
+      '12': '48px',
+      '14': '56px',
+      '16': '64px',
     },
     colors: {
       transparent: 'transparent',

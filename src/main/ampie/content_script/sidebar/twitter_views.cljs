@@ -137,26 +137,27 @@
         whole-url-context              (get-in @db [:url->context url :twitter])
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
-    [:div
-     (when-not hide-header
-       (let [header-content
-             [:div.flex.items-center {:class :gap-1.5}
-              [:div.twitter-icon.w-4.h-4] [:span (str (count whole-url-context) " tweets")]]]
-         [sticky-manager/sticky-element
-          [:div.text-xl.pb-1 header-content]
-          [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-           {:role :button}
-           header-content]]))
-     [:div
-      (for [tweet-id showing]
-        ^{:key tweet-id}
-        [twitter-conversation tweet-id url])]
-     (cond
-       (contains? #{:loading nil} status)
-       [:div "Loading tweets..."]
+    (when (seq whole-url-context)
+      [:div
+       (when-not hide-header
+         (let [header-content
+               [:div.flex.items-center {:class :gap-1.5}
+                [:div.twitter-icon.w-4.h-4] [:span (str (count whole-url-context) " tweets")]]]
+           [sticky-manager/sticky-element
+            [:div.text-xl.pb-1 header-content]
+            [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+             {:role :button}
+             header-content]]))
+       [:div
+        (for [tweet-id showing]
+          ^{:key tweet-id}
+          [twitter-conversation tweet-id url])]
+       (cond
+         (contains? #{:loading nil} status)
+         [:div "Loading tweets..."]
 
-       (seq tweets-left-to-show)
-       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-        {:role     :button
-         :on-click #(load-next-batch-of-tweets! url)}
-        "Load more tweets"])]))
+         (seq tweets-left-to-show)
+         [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
+          {:role     :button
+           :on-click #(load-next-batch-of-tweets! url)}
+          "Load more tweets"])])))

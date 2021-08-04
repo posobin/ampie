@@ -10,6 +10,7 @@
             [ampie.content-script.sidebar.amplified :as amplified]
             [ampie.content-script.sidebar.amplified-views :as amplified-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
+            [clojure.string :as str]
             [reagent.core :as r]
             ["webextension-polyfill" :as browser]
             ["react-shadow-dom-retarget-events" :as retargetEvents]
@@ -58,48 +59,86 @@
                             (when (> (.. entry -target -scrollHeight) @scroll-position)
                               (set! (.. entry -target -scrollTop) @scroll-position))))
         ;; Don't need a Ratom here, just the standard atom is enough
-        sidebar-element (atom nil)]
+        sidebar-element (atom nil)
+        key-presses     (r/atom
+                          {:last-shift-press     0
+                           :force-open           false
+                           :last-alt-shift-press 0
+                           :hidden               false})
+        on-key-down
+        (fn [e]
+          (when (= (str/lower-case (.-key e)) "shift")
+            (let [[last-time flag] (if (.-altKey e)
+                                     [:last-alt-shift-press :hidden]
+                                     [:last-shift-press :force-open])]
+              (if (> (+ (last-time @key-presses) 400) (.getTime (js/Date.)))
+                (swap! key-presses
+                  (fn [kp] (-> kp (assoc last-time 0) (update flag not))))
+                (swap! key-presses assoc last-time (.getTime (js/Date.)))))))]
     (r/create-class
       {:component-did-mount
        (fn [] (when @sidebar-element
                 (set! (.-scrollTop @sidebar-element)
-                  @scroll-position)))
+                  @scroll-position))
+         (. js/document addEventListener "keydown" on-key-down))
+       :component-will-unmount
+       (fn []
+         (. js/document removeEventListener "keydown" on-key-down))
 
        :reagent-render
        (fn []
          (let [url         (first @(r/cursor db [:url]))
                url-context (r/cursor db [:url->context url])]
-           [:<>
-            [:div.p-2.overscroll-contain.max-h-full.overflow-auto.font-sans
-             {:ref (fn [el]
-                     ((:container-ref sticky) el)
-                     (reset! sidebar-element el)
-                     (when el
-                       (.observe resize-observer el)
-                       (.addEventListener el "scroll"
-                         (fn []
-                           (reset! scroll-position (.-scrollTop el))
-                           ((:on-scroll sticky) el)))))}
-             [(:render-context-provider sticky)
-              (if (= :loading (:ampie/status url-context))
-                [:div "Loading..."]
-                [:div.flex.flex-col.gap-2
-                 [amplified-views/amplified-context url]
-                 [twitter-views/twitter-context url]
-                 [hn-views/hn-stories-context url]
-                 [hn-views/hn-comments-context url]
-                 [domain-views/domain-context url]
-                 [domain-views/backlinks-context url]])]]
-            (when goog.DEBUG
-              [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
-               [:div.text-link-color.hover:underline
-                {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
-                 :role     :button}
-                "Full"]
-               [:div.text-link-color.hover:underline
-                {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
-                 :role     :button}
-                "Reload"]])]))})))
+           [:div.fixed.right-0.top-14.bottom-14.font-sans
+            [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center
+             {:class    (when (:hidden @key-presses) :hidden)
+              :role     :button
+              :on-click #(swap! key-presses update :force-open not)}
+             [:span.text-xs.whitespace-nowrap
+              "Shift × 2"]
+             (if (:force-open @key-presses)
+               [:div.hide-sidebar-icon.w-4.h-4]
+               [:div.show-sidebar-icon.w-4.h-4])]
+            [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center
+             {:class    (when (:hidden @key-presses) :hidden)
+              :role     :button
+              :on-click #(swap! key-presses update :hidden not)}
+             [:span.text-xs.whitespace-nowrap
+              "Alt-Shift × 2"]
+             [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
+            [:div.sidebar-container.absolute.top-0.bottom-0
+             {:class [(when (:force-open @key-presses) :open)
+                      (when (:hidden @key-presses) :hidden)]}
+             [:div.p-2.overscroll-contain.max-h-full.overflow-auto
+              {:ref (fn [el]
+                      ((:container-ref sticky) el)
+                      (reset! sidebar-element el)
+                      (when el
+                        (.observe resize-observer el)
+                        (.addEventListener el "scroll"
+                          (fn []
+                            (reset! scroll-position (.-scrollTop el))
+                            ((:on-scroll sticky) el)))))}
+              [(:render-context-provider sticky)
+               (if (= :loading (:ampie/status url-context))
+                 [:div "Loading..."]
+                 [:div.flex.flex-col.gap-2
+                  [amplified-views/amplified-context url]
+                  [twitter-views/twitter-context url]
+                  [hn-views/hn-stories-context url]
+                  [hn-views/hn-comments-context url]
+                  [domain-views/domain-context url]
+                  [domain-views/backlinks-context url]])]]
+             (when goog.DEBUG
+               [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
+                [:div.text-link-color.hover:underline
+                 {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
+                  :role     :button}
+                 "Full"]
+                [:div.text-link-color.hover:underline
+                 {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
+                  :role     :button}
+                 "Reload"]])]]))})))
 
 (defn setup-sidebar-html-element []
   (let [sidebar-div     (. js/document createElement "div")
@@ -115,13 +154,14 @@
     (set! (.-onload tailwind) #(.setAttribute shadow-root-el "style" ""))
     (set! (.-href tailwind) (.. browser -runtime (getURL "assets/tailwind.css")))
     (set! (.-className shadow-root-el) "ampie-sidebar-holder")
-    (set! (.-className sidebar-div) "sidebar-container")
+    (set! (.-className sidebar-div) "sidebar-wrapper")
     {:call-after-render (fn []
                           (. shadow (appendChild sidebar-styling))
                           (. shadow (appendChild tailwind))
                           (. shadow (appendChild sidebar-div))
                           (retargetEvents shadow)
                           (.. js/document -body (appendChild shadow-root-el)))
+     :remove-sidebar    (fn [])
      :container         sidebar-div}))
 
 (defn display-sidebar! []

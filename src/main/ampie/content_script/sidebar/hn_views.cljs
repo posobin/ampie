@@ -145,31 +145,32 @@
         whole-url-context              (get-in @db [:url->context url :hn_story])
         stories-left-to-show           (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
-    [:div
-     (when-not hide-header
-       [:div.mb-1
-        (let [header-content
-              [:div.flex.items-center {:class :gap-1.5}
-               [:div.hn_story-icon.w-4.h-4.rounded]
-               [:span (str (count whole-url-context)  " HN threads")]]]
-          [sticky-manager/sticky-element
-           [:div.text-xl.pb-1 header-content]
-           [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-            {:role :button}
-            header-content]])])
-     [:div.flex.flex-col.gap-2
-      (for [item-id showing]
-        ^{:key item-id}
-        [hn-story item-id url])]
-     (cond
-       (contains? #{:loading nil} status)
-       [:div "Loading threads..."]
+    (when (seq whole-url-context)
+      [:div
+       (when-not hide-header
+         [:div.mb-1
+          (let [header-content
+                [:div.flex.items-center {:class :gap-1.5}
+                 [:div.hn_story-icon.w-4.h-4.rounded]
+                 [:span (str (count whole-url-context)  " HN threads")]]]
+            [sticky-manager/sticky-element
+             [:div.text-xl.pb-1 header-content]
+             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+              {:role :button}
+              header-content]])])
+       [:div.flex.flex-col.gap-2
+        (for [item-id showing]
+          ^{:key item-id}
+          [hn-story item-id url])]
+       (cond
+         (contains? #{:loading nil} status)
+         [:div "Loading threads..."]
 
-       (seq stories-left-to-show)
-       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-        {:role     :button
-         :on-click #(hn/load-next-batch-of-stories! url)}
-        [:span "Show more threads around this URL"]])]))
+         (seq stories-left-to-show)
+         [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
+          {:role     :button
+           :on-click #(hn/load-next-batch-of-stories! url)}
+          [:span "Show more threads around this URL"]])])))
 
 (defn hn-context-comment [item-id url]
   (let [ultimate-parent @(r/track hn/item-id->ultimate-parent-id item-id)]
@@ -180,29 +181,30 @@
         whole-url-context              @(r/cursor db [:url->context url :hn_comment])
         comments-left-to-show          (remove (comp (set showing) :hn-item/id)
                                          whole-url-context)]
-    [:div
-     [:div.mb-1
-      (when-not hide-header
-        (let [header-content
-              [:div.flex.items-center {:class :gap-1.5}
-               [:div.hn_comment-icon.w-4.h-4.rounded]
-               [:span (str (count whole-url-context)  " HN comments")]]]
-          [sticky-manager/sticky-element
-           [:div.text-xl.pb-1 header-content]
-           [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-            {:role :button}
-            header-content]]))]
-     [:div.flex.flex-col.gap-2
-      (doall
-        (for [item-id showing]
-          ^{:key item-id}
-          [hn-context-comment item-id url]))]
-     (cond
-       (contains? #{:loading nil} status)
-       [:div "Loading threads..."]
+    (when (seq whole-url-context)
+      [:div
+       [:div.mb-1
+        (when-not hide-header
+          (let [header-content
+                [:div.flex.items-center {:class :gap-1.5}
+                 [:div.hn_comment-icon.w-4.h-4.rounded]
+                 [:span (str (count whole-url-context)  " HN comments")]]]
+            [sticky-manager/sticky-element
+             [:div.text-xl.pb-1 header-content]
+             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+              {:role :button}
+              header-content]]))]
+       [:div.flex.flex-col.gap-2
+        (doall
+          (for [item-id showing]
+            ^{:key item-id}
+            [hn-context-comment item-id url]))]
+       (cond
+         (contains? #{:loading nil} status)
+         [:div "Loading threads..."]
 
-       (seq comments-left-to-show)
-       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-        {:role     :button
-         :on-click #(hn/load-next-batch-of-comments! url)}
-        [:span "Show more comments with this URL"]])]))
+         (seq comments-left-to-show)
+         [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
+          {:role     :button
+           :on-click #(hn/load-next-batch-of-comments! url)}
+          [:span "Show more comments with this URL"]])])))

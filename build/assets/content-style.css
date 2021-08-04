@@ -29,7 +29,7 @@
 .ampie-info-bar-holder .ampie-hidden {display: none;}
 .ampie-message-holder {z-index: 2140000002; position: fixed; bottom: -2px; left: 50%; transform: translateX(-50%);}
 
-.ampie-sidebar-holder {position: fixed;}
+.ampie-sidebar-holder {position: fixed; z-index: 2140000001;}
 
 .ampie-badge-tooltip {
     all: initial;

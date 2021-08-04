@@ -87,55 +87,57 @@
         whole-url-context              (get-in @db [:url->context url :domain])
         pages-left-to-show             (remove (comp (set showing) :link/original)
                                          whole-url-context)]
-    [:div
-     (when-not hide-header
-       (let [header-content
-             [:div.flex.items-center {:class :gap-1.5}
-              [:div.domain-icon.w-4.h-4] [:span (str (count whole-url-context) " pages on this domain")]]]
-         [sticky-manager/sticky-element
-          [:div.text-xl.pb-1 header-content]
-          [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-           {:role :button}
-           header-content]]))
-     [:div.flex.flex-col.gap-2
-      (for [page-url showing]
-        ^{:key page-url}
-        [page-info page-url url])]
-     (cond
-       (contains? #{:loading nil} status)
-       [:div "Loading domain pages..."]
+    (when (seq whole-url-context)
+      [:div
+       (when-not hide-header
+         (let [header-content
+               [:div.flex.items-center {:class :gap-1.5}
+                [:div.domain-icon.w-4.h-4] [:span (str (count whole-url-context) " pages on this domain")]]]
+           [sticky-manager/sticky-element
+            [:div.text-xl.pb-1 header-content]
+            [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+             {:role :button}
+             header-content]]))
+       [:div.flex.flex-col.gap-2
+        (for [page-url showing]
+          ^{:key page-url}
+          [page-info page-url url])]
+       (cond
+         (contains? #{:loading nil} status)
+         [:div "Loading domain pages..."]
 
-       (seq pages-left-to-show)
-       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-        {:role     :button
-         :on-click #(load-next-batch-of-domain-links! url)}
-        "Load more pages"])]))
+         (seq pages-left-to-show)
+         [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
+          {:role     :button
+           :on-click #(load-next-batch-of-domain-links! url)}
+          "Load more pages"])])))
 
 (defn backlinks-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :ahref])
         whole-url-context              (get-in @db [:url->context url :ahref])
         pages-left-to-show             (remove (comp (conj (set showing) url) :page/original)
                                          whole-url-context)]
-    [:div
-     (when-not hide-header
-       (let [header-content
-             [:div.flex.items-center {:class :gap-1.5}
-              [:div.ahref-icon.w-4.h-4] [:span (str (count whole-url-context) " backlinks")]]]
-         [sticky-manager/sticky-element
-          [:div.text-xl.pb-1 header-content]
-          [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-           {:role :button}
-           header-content]]))
-     [:div.flex.flex-col.gap-2
-      (for [page-url showing]
-        ^{:key page-url}
-        [page-info page-url url])]
-     (cond
-       (contains? #{:loading nil} status)
-       [:div "Loading backlinks..."]
+    (when (seq whole-url-context)
+      [:div
+       (when-not hide-header
+         (let [header-content
+               [:div.flex.items-center {:class :gap-1.5}
+                [:div.ahref-icon.w-4.h-4] [:span (str (count whole-url-context) " backlinks")]]]
+           [sticky-manager/sticky-element
+            [:div.text-xl.pb-1 header-content]
+            [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
+             {:role :button}
+             header-content]]))
+       [:div.flex.flex-col.gap-2
+        (for [page-url showing]
+          ^{:key page-url}
+          [page-info page-url url])]
+       (cond
+         (contains? #{:loading nil} status)
+         [:div "Loading backlinks..."]
 
-       (seq pages-left-to-show)
-       [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-        {:role     :button
-         :on-click #(load-next-batch-of-backlinks! url)}
-        "Load more backlinks"])]))
+         (seq pages-left-to-show)
+         [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
+          {:role     :button
+           :on-click #(load-next-batch-of-backlinks! url)}
+          "Load more backlinks"])])))

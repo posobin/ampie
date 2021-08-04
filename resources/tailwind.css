@@ -9,6 +9,9 @@
 .ahref-icon {background: no-repeat url("/assets/icons/backlink.svg") center/contain;}
 .domain-icon {background: no-repeat url("/assets/icons/same-domain.svg") center/contain;}
 .visit-icon {background: no-repeat url("/assets/icons/ampie-no-shadow.svg") center/contain;}
+.show-sidebar-icon {background: no-repeat url("/assets/icons/show-sidebar.svg") center/contain;}
+.hide-sidebar-icon {background: no-repeat url("/assets/icons/hide-sidebar.svg") center/contain;}
+.close-icon {background: no-repeat url("/assets/icons/close.svg") center/contain;}
 
 @layer utilities {
     @variants hover {

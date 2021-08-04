@@ -7,7 +7,7 @@
             ["webextension-polyfill" :as browser]
             [ampie.macros :refer [then-fn]]))
 
-(def default-show-batch-size 5)
+(def default-show-batch-size 10)
 
 (defn fetch-urls-info! [urls]
   (let [overviews  (map (juxt identity #(get-in @db [:url->overview %])) urls)

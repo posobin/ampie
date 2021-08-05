@@ -5,21 +5,19 @@
 }
 
 .sidebar-container {
-    position: fixed;
     right: -375px;
     width: 450px;
-    background: white;
-    border-left: 1px solid black;
-    border-top: 1px solid black;
-    border-bottom: 1px solid black;
+    background: linear-gradient(-10deg, rgb(166 239 149), rgba(255,0,0,0)),
+                linear-gradient(87deg, rgb(232 133 165), rgba(0,255,0,0)),
+                linear-gradient(336deg, rgb(71 71 216), rgb(23 23 202));
 
     font-size: 14px;
     line-height: 18px;
 
     transition-property: right, box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
+    will-change: right;
 }
 
-.sidebar-container:hover, .sidebar-container.open {
-    right: 0;
+.sidebar-container:hover {
     box-shadow: 0 0 30px -20px rgb(230 45 138);
 }

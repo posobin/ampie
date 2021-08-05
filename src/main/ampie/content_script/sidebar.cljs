@@ -82,63 +82,65 @@
                   @scroll-position))
          (. js/document addEventListener "keydown" on-key-down))
        :component-will-unmount
-       (fn []
-         (. js/document removeEventListener "keydown" on-key-down))
+       #(. js/document removeEventListener "keydown" on-key-down)
 
        :reagent-render
        (fn []
-         (let [url         (first @(r/cursor db [:url]))
-               url-context (r/cursor db [:url->context url])]
-           [:div.fixed.right-0.top-14.bottom-14.font-sans
-            [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center
-             {:class    (when (:hidden @key-presses) :hidden)
-              :role     :button
-              :on-click #(swap! key-presses update :force-open not)}
-             [:span.text-xs.whitespace-nowrap
-              "Shift × 2"]
-             (if (:force-open @key-presses)
-               [:div.hide-sidebar-icon.w-4.h-4]
-               [:div.show-sidebar-icon.w-4.h-4])]
-            [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center
-             {:class    (when (:hidden @key-presses) :hidden)
-              :role     :button
-              :on-click #(swap! key-presses update :hidden not)}
-             [:span.text-xs.whitespace-nowrap
-              "Alt-Shift × 2"]
-             [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
-            [:div.sidebar-container.absolute.top-0.bottom-0
-             {:class [(when (:force-open @key-presses) :open)
-                      (when (:hidden @key-presses) :hidden)]}
-             [:div.p-2.overscroll-contain.max-h-full.overflow-auto
-              {:ref (fn [el]
-                      ((:container-ref sticky) el)
-                      (reset! sidebar-element el)
-                      (when el
-                        (.observe resize-observer el)
-                        (.addEventListener el "scroll"
-                          (fn []
-                            (reset! scroll-position (.-scrollTop el))
-                            ((:on-scroll sticky) el)))))}
-              [(:render-context-provider sticky)
-               (if (= :loading (:ampie/status url-context))
-                 [:div "Loading..."]
-                 [:div.flex.flex-col.gap-2
-                  [amplified-views/amplified-context url]
-                  [twitter-views/twitter-context url]
-                  [hn-views/hn-stories-context url]
-                  [hn-views/hn-comments-context url]
-                  [domain-views/domain-context url]
-                  [domain-views/backlinks-context url]])]]
-             (when goog.DEBUG
-               [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
-                [:div.text-link-color.hover:underline
-                 {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
-                  :role     :button}
-                 "Full"]
-                [:div.text-link-color.hover:underline
-                 {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
-                  :role     :button}
-                 "Reload"]])]]))})))
+         (when-let [url (first @(r/cursor db [:url]))]
+           (let [url-context (r/cursor db [:url->context url])]
+             [:div.fixed.right-0.top-14.bottom-14.font-sans
+              [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center
+               {:class    (when (:hidden @key-presses) :hidden)
+                :role     :button
+                :on-click #(swap! key-presses update :force-open not)}
+               [:span.text-xs.whitespace-nowrap
+                "Shift × 2"]
+               (if (:force-open @key-presses)
+                 [:div.hide-sidebar-icon.w-4.h-4]
+                 [:div.show-sidebar-icon.w-4.h-4])]
+              [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center
+               {:class    (when (:hidden @key-presses) :hidden)
+                :role     :button
+                :on-click #(swap! key-presses update :hidden not)}
+               [:span.text-xs.whitespace-nowrap
+                "Alt-Shift × 2"]
+               [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
+              [:div.sidebar-container.absolute.top-0.bottom-0
+               {:class [(if (:force-open @key-presses)
+                          :right-0
+                          :hover:right-0)
+                        (when (:hidden @key-presses) :hidden)]}
+               [:div.absolute.left-0dot5.top-0dot5.bottom-0dot5.right-0.bg-white
+                [:div.p-2.overscroll-contain.max-h-full.overflow-auto
+                 {:ref (fn [el]
+                         ((:container-ref sticky) el)
+                         (reset! sidebar-element el)
+                         (when el
+                           (.observe resize-observer el)
+                           (.addEventListener el "scroll"
+                             (fn []
+                               (reset! scroll-position (.-scrollTop el))
+                               ((:on-scroll sticky) el)))))}
+                 [(:render-context-provider sticky)
+                  (if (= :loading (:ampie/status url-context))
+                    [:div "Loading..."]
+                    [:div.flex.flex-col.gap-2
+                     [amplified-views/amplified-context url]
+                     [twitter-views/twitter-context url]
+                     [hn-views/hn-stories-context url]
+                     [hn-views/hn-comments-context url]
+                     [domain-views/domain-context url]
+                     [domain-views/backlinks-context url]])]]
+                (when goog.DEBUG
+                  [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
+                   [:div.text-link-color.hover:underline
+                    {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
+                     :role     :button}
+                    "Full"]
+                   [:div.text-link-color.hover:underline
+                    {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
+                     :role     :button}
+                    "Reload"]])]]])))})))
 
 (defn setup-sidebar-html-element []
   (let [sidebar-div     (. js/document createElement "div")

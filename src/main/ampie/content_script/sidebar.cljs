@@ -33,16 +33,24 @@
           (swap! db assoc-in [:url->context url]
             (assoc occurrences :ampie/status :loaded)))))))
 
+(defn url-blacklisted? [url]
+  (.. browser -runtime
+    (sendMessage (clj->js {:type :url-blacklisted?
+                           :url  url}))))
+
 (defn set-sidebar-url! [url]
-  (some-> (load-page-info! url)
-    (then-fn []
-      (domain/load-next-batch-of-domain-links! url)
-      (domain/load-next-batch-of-backlinks! url)
-      (twitter/load-next-batch-of-tweets! url)
-      (amplified/load-next-batch-of-amplified-links! url)
-      (hn/load-next-batch-of-stories! url)
-      (hn/load-next-batch-of-comments! url)))
-  (swap! db update :url conj url))
+  (-> (url-blacklisted? url)
+    (then-fn [blacklisted?]
+      (when-not blacklisted?
+        (swap! db update :url conj url)
+        (some-> (load-page-info! url)
+          (then-fn []
+            (domain/load-next-batch-of-domain-links! url)
+            (domain/load-next-batch-of-backlinks! url)
+            (twitter/load-next-batch-of-tweets! url)
+            (amplified/load-next-batch-of-amplified-links! url)
+            (hn/load-next-batch-of-stories! url)
+            (hn/load-next-batch-of-comments! url)))))))
 
 (declare display-sidebar! remove-sidebar!)
 

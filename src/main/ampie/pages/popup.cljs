@@ -168,11 +168,11 @@
 (defn settings-form []
   [:div.settings-form
    [:h2 "Ampie settings"]
-   [show-badges]
-   [badge-toggle-key]
-   [auto-show-domain-links]
+   ;; [show-badges]
+   ;; [badge-toggle-key]
+   ;; [auto-show-domain-links]
    [enable-amplify-dialog]
-   [hn-enabled]
+   ;; [hn-enabled]
    [blacklisted-urls]])
 
 (defn settings-page []

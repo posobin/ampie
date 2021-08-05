@@ -207,6 +207,12 @@
                  (not (some #(clojure.string/includes? url %)
                         (:blacklisted-urls @@settings))))))))
 
+(defn url-blacklisted? [{:keys [url]}]
+  (js/Promise.resolve
+    (boolean
+      (some #(clojure.string/includes? url %)
+        (:blacklisted-urls @@settings)))))
+
 (defn get-time-spent-on-url [_request ^js sender]
   (let [url (.. sender -tab -url)]
     (visits.db/get-time-spent-on-url url)))
@@ -275,6 +281,7 @@
       :update-amplified-page     (update-amplified-page request sender)
       :delete-amplified-page     (delete-amplified-page request sender)
       :amplify-dialog-enabled?   (amplify-dialog-enabled? request sender)
+      :url-blacklisted?          (url-blacklisted? request)
       :search-friends-visits     (search-friends-visits request sender)
       :search-result-clicked     (search-result-clicked request sender)
       :search-visit-clicked      (search-visit-clicked request sender)

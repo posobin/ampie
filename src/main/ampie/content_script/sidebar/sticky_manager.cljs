@@ -61,6 +61,7 @@
          (for [el @elements]
            [:div {:on-click #(scroll-into-view el el->scroll-offset)
                   :class    (if top :border-b :border-t)
+                  :role     :button
                   :ref      (fn [sticky-el]
                               (if sticky-el
                                 (swap! rendered-refs assoc el sticky-el)

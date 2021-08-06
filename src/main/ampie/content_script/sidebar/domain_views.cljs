@@ -62,6 +62,8 @@
             [:div.flex.flex-col.gap-1.flex-grow-0.min-w-0
              [:a.text-link-color.hover:underline.text-base.leading-tight (b/ahref-opts page-url)
               (if (str/blank? (:title @overview)) [:span.break-all page-url] (:title @overview))]
+             [:a.hover:underline.block.mb-1.-mt-0dot5.text-gray-500.leading-none
+              (b/ahref-opts page-url) page-url]
              [:div.flex.flex-row.gap-1
               (let [{:keys [occurrences]} @overview]
                 (for [origin sources

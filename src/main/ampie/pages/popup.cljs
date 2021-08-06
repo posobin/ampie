@@ -147,9 +147,9 @@
     (fn []
       [:div.blacklisted-urls.setting
        [:div.header
-        [:div.title "Disable amplify on"]]
+        [:div.title "Disable on"]]
        [:div.description
-        "Don't show the amplify pop-up for the URLs containing:"]
+        "Don't show sidebar and amplify pop-up for the URLs containing:"]
        [:div.blacklist
         (for [[index url] (map-indexed vector (conj @urls ""))]
           ^{:key index}

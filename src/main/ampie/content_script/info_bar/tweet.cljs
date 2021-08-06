@@ -28,7 +28,7 @@
    [:a (b/ahref-opts expanded_url)
     [:img {:src (str media_url_https "?name=small")}]]])
 
-(defn- tweet-images [images]
+(defn tweet-images [images]
   [:div.images
    (for [image images]
      ^{:key (:id_str image)}

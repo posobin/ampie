@@ -4,11 +4,11 @@
             [ampie.url :as url]
             [ampie.content-script.sidebar.db :refer [db]]
             [ampie.time]
-            [ampie.content-script.info-bar.tweet :refer [tweet->html-text]]
+            [ampie.content-script.info-bar.tweet :refer [tweet->html-text tweet-images]]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [ampie.components.basics :as b]))
 
-(defn tweet-body [{:keys [created_at id_str user] :as tweet} url]
+(defn tweet-body [{:keys [created_at id_str user entities] :as tweet} url]
   (let [{:keys [screen_name]} user]
     [:div.flex.flex-col
      [:div.flex.flex-row.gap-1
@@ -21,7 +21,8 @@
        (ampie.time/timestamp->date (js/Date.parse created_at))]]
      [:div (try (tweet->html-text tweet (url/normalize url))
                 (catch :default _
-                  (js/console.log tweet)))]]))
+                  (js/console.log tweet)))]
+     (when (seq (:media entities)) [tweet-images (:media entities)])]))
 
 (declare tweet-component)
 

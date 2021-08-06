@@ -1,6 +1,6 @@
 (ns ampie.content-script.sidebar
   (:require [ampie.time]
-            [ampie.content-script.sidebar.db :refer [db]]
+            [ampie.content-script.sidebar.db :as db :refer [db]]
             [ampie.content-script.sidebar.hn :as hn]
             [ampie.content-script.sidebar.hn-views :as hn-views]
             [ampie.content-script.sidebar.twitter-views :as twitter-views]
@@ -37,6 +37,10 @@
   (.. browser -runtime
     (sendMessage (clj->js {:type :url-blacklisted?
                            :url  url}))))
+
+(defn sidebar-empty? [url]
+  (let [url-context @(r/cursor db [:url->context url])]
+    (not (some #(seq (url-context %)) db/url-context-origins))))
 
 (defn set-sidebar-url! [url]
   (-> (url-blacklisted? url)
@@ -95,7 +99,8 @@
        :reagent-render
        (fn []
          (when-let [url (first @(r/cursor db [:url]))]
-           (let [url-context (r/cursor db [:url->context url])]
+           (when (and (= @(r/cursor db [:url->context url :ampie/status]) :loaded)
+                   (not @(r/track sidebar-empty? url)))
              [:div.fixed.right-0.top-14.bottom-14.font-sans
               [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center
                {:class    (when (:hidden @key-presses) :hidden)
@@ -130,15 +135,13 @@
                                (reset! scroll-position (.-scrollTop el))
                                ((:on-scroll sticky) el)))))}
                  [(:render-context-provider sticky)
-                  (if (= :loading (:ampie/status url-context))
-                    [:div "Loading..."]
-                    [:div.flex.flex-col.gap-2
-                     [amplified-views/amplified-context url]
-                     [twitter-views/twitter-context url]
-                     [hn-views/hn-stories-context url]
-                     [hn-views/hn-comments-context url]
-                     [domain-views/domain-context url]
-                     [domain-views/backlinks-context url]])]]
+                  [:div.flex.flex-col.gap-2
+                   [amplified-views/amplified-context url]
+                   [twitter-views/twitter-context url]
+                   [hn-views/hn-stories-context url]
+                   [hn-views/hn-comments-context url]
+                   [domain-views/domain-context url]
+                   [domain-views/backlinks-context url]]]]
                 (when goog.DEBUG
                   [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
                    [:div.text-link-color.hover:underline
@@ -194,4 +197,4 @@
 (defstate sidebar-state
   :start (display-sidebar!)
   :stop (do (remove-sidebar!)
-            #_((:remove-sidebar @sidebar-state))))
+            ((:remove-sidebar @sidebar-state))))

@@ -181,6 +181,16 @@
   [:and VisitInfo
    [:map [:ampie/status LoadStatus]]])
 
+(def url-context-origins-schemas
+  {:twitter    [:vector TweetInfo]
+   :hn_story   [:vector HNStoryInfo]
+   :hn_comment [:vector HNCommentInfo]
+   :domain     vector?
+   :ahref      vector?
+   :visit      [:vector VisitInfo]})
+
+(def url-context-origins (keys url-context-origins-schemas))
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
@@ -203,23 +213,19 @@
       [:map-of :string UrlOverview]]
      [:url->context
       [:map-of :string
-       [:map
-        [:ampie/status {:optional true} LoadStatus]
-        [:ampie/individual-statuses {:optional true}
-         (mu/optional-keys
-           [:map
-            [:twitter LoadStatus]
-            [:hn_story LoadStatus]
-            [:hn_comment LoadStatus]
-            [:domain LoadStatus]
-            [:ahref LoadStatus]
-            [:visit LoadStatus]])]
-        [:twitter {:optional true} [:vector TweetInfo]]
-        [:hn_story {:optional true} [:vector HNStoryInfo]]
-        [:hn_comment {:optional true} [:vector HNCommentInfo]]
-        [:domain {:optional true} vector?]
-        [:ahref {:optional true} vector?]
-        [:visit {:optional true} [:vector VisitInfo]]]]]]))
+       (into [:map
+              [:ampie/status {:optional true} LoadStatus]
+              [:ampie/individual-statuses {:optional true}
+               (mu/optional-keys
+                 [:map
+                  [:twitter LoadStatus]
+                  [:hn_story LoadStatus]
+                  [:hn_comment LoadStatus]
+                  [:domain LoadStatus]
+                  [:ahref LoadStatus]
+                  [:visit LoadStatus]])]]
+         (mapv (fn [[key schema]] [key {:optional true} schema])
+           url-context-origins-schemas))]]]))
 
 (defonce db (r/atom {}))
 

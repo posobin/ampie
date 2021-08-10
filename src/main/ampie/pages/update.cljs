@@ -8,65 +8,60 @@
 
 (def state (r/atom {}))
 
+(defn subheader [text]
+  [:h3.pt-4.pb-2.text-2xl text])
+
+(defn highlight [text bad?]
+  [:span.rounded.pl-0dot5.pr-0dot5
+   {:class (if bad? :bg-indigo-200 :bg-green-300)}
+   text])
+
 (defn update-page []
-  [:div.update-page.content
-   [:div.header [:h1 "Ampie updated (again)"]]
-   [:div.update-container
-    [:p "Some changes I have made require clearing and redownloading the caches, "
-     "so ampie might use a lot of CPU for the next five minutes or so. "
-     "(for real this time, not like the last time) "
-     "Sorry for the inconvenience!"]
+  [:div.font-sans.text-lg.leading-snug.ml-auto.mr-auto.w-fit-content.p-4.rounded-xl.shadow-xl.m-4.border.relative
+   [:h1.text-2xl.font-italic.pb-3 "Ampie updated"]
+   [:div.max-w-md
+    [:p "Updates to ampie, "
+     [highlight "with privacy implications for you." true]]
 
-    [:h3 "Feedback"]
-    [:p "Click the ampie icon in the extensions toolbar and go "
-     "to the feedback form. Don't hesitate to use it, especially if you spot bugs! "
-     "I will respond to all feedback you send."]
+    [subheader "Sidebar"]
+    [:div
+     [:p "Ampie now shows a sidebar on every page it has context for. "
+      [highlight
+       "Every URL you visit will be sent to ampie's server" true]
+      " to check the context. "
+      "You can disable it on some domains in settings "
+      [:span.tracking-tightest "——————————→"]]
+     [:div.absolute.-right-4.top-0
+      [:div.absolute.right-0.top-0.transform.translate-x-full
+       [:img.border.rounded-md.shadow.max-w-none.transform.scale-75.origin-top-left
+        {:src (.. browser -runtime (getURL "assets/images/settings-menu.png"))}]]]]
+    [:p.pt-2
+     [highlight "In return sidebar becomes more useful." false]
+     " I encourage you to try it out on some blog posts you like first. "
+     "Please reach out if you stop using ampie because of this."]
 
-    [:h3 "History"]
-    [:p "I have disabled history tracking for now. "
-     "I initially added it because I wanted to add the public browsing mode, but "
-     "have now decided against that. Having the extension collect history might "
-     "be scary even if the extension is open source. "
-     "I might reuse the code for it if I decide to add public "
-     "browsing after all."]
+    [subheader "Bye badges =("]
+    [:p "Many people told me how distracting badges can be."]
+    [:p "Not anymore."]
 
-    [:h3 "Weekly links"]
-    [:p "Weekly links page is temporarily disabled since I have disabled "
-     "history tracking. I'll enable it when I integrate it with the amplify "
-     "button."]
+    [subheader "Ampie in search results"]
+    [:p "No more ampie search results on google and DDG. "]
+    [:p "But now you will see "
+     [highlight "page context previews in search results" false]
+     " for google and ddg:"]
+    [:img.border.rounded-md.mt-3.in-search-results-half-width
+     {:src (.. browser -runtime (getURL "assets/images/in-search-results.png"))}]
+    [:p.pt-3 "This requires " [highlight "sending every search result URL to ampie's server" true]
+     ". Again, please tell me if you disable ampie because of this!"]
 
-    [:h3 "HN discussions"]
-    [:p "Ampie now shows HN comments for the page you are on, "
-     "no need to go to HN to read them. Twitter is next!"]
-    [:p "Moreover, instead of the number of HN threads with that link "
-     "ampie now shows the number of comments in all the threads with that link. "
-     "And using the number of different people who have tweeted about the link "
-     "instead of the number of tweets."]
+    [:p.pt-6 "Overall, these changes aim to "
+     [highlight "simplify ampie and focus on what it does well." false]
+     " "
+     "I have more ideas for MVPs that build on what I already have, "
+     "and will iterate until people start using one of them."]
+    [:p.pt-4 "Tell me what you think!"]
 
-    [:h3 "Page titles"]
-    [:p "Previously it was impossible to use the recommended links list "
-     "on websites that don't have readable urls (e.g. youtube, arxiv, etc). "
-     "Now ampie will show the titles of the pages. It is not fast since I put in "
-     "some basic throttling to prevent the ampie server from being banned by "
-     "the websites for too many requests, but it is very usable still."]
-
-    [:h3 "Amplify (repeating just in case)"]
-    [:p "After you spend two minutes on a page, ampie will show you the amplify dialog "
-     "at the bottom of the screen."]
-    [:img.amplify {:src (.. browser -runtime (getURL "assets/images/amplify-dialog.png"))}]
-    [:p "The idea is to let you share the pages that are interesting more easily. "
-     "There is no expectation that you have read the page, or that you agree with it. "
-     "This is to help your followers find this page in the future. "
-     "After clicking amplify, you can add a comment and a reaction. "
-     "Use the keyboard shortcuts to share quickly!"]
-    [:img.amplify-edit {:src (.. browser -runtime (getURL "assets/images/amplify-dialog-edit.png"))}]
-    [:p "You can disable this dialog by going to the extension's settings "
-     "(click the ampie icon in the extension toolbar for that). "
-     "Plus you can disable it only on some specific websites there."]
-    [:p "I will add some more useful features related to this, "
-     "e.g. archiving the pages you amplify, or getting notified "
-     "when someone you follow leaves a comment on a page you have marked as to read. "
-     "Any suggestions how to make this more useful are welcome!"]]])
+    [:p.pt-2 [:a.text-underline (b/ahref-opts "https://twitter.com/posobin") "@posobin"]]]])
 
 (defn ^:dev/after-load init []
   (rdom/render [update-page]

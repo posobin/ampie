@@ -26,6 +26,12 @@ module.exports = {
       },
       width: {
         'fit-content': 'fit-content'
+      },
+      letterSpacing: {
+        tightest: '-.075em',
+      },
+      transitionProperty: {
+        'offsets': 'top, right, bottom, left'
       }
     },
     fontFamily: {

@@ -8,6 +8,7 @@ img.mini-tags {height: 28px; margin-top: 4px;}
 img.history {height: 314px;}
 img.amplify {width: 238px; border-radius: 0;}
 img.amplify-edit {width: 368px; border-radius: 0;}
+img.in-search-results-half-width {width: 398px; box-sizing: content-box;}
 h3 {margin-top: 32px; margin-bottom: 16px; font-weight: 500;}
 
 .ampie-mini-tag-icon {margin-right: 0;}
@@ -15,7 +16,6 @@ h3 {margin-top: 32px; margin-bottom: 16px; font-weight: 500;}
 
 ul {list-style: none; padding: 0 0 0 16px; margin-top: 8px;}
 ul li:not(:first-child) {margin-top: 8px;}
-img {box-shadow: 0 0 6px var(--accent-color-shadow); border-radius: 6px; display: block; margin: 8px 0;}
 img.mini-tags {box-shadow: none; border-radius: 0;}
 
 .ampie-badge {margin-top: -5px;}

@@ -149,7 +149,8 @@
        [:div.header
         [:div.title "Disable on"]]
        [:div.description
-        "Don't show sidebar and amplify pop-up for the URLs containing:"]
+        "If a page URL contains one of these, ampie won't send it to the server, "
+        "and you'll see no sidebar or amplify pop-ups."]
        [:div.blacklist
         (for [[index url] (map-indexed vector (conj @urls ""))]
           ^{:key index}

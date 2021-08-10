@@ -152,7 +152,7 @@
        [:div
         (for [tweet-id showing]
           ^{:key tweet-id}
-          [twitter-conversation tweet-id url])]
+          [twitter-conversation tweet-id url {:info (tweet-id->info tweet-id)}])]
        (cond
          (contains? #{:loading nil} status)
          [:div "Loading tweets..."]

@@ -13,10 +13,10 @@
 
 (defstate page-service
   :start (do (.. browser -runtime -onMessage (addListener message-listener))
-             (assoc (badge/start (:show-info @info-bar-state))
-               :reset-page (:reset-page @info-bar-state)))
+             #_(assoc (badge/start (:show-info @info-bar-state))
+                 :reset-page (:reset-page @info-bar-state)))
   :stop (do (.. browser -runtime -onMessage (removeListener message-listener))
-            (badge/stop @page-service)))
+            #_(badge/stop @page-service)))
 
 (defn message-listener [message]
   (let [message (js->clj message :keywordize-keys true)]
@@ -26,8 +26,8 @@
                          (mount/start
                            (mount/only
                              #{#'page-service
-                               #'badge/seen-badges-ids #'badge/on-badge-remove
-                               #'badge/existing-badges 'badge/visible-badges
+                               ;; #'badge/seen-badges-ids #'badge/on-badge-remove
+                               ;; #'badge/existing-badges 'badge/visible-badges
                                #'google-results
                                #'ddg-results
                                #'sidebar-state
@@ -59,11 +59,11 @@
   (send-ampie-version)
   (when (demo/is-ampie-domain? (.. js/document -location -href))
     (. js/window addEventListener "message" respond-to-ampie-version-message))
-  ;; Don't attempt to load the background services in the content script
+  ;; Don't attempt to load background services in the content script
   (mount/start (mount/only
                  #{#'page-service
-                   #'badge/seen-badges-ids #'badge/on-badge-remove
-                   #'badge/existing-badges 'badge/visible-badges
+                   ;; #'badge/seen-badges-ids #'badge/on-badge-remove
+                   ;; #'badge/existing-badges 'badge/visible-badges
                    #'google-results
                    #'ddg-results
                    #'sidebar-state

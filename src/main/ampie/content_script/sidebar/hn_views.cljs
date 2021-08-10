@@ -154,7 +154,8 @@
                  [:div.hn_story-icon.w-4.h-4.rounded]
                  [:span (str (count whole-url-context)  " HN threads")]]]
             [sticky-manager/sticky-element
-             [:div.text-xl.pb-1 header-content]
+             [:div.text-xl.pb-1 {:data-ampie-header "hn_story"}
+              header-content]
              [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
               {:role :button}
               header-content]])])
@@ -190,7 +191,7 @@
                  [:div.hn_comment-icon.w-4.h-4.rounded]
                  [:span (str (count whole-url-context)  " HN comments")]]]
             [sticky-manager/sticky-element
-             [:div.text-xl.pb-1 header-content]
+             [:div.text-xl.pb-1 {:data-ampie-header "hn_comment"} header-content]
              [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
               {:role :button}
               header-content]]))]

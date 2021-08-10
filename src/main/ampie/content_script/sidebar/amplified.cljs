@@ -28,4 +28,5 @@
     (let [batch (take default-show-batch-size visits-left-to-show)]
       (swap! state (fn [state]
                      (-> (assoc state :ampie/status :loaded)
-                       (update :showing into (map :visit/tag batch))))))))
+                       (update :showing into (map :visit/tag batch))))))
+    (js/Promise.resolve)))

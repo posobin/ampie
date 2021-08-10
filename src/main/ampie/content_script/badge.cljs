@@ -164,61 +164,13 @@
                                      :url  target-url})))))))
     #js {:threshold 1.0}))
 
-(defn- google-result-tags [url-info on-badge-click]
-  (let [tags (for [[source-tag count-fn]
-                   [[:history count] [:hn links/count-hn]
-                    [:twitter links/count-tweets] [:visits links/count-visits]]
-                   :when (source-tag url-info)
-                   :let  [n-entries (count-fn (source-tag url-info))]
-                   :when (pos? n-entries)]
-               ^{:key source-tag}
-               [:div.mini-tag
-                [:div.mini-tag-icon {:class (str (name source-tag) "-icon")}]
-                [:div.mini-tag-count n-entries]])]
-    (when (seq tags)
-      [:div.search-results-ampie-block
-       [:div.search-results-tags {:role     :button
-                                  :on-click (fn [e] (.stopPropagation e)
-                                              (on-badge-click (:url url-info)))}
-        tags]
-       [:div.open-in-new-tab
-        {:role     :button
-         :on-click (fn [e] (.stopPropagation e)
-                     (.. browser -runtime
-                       (sendMessage (clj->js {:type :open-page-context
-                                              :url  (:url url-info)})))
-                     nil)}
-        [:div.open-in-new-tab-icon]]])))
-
 (defstate on-badge-remove :start (atom {}))
 
-(defn- add-google-result-tags
-  [^js target target-id target-info on-badge-click google-result-root]
-  (let [badge-div    (. js/document createElement "div")
-        shadow-style (. js/document createElement "link")
-        shadow       (. badge-div (attachShadow #js {"mode" "open"}))]
-    (set! (.-rel shadow-style) "stylesheet")
-    (.setAttribute badge-div "style"  "display: none;")
-    (set! (.-onload shadow-style) #(.setAttribute badge-div "style" ""))
-    (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-result-info.css")))
-    (.setAttribute badge-div "ampie-badge-id" target-id)
-    (rdom/render [google-result-tags target-info on-badge-click] shadow)
-    (.appendChild shadow shadow-style)
-    (.appendChild google-result-root badge-div)
-    (swap! @on-badge-remove assoc target-id
-      #(.remove badge-div))))
-
-(defn- get-google-result-link-root [^js node]
-  (when (string/includes? (.. js/document -location -href)
-          "google.")
-    (let [root (reduce #(.-parentElement %1) node (range 4))]
-      (when (= (.-className root) "g")
-        root))))
-
 (defn add-ampie-badge [^js target target-id target-info on-badge-click show-badges]
-  (if-let [google-result-root (get-google-result-link-root target)]
+  (if-let [google-result-root nil #_ (get-google-result-link-root target)]
     ;; Show ampie context in google results even if badges are disabled in settings
-    (add-google-result-tags target target-id target-info on-badge-click google-result-root)
+    #_(add-google-result-tags target target-id target-info on-badge-click google-result-root)
+    nil
     (if-not show-badges
       (let [badge-div (. js/document createElement "span")]
         ;; Need to add the empty badge div because otherwise
@@ -271,45 +223,6 @@
               (.removeEventListener target "mouseout" on-mouse-out))))
         (.appendChild target badge-div)))))
 
-(defn show-too-many-badges-message []
-  (let [shadow-holder   (.createElement js/document "div")
-        shadow          (. shadow-holder (attachShadow #js {"mode" "open"}))
-        shadow-style    (. js/document createElement "link")
-        message-element (.createElement js/document "div")
-        message-text    (.createElement js/document "div")
-        buttons         (.createElement js/document "div")
-        continue-button (.createElement js/document "button")
-        close-button    (.createElement js/document "button")
-        ch              (chan)
-        on-continue     (fn [] (.remove shadow-holder) (go (>! ch true)))
-        on-close        (fn [] (.remove shadow-holder) (go (>! ch false)))]
-    (log/info "Showing too many badges message")
-    (set! (.-rel shadow-style) "stylesheet")
-    (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/message.css")))
-    (set! (.-className shadow-holder) "ampie-message-holder")
-    (set! (.-className message-element) "message")
-    (.appendChild shadow shadow-style)
-    (.appendChild shadow message-element)
-    (set! (.-className message-text) "text")
-    (.appendChild message-text
-      (.createTextNode js/document
-        "Too many links, pausing loading of ampie badges."))
-    (set! (.-className continue-button) "button continue")
-    (.appendChild continue-button
-      (.createTextNode js/document "Continue loading badges"))
-    (set! (.-onclick continue-button) on-continue)
-    (.appendChild close-button
-      (.createTextNode js/document "Close"))
-    (set! (.-onclick close-button) on-close)
-    (set! (.-className close-button) "button close")
-    (set! (.-className buttons) "buttons")
-    (.appendChild buttons continue-button)
-    (.appendChild buttons close-button)
-    (.appendChild message-element message-text)
-    (.appendChild message-element buttons)
-    (.. js/document -body (appendChild shadow-holder))
-    ch))
-
 (defn process-child-links
   "Go through all the links that are in the `element`'s subtree and add badges
   to them."
@@ -352,9 +265,8 @@
                              (swap! target-ids conj target-id)))))]
                  (if (and (< badges-added 250)
                        (>= updated-badges-added 250))
-                   (go (when true #_(<! (show-too-many-badges-message))
-                             (process-links-in-chunks (rest chunks)
-                               updated-badges-added)))
+                   (go (process-links-in-chunks (rest chunks)
+                         updated-badges-added))
                    (process-links-in-chunks (rest chunks)
                      updated-badges-added))))))))
      (partition 100 100 nil unprocessed-links) 0)))
@@ -429,9 +341,9 @@
             (js/clearTimeout @resize-event-timeout)
             (reset! resize-event-timeout
               (js/setTimeout #(screen-update target-ids) 25)))]
-      (. js/document addEventListener "keydown" on-alt-down)
-      (. js/document addEventListener "keyup" on-alt-up)
-      (. js/window addEventListener "resize" on-resize)
+      ;; (. js/document addEventListener "keydown" on-alt-down)
+      ;; (. js/document addEventListener "keyup" on-alt-up)
+      ;; (. js/window addEventListener "resize" on-resize)
       (process-child-links js/document.body target-ids next-target-id on-badge-click)
       (js/setTimeout #(update-page update-cancelled) 2000)
       {:next-target-id   next-target-id
@@ -440,8 +352,8 @@
        :on-resize        on-resize})))
 
 (defn stop [{:keys [update-cancelled on-resize]}]
-  (. js/document removeEventListener "keydown" on-alt-down)
-  (. js/document removeEventListener "keyup" on-alt-up)
+  ;; (. js/document removeEventListener "keydown" on-alt-down)
+  ;; (. js/document removeEventListener "keyup" on-alt-up)
   (reset! update-cancelled true)
   (doseq [[_badge-id on-remove] @@on-badge-remove] (on-remove))
   (.. js/document (querySelectorAll ".ampie-badge") (forEach #(.remove %)))

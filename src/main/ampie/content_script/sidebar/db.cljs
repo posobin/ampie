@@ -141,7 +141,10 @@
    [:link/normalized string?]
    [:link/score number?]])
 
-(def OverviewOrigins [:enum :twitter :hn_story :hn_comment :domain :ahref :ahref_same_site :visit :upvote :pocket_link])
+(def OverviewOrigins
+  [:enum :twitter :hn_story :hn_comment :domain :ahref
+   :ahref_same_site :visit :upvote :pocket_link :history_visit
+   :weekly_post])
 
 (def UrlOverview
   [:or
@@ -243,7 +246,7 @@
 
 (comment
   (pp/pprint (-> @db :url->ui-state first second :domain))
-  (pp/pprint (-> @db :url->context first second keys))
+  (pp/pprint (-> @db :url->context first second :twitter))
   (js/console.log @db)
   (-> @db :url->ui-state first second :hn :hn-item-id->state (get 23662795))
   (pp/pprint (me/humanize (m/explain HNItem (-> @db :hn-item-id->hn-item (get 23662795))))))

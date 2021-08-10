@@ -98,7 +98,7 @@
                {:url            url
                 :hide-tweet-ids (conj hide-tweet-ids tweet-id)}]]))]))))
 
-(defn twitter-conversation [root-tweet-id url]
+(defn- twitter-conversation [root-tweet-id url {:keys [info]}]
   (let [{:keys [ampie/status reply-ids in_reply_to_status_id_str quoted_status_id_str] :as tweet}
         (get-in @db [:tweet-id->tweet root-tweet-id])]
     [:div.rounded.mt-1.border.border-blue-150.p-2.pt-1
@@ -130,12 +130,16 @@
 
        :error
        [:div.p-1 "Couldn't load "
-        [:a.text-link-color {:href (str "https://twitter.com/_/status/" root-tweet-id)}
+        [:a.text-link-color
+         {:href (str "https://twitter.com/" (or (:tweet/screen-name info) "")
+                  "/status/" root-tweet-id)}
          "tweet"]])]))
 
 (defn twitter-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :twitter])
         whole-url-context              (get-in @db [:url->context url :twitter])
+        tweet-id->info                 (->> (map (juxt :tweet/id identity) whole-url-context)
+                                         (into {}))
         tweets-left-to-show            (remove (comp (set showing) :tweet/id)
                                          whole-url-context)]
     (when (seq whole-url-context)

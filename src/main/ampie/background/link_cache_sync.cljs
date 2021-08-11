@@ -437,35 +437,35 @@
     (.then #(get-updated-entries (demo/invisible-asymptotes-links)))
     (.then #(save-links % :demo-invisible-asymptotes))))
 
-(defstate link-cache-sync
-  :start (letfn [(run-cache-check [time]
-                   (when @@link-cache-sync (js/clearTimeout @@link-cache-sync))
-                   (log/info "Running cache check...")
-                   (-> (check-and-update-link-caches)
-                     (.then
-                       (fn []
-                         (log/info "Cache check complete")
-                         (log/info "Updating friends visits")
-                         (update-friends-visits)))
-                     (.then
-                       (fn []
-                         (log/info "Friends visits updated")
-                         (log/info "Updating user's URL votes")
-                         ;; TODO(page_votes)
-                         #_(update-my-votes)))
-                     (.finally
-                       (fn [_]
-                         (log/info "User's URL votes updated")
-                         (let [timeout (js/setTimeout run-cache-check time time)]
-                           (reset! @link-cache-sync timeout))))))]
-           (load-demo-data!)
-           (when-not false ;;goog.DEBUG
-             (js/setTimeout
-               (fn [] (backend/on-logged-in :link-cache-sync
-                        #(run-cache-check (* 10 60 1000))))
-               5000))
-           (atom nil))
-  :stop (do (when @@link-cache-sync
-              (js/clearTimeout @@link-cache-sync)
-              (reset! @link-cache-sync nil))
-            (backend/remove-on-logged-in :link-cache-sync)))
+#_(defstate link-cache-sync
+    :start (letfn [(run-cache-check [time]
+                     (when @@link-cache-sync (js/clearTimeout @@link-cache-sync))
+                     (log/info "Running cache check...")
+                     (-> (check-and-update-link-caches)
+                       (.then
+                         (fn []
+                           (log/info "Cache check complete")
+                           (log/info "Updating friends visits")
+                           (update-friends-visits)))
+                       (.then
+                         (fn []
+                           (log/info "Friends visits updated")
+                           (log/info "Updating user's URL votes")
+                           ;; TODO(page_votes)
+                           #_(update-my-votes)))
+                       (.finally
+                         (fn [_]
+                           (log/info "User's URL votes updated")
+                           (let [timeout (js/setTimeout run-cache-check time time)]
+                             (reset! @link-cache-sync timeout))))))]
+             (load-demo-data!)
+             (when-not false ;;goog.DEBUG
+               (js/setTimeout
+                 (fn [] (backend/on-logged-in :link-cache-sync
+                          #(run-cache-check (* 10 60 1000))))
+                 5000))
+             (atom nil))
+    :stop (do (when @@link-cache-sync
+                (js/clearTimeout @@link-cache-sync)
+                (reset! @link-cache-sync nil))
+              (backend/remove-on-logged-in :link-cache-sync)))

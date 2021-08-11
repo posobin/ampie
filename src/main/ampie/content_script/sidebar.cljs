@@ -152,7 +152,7 @@
                {:class    (when (:hidden @sidebar-visual-state) :hidden)
                 :role     :button
                 :on-click #(swap! sidebar-visual-state update :force-open not)}
-               [:span.text-xs.whitespace-nowrap
+               [:span.text-xs.whitespace-nowrap.bg-opacity-20.bg-white
                 "Shift × 2"]
                (if (:force-open @sidebar-visual-state)
                  [:div.hide-sidebar-icon.w-4.h-4]
@@ -161,7 +161,7 @@
                {:class    (when (:hidden @sidebar-visual-state) :hidden)
                 :role     :button
                 :on-click #(swap! sidebar-visual-state update :hidden not)}
-               [:span.text-xs.whitespace-nowrap
+               [:span.text-xs.whitespace-nowrap.bg-opacity-50.bg-white
                 "Alt-Shift × 2"]
                [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
               [:div.sidebar-container.absolute.top-0.bottom-0

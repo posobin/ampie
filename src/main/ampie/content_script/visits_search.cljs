@@ -91,7 +91,7 @@
 
 (def result-tags-attr-value "result-tags")
 
-(defn- search-result-tags [url-overview on-badge-click engine]
+(defn- search-result-tags [url-overview set-sidebar-url! engine]
   (let [{:keys [occurrences]} url-overview]
     (when (some (comp pos? :count val) occurrences)
       [:div.flex.flex-row.gap-1.mt-1
@@ -103,9 +103,10 @@
          [:div.flex.flex-row.gap-1.border.rounded.p-1.hover:bg-yellow-100.hover:border-gray-400
           {:class    [:pt-0.5 :pb-0.5]
            :role     :button
-           :on-click (fn [e] (on-badge-click (:url url-overview)
+           :on-click (fn [e] (set-sidebar-url! (:url url-overview)
                                {:expand-sidebar true
-                                :focus-origin   origin})
+                                :focus-origin   origin
+                                :from-search    true})
                        (.stopPropagation e))}
           [:div.self-center.w-4.h-4.rounded {:class [(str (name origin) "-icon")]}]
           [:span (:count info)]])

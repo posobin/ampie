@@ -353,3 +353,15 @@
                           :src                 :sidebar}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
+
+(defn send-analytics-data
+  "Sends the given analytics-data object to the analytics endpoint on the backend.
+  Rejects if the request fails."
+  [analytics-data]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "log/extension-analytics")
+        (assoc (base-request-options)
+          :params        {:data analytics-data}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))

@@ -42,7 +42,6 @@
            [sticky-manager/sticky-element
             [:div.text-xl.pb-1 header-content]
             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-             {:role :button}
              header-content]]))
        [:div.flex.flex-col.gap-2
         (for [visit-tag showing]
@@ -54,6 +53,7 @@
 
          (seq pages-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(load-next-batch-of-amplified-links! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-amplified})
+           :on-click              #(load-next-batch-of-amplified-links! url)}
           "Load more amplifications"])])))

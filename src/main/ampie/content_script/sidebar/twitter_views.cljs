@@ -48,8 +48,9 @@
       (case status
         nil
         [:div.text-link-color.hover-underline
-         {:role     :button
-          :on-click (fn [] (fetch-tweets! [tweet-id]))}
+         {:role                  :button
+          :data-ampie-click-info (pr-str {:type :load-tweet})
+          :on-click              (fn [] (fetch-tweets! [tweet-id]))}
          "Load tweet"]
 
         :error
@@ -67,7 +68,8 @@
                 :showing-replies #{tweet-id}
                 :hide-tweet-ids  (conj hide-tweet-ids tweet-id)}]]
              [:div.text-link-color.hover:underline.mb-1
-              {:role :button
+              {:role                  :button
+               :data-ampie-click-info (pr-str {:type :load-parent-tweet})
                :on-click
                (fn []
                  (load-and-show-parent-tweets! in_reply_to_status_id_str url)
@@ -87,8 +89,9 @@
            (cond
              (contains? #{:hidden nil} show-replies)
              [:div.text-link-color.hover:underline
-              {:role     :button
-               :on-click #(twitter/load-and-show-replies! tweet-id url)}
+              {:role                  :button
+               :data-ampie-click-info (pr-str {:type :load-tweet-replies})
+               :on-click              #(twitter/load-and-show-replies! tweet-id url)}
               "Load replies"]
              (= :loading show-replies)
              [:div.pl-2 "Loading..."]
@@ -151,7 +154,6 @@
            [sticky-manager/sticky-element
             [:div.text-xl.pb-1 header-content]
             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-             {:role :button}
              header-content]]))
        [:div
         (for [tweet-id showing]
@@ -163,6 +165,7 @@
 
          (seq tweets-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(load-next-batch-of-tweets! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-tweets})
+           :on-click              #(load-next-batch-of-tweets! url)}
           "Load more tweets"])])))

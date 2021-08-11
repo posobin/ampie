@@ -6,6 +6,7 @@
             [ampie.interop :as i]
             [ampie.links :as links]
             [ampie.background.backend :as backend]
+            [ampie.background.analytics :as analytics]
             [ampie.settings :refer [settings]]
             [ampie.background.link-cache-sync :as link-cache-sync]
             [clojure.set]
@@ -249,6 +250,9 @@
 (defn get-command-shortcuts []
   (.. browser -commands (getAll)))
 
+(defn log-analytics-event [{:keys [event details]}]
+  (analytics/log-event! event details))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -288,6 +292,7 @@
       :get-my-last-visits        (get-my-last-visits sender)
       :open-page-context         (open-page-context request sender)
       :get-command-shortcuts     (get-command-shortcuts)
+      :log-analytics-event       (log-analytics-event request)
 
       (log/error "Unknown request type" request-type))))
 

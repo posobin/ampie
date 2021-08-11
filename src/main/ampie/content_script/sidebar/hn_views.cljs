@@ -56,8 +56,9 @@
           (with-meta p {:key prior-length})))]
      (when (and long-comment (not show-whole-text))
        [:div.text-link-color.hover:underline
-        {:role     :button
-         :on-click toggle-show-whole-text}
+        {:role                  :button
+         :data-ampie-click-info (pr-str {:type :show-whole-hn-text})
+         :on-click              toggle-show-whole-text}
         "Show more..."])]))
 
 (defn hn-item-id->url [item-id]
@@ -78,7 +79,8 @@
             [:div.flex.text-grey-500.mt-1
              (when (-> (:kids comment) count pos?)
                [:<> [:div.flex-grow.text-link-color.hover:underline
-                     {:role :button
+                     {:role                  :button
+                      :data-ampie-click-info (pr-str {:type :load-hn-comment-replies})
                       :on-click
                       (fn []
                         (hn/fetch-items! (:kids comment))
@@ -87,8 +89,9 @@
                      (let [count (count (:kids comment))]
                        (str count " repl" (if (= count 1) "y" "ies")))]
                 [:div.text-link-color.hover:underline.mr-2
-                 {:role     :button
-                  :on-click #(hn/load-all-kids-recursively! url comment-id)}
+                 {:role                  :button
+                  :data-ampie-click-info (pr-str {:type :load-all-hn-comment-replies})
+                  :on-click              #(hn/load-all-kids-recursively! url comment-id)}
                  "Expand all"]])
              [:span.ml-auto.text-gray-500 (:by comment)]
              [:a.ml-2.hover:underline.text-blue-400.hover:text-link-color
@@ -136,8 +139,9 @@
                 [:div "Error loading comments"]
                 (< (count kids-showing) (count (:kids story)))
                 [:div.inline-block.text-link-color.p-2.pt-1.pb-1.border.rounded-md.hover:bg-blue-50.mb-1
-                 {:on-click #(hn/load-next-kids-batch! url item-id)
-                  :role     :button}
+                 {:on-click              #(hn/load-next-kids-batch! url item-id)
+                  :data-ampie-click-info (pr-str {:type :load-hn-story-comments})
+                  :role                  :button}
                  "Show more comments"])])])))
 
 (defn hn-stories-context [url {:keys [hide-header]}]
@@ -157,7 +161,6 @@
              [:div.text-xl.pb-1 {:data-ampie-header "hn_story"}
               header-content]
              [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-              {:role :button}
               header-content]])])
        [:div.flex.flex-col.gap-2
         (for [item-id showing]
@@ -169,8 +172,9 @@
 
          (seq stories-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(hn/load-next-batch-of-stories! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-hn-stories})
+           :on-click              #(hn/load-next-batch-of-stories! url)}
           [:span "Show more threads around this URL"]])])))
 
 (defn hn-context-comment [item-id url]
@@ -193,7 +197,6 @@
             [sticky-manager/sticky-element
              [:div.text-xl.pb-1 {:data-ampie-header "hn_comment"} header-content]
              [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-              {:role :button}
               header-content]]))]
        [:div.flex.flex-col.gap-2
         (doall
@@ -206,6 +209,7 @@
 
          (seq comments-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(hn/load-next-batch-of-comments! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-hn-comments})
+           :on-click              #(hn/load-next-batch-of-comments! url)}
           [:span "Show more comments with this URL"]])])))

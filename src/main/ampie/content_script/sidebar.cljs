@@ -11,6 +11,7 @@
             [ampie.content-script.sidebar.amplified-views :as amplified-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [clojure.string :as str]
+            [clojure.edn]
             [reagent.core :as r]
             ["webextension-polyfill" :as browser]
             ["react-shadow-dom-retarget-events" :as retargetEvents]
@@ -42,15 +43,18 @@
   (let [url-context @(r/cursor db [:url->context url])]
     (not (some #(seq (url-context %)) db/url-context-origins))))
 
-(declare expand-sidebar! scroll-header-into-view!)
+(declare expand-sidebar! scroll-header-into-view! log-analytics-event! reset-analytics-log!)
 
 (defn set-sidebar-url!
   ([url] (set-sidebar-url! url {}))
-  ([url {:keys [expand-sidebar focus-origin]
+  ([url {:keys [expand-sidebar focus-origin from-search]
          :or   {expand-sidebar false
-                focus-origin   nil}}]
+                focus-origin   nil
+                from-search    false}}]
+   (reset-analytics-log!)
    (swap! db update :url conj url)
    (when expand-sidebar (expand-sidebar!))
+   (when from-search (log-analytics-event! :search-click nil))
    (-> (or (some-> (load-page-info! url)
              (then-fn []
                (js/Promise.all
@@ -62,7 +66,6 @@
                    (hn/load-next-batch-of-comments! url)))))
          (js/Promise.resolve))
      (then-fn []
-       (js/console.log "All completed")
        (when focus-origin
          (js/setTimeout
            #(scroll-header-into-view! (name focus-origin))
@@ -113,6 +116,32 @@
     (when @current-sticky
       ((:scroll-into-view @current-sticky) header))))
 
+(defn log-analytics-event! [event details]
+  (.. browser -runtime
+    (sendMessage (clj->js {:type    :log-analytics-event
+                           :event   event
+                           :details details}))))
+
+(def previously-logged-events (atom #{}))
+
+(defn reset-analytics-log! [] (reset! previously-logged-events #{}))
+
+(defn log-analytics-event-once! [event details]
+  (when-not (@previously-logged-events event)
+    (log-analytics-event! event details)
+    (swap! previously-logged-events conj event)))
+
+(defn log-click-event! [^js event-info]
+  (let [target (.-target event-info)]
+    (when-let [clickable-parent (.closest target "[data-ampie-click-info]")]
+      (let [parent-info (clojure.edn/read-string
+                          (.getAttribute clickable-parent
+                            "data-ampie-click-info"))]
+        (log-analytics-event! :click
+          (cond-> parent-info
+            (= (:type parent-info) :ahref)
+            (assoc :href (.-href clickable-parent))))))))
+
 (defn sidebar-component []
   (let [sticky          (sticky-manager/sticky-manager)
         resize-observer (js/ResizeObserver.
@@ -132,10 +161,12 @@
                 (set! (.-scrollTop @sidebar-element)
                   @scroll-position))
          (. js/document addEventListener "keydown" on-key-down)
+         (reset-analytics-log!)
          (reset! current-sticky sticky))
        :component-will-unmount
        (fn []
          (. js/document removeEventListener "keydown" on-key-down)
+         (reset-analytics-log!)
          (reset! current-sticky nil))
 
        :reagent-render
@@ -143,25 +174,33 @@
          (when-let [url (first @(r/cursor db [:url]))]
            (when (and (= @(r/cursor db [:url->context url :ampie/status]) :loaded)
                    (not @(r/track sidebar-empty? url)))
+             ;; It's ok to call this on every render since it logs at most once per mounted component
+             (log-analytics-event-once! :seen nil)
              [:div.fixed.right-0.font-sans.transition-offsets
-              {:key   url
-               :class (if (:force-open @sidebar-visual-state)
-                        [:top-5 :bottom-5]
-                        [:top-14 :bottom-14])}
-              [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center
+              {:key           url
+               :class         (if (:force-open @sidebar-visual-state)
+                                [:top-5 :bottom-5]
+                                [:top-14 :bottom-14])
+               :on-wheel      #(log-analytics-event-once! :scroll nil)
+               :on-mouse-down log-click-event!}
+              [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
                {:class    (when (:hidden @sidebar-visual-state) :hidden)
                 :role     :button
-                :on-click #(swap! sidebar-visual-state update :force-open not)}
-               [:span.text-xs.whitespace-nowrap.bg-opacity-20.bg-white
+                :on-click (fn []
+                            (swap! sidebar-visual-state update :force-open not)
+                            (log-analytics-event-once! :expand nil))}
+               [:span.text-xs.whitespace-nowrap
                 "Shift × 2"]
                (if (:force-open @sidebar-visual-state)
                  [:div.hide-sidebar-icon.w-4.h-4]
                  [:div.show-sidebar-icon.w-4.h-4])]
-              [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center
+              [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
                {:class    (when (:hidden @sidebar-visual-state) :hidden)
                 :role     :button
-                :on-click #(swap! sidebar-visual-state update :hidden not)}
-               [:span.text-xs.whitespace-nowrap.bg-opacity-50.bg-white
+                :on-click (fn []
+                            (swap! sidebar-visual-state update :hidden not)
+                            (log-analytics-event-once! :close nil))}
+               [:span.text-xs.whitespace-nowrap
                 "Alt-Shift × 2"]
                [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
               [:div.sidebar-container.absolute.top-0.bottom-0
@@ -223,7 +262,7 @@
                           (. shadow (appendChild sidebar-div))
                           (retargetEvents shadow)
                           (.. js/document -body (appendChild shadow-root-el)))
-     :remove-sidebar    (fn [] (reset! shadow-root nil))
+     :remove-sidebar!   (fn [] (reset! shadow-root nil))
      :container         sidebar-div}))
 
 (defn display-sidebar! []
@@ -233,13 +272,15 @@
       (js/alert "ampie: attaching a second sidebar")
       (js/console.trace))
     (throw "Sidebar already exists"))
-  (let [{:keys [container call-after-render]} (setup-sidebar-html-element)
-        url                                   (get-current-url)]
+  (let [{:keys [container call-after-render remove-sidebar!]}
+        (setup-sidebar-html-element)
+        url (get-current-url)]
     (-> (url-blacklisted? url)
       (then-fn [blacklisted?]
         (when-not blacklisted?
           (set-sidebar-url! url {:expand-sidebar false}))))
-    (rdom/render [sidebar-component] container call-after-render)))
+    (rdom/render [sidebar-component] container call-after-render)
+    {:remove-sidebar! remove-sidebar!}))
 
 (defn remove-sidebar! []
   (when-let [element (.. js/document -body (querySelector ".ampie-sidebar-holder"))]
@@ -250,4 +291,4 @@
 (defstate sidebar-state
   :start (display-sidebar!)
   :stop (do (remove-sidebar!)
-            ((:remove-sidebar @sidebar-state))))
+            ((:remove-sidebar! @sidebar-state))))

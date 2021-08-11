@@ -72,8 +72,10 @@
                                (not= origin :domain))]
                   ^{:key origin}
                   [:div.flex.flex-row.gap-1.border.rounded.p-1.hover:bg-yellow-100.hover:border-gray-400
-                   {:class [:pt-0.5 :pb-0.5]
-                    :role  :button
+                   {:class                 [:pt-0.5 :pb-0.5]
+                    :role                  :button
+                    :data-ampie-click-info (pr-str {:type   :page-info-tag
+                                                    :origin origin})
                     :on-click
                     (fn []
                       (when (:open-origin (swap! ui-state update :open-origin
@@ -98,7 +100,6 @@
            [sticky-manager/sticky-element
             [:div.text-xl.pb-1 header-content]
             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-             {:role :button}
              header-content]]))
        [:div.flex.flex-col.gap-2
         (for [page-url showing]
@@ -110,8 +111,9 @@
 
          (seq pages-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(load-next-batch-of-domain-links! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-domain})
+           :on-click              #(load-next-batch-of-domain-links! url)}
           "Load more pages"])])))
 
 (defn backlinks-context [url {:keys [hide-header]}]
@@ -128,7 +130,6 @@
            [sticky-manager/sticky-element
             [:div.text-xl.pb-1 header-content]
             [:div.text-lg.text-link-color.hover:underline.leading-none.pt-1.pb-1.pl-2
-             {:role :button}
              header-content]]))
        [:div.flex.flex-col.gap-2
         (for [page-url showing]
@@ -140,6 +141,7 @@
 
          (seq pages-left-to-show)
          [:div.text-link-color.hover:underline.rounded-md.bg-blue-50.pt-2.pb-2.mt-1.text-center
-          {:role     :button
-           :on-click #(load-next-batch-of-backlinks! url)}
+          {:role                  :button
+           :data-ampie-click-info (pr-str {:type :load-more-backlinks})
+           :on-click              #(load-next-batch-of-backlinks! url)}
           "Load more backlinks"])])))

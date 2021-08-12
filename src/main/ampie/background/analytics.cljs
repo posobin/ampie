@@ -29,7 +29,6 @@
 
 (defn log-event! [event details]
   (let [event (keyword event)]
-    (js/console.log "Logging event" event)
     (swap! analytics-state update event (fnil inc 0))
     (when (= event :click)
       (swap! analytics-state update :click-info conj details))))
@@ -52,6 +51,8 @@
                        (fn [_]
                          (let [timeout (js/setTimeout try-upload time time)]
                            (reset! @analytics timeout))))))]
+           (when goog.DEBUG
+             (js/console.log "Logger started"))
            (js/setTimeout try-upload interval interval)
            (atom nil))
   :stop (do (when @@analytics

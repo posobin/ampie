@@ -225,8 +225,8 @@
                    [twitter-views/twitter-context url]
                    [hn-views/hn-stories-context url]
                    [hn-views/hn-comments-context url]
-                   [domain-views/domain-context url]
-                   [domain-views/backlinks-context url]]]]
+                   [domain-views/backlinks-context url]
+                   [domain-views/domain-context url]]]]
                 (when goog.DEBUG
                   [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
                    [:div.text-link-color.hover:underline

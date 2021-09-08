@@ -12,6 +12,7 @@
 .show-sidebar-icon {background: no-repeat url("/assets/icons/show-sidebar.svg") center/contain;}
 .hide-sidebar-icon {background: no-repeat url("/assets/icons/hide-sidebar.svg") center/contain;}
 .close-icon {background: no-repeat url("/assets/icons/close.svg") center/contain;}
+.open-in-new-tab-icon {background: no-repeat url("/assets/icons/open-in-new-tab.svg") center/contain;}
 
 @layer utilities {
     @variants hover {

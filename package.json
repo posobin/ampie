@@ -1,6 +1,6 @@
 {
   "name": "ampie",
-  "version": "2.3.5",
+  "version": "2.4.0",
   "private": true,
   "devDependencies": {
     "autoprefixer": "^10.2.6",
@@ -19,6 +19,7 @@
   },
   "scripts": {
     "watch:tw": "NODE_ENV=development npx tailwindcss -i resources/tailwind.css -o ./build/assets/tailwind.css -w",
-    "release:tw": "NODE_ENV=production npx tailwindcss build -i resources/tailwind.css -o build/assets/tailwind.css"
+    "release:tw": "NODE_ENV=production npx tailwindcss build -i resources/tailwind.css -o build/assets/tailwind.css",
+    "release": "./release.sh"
   }
 }

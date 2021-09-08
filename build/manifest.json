@@ -16,9 +16,11 @@
   "128":"icons/ampie-128.png"},
  "commands":
  {"amplify_page":
-  {"suggested_key":
-   {"default":"Ctrl+Shift+A", "mac":"Command+Shift+A"},
-   "description":"Amplify the page you are on"}},
+  {"suggested_key":{"default":"Alt+Shift+A", "mac":"Alt+Shift+A"},
+   "description":"Amplify the page you are on"},
+  "open_page_context":
+  {"suggested_key":{"default":"Alt+Shift+C", "mac":"Alt+Shift+C"},
+   "description":"Open current page context in a new tab"}},
  "web_accessible_resources":["assets/*"],
  "manifest_version":2,
  "content_security_policy":
@@ -30,4 +32,4 @@
   {"js":
    ["out/shared.js", "out/bg-shared.js", "out/content-script.js"],
    "matches":["<all_urls>"]}],
- "version":"2.3.3"}
+ "version":"2.4.0"}

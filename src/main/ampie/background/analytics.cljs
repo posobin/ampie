@@ -51,8 +51,7 @@
                        (fn [_]
                          (let [timeout (js/setTimeout try-upload time time)]
                            (reset! @analytics timeout))))))]
-           (when goog.DEBUG
-             (js/console.log "Logger started"))
+           (js/console.log "Logger started")
            (js/setTimeout try-upload interval interval)
            (atom nil))
   :stop (do (when @@analytics

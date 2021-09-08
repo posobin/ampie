@@ -1,10 +1,12 @@
 (ns ampie.background.core
   (:require [ampie.background.messaging :as background.messaging]
             [ampie.db :refer [db]]
+            [ampie.macros :refer [then-fn]]
             [ampie.links]
             [ampie.settings]
             [ampie.background.backend]
             [ampie.background.link-cache-sync]
+            [ampie.background.analytics]
             [ampie.tabs.monitoring :as tabs.monitoring]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]
@@ -54,29 +56,28 @@
               (->> (re-matches #"(\d+).(\d+)(?:.(\d+)(?:.(\d+))?)?"
                      (or (.-previousVersion details) "0.0.0.0"))
                 rest
-                (map (fnil js/parseInt "0"))
-                vec)]
-          (js/console.log "Ampie version " (string/join "." previous-version))
+                (mapv (fnil js/parseInt "0")))]
+          (js/console.log "Previuos ampie version "
+            (string/join "." previous-version))
           (when (and (= (.-reason details) "update")
-                  (string/includes? (.. js/window -navigator -userAgent) "Firefox")
-                  (neg? (compare previous-version [2 3 0 1])))
+                  (neg? (compare previous-version [2 4 0 0])))
             (when-not goog.DEBUG
-              #_(.. browser -storage -local
-                  (set (clj->js {:blacklisted-urls
-                                 (:blacklisted-urls
-                                  ampie.settings/default-settings)
-                                 :seen-domain-links-notice false})))
               (mount/stop)
-              (-> (.. browser -storage -local (clear))
-                (.then (fn [] (-> (.-links @db) (.clear))))
-                (.then (fn [] (mount/start)))))))
+              (-> (.. browser -storage -local (get "blacklisted-urls"))
+                (then-fn [^js blacklisted-urls]
+                  (-> (.. browser -storage -local (clear))
+                    (then-fn []
+                      (.. browser -storage -local
+                        (set #js {"blacklisted-urls" blacklisted-urls})))))
+                (then-fn [] (-> (.-links @db) (.clear)))
+                (then-fn [] (mount/start))))))
 
         (when (or (= (.-reason details) "install")
                 (and (= (.-reason details) "update")
                   (not (string/starts-with? (.-previousVersion details)
-                         "2.3."))))
+                         "2.4."))))
           (.. browser -tabs
-            (create #js {:url "https://ampie.app/hello"}))))))
+            (create #js {:url (.. browser -runtime (getURL "update.html"))}))))))
 
   #_(.. browser -tabs
       (query #js {} process-already-open-tabs))

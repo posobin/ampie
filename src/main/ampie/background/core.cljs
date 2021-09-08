@@ -68,7 +68,7 @@
                   (-> (.. browser -storage -local (clear))
                     (then-fn []
                       (.. browser -storage -local
-                        (set #js {"blacklisted-urls" blacklisted-urls})))))
+                        (set blacklisted-urls)))))
                 (then-fn [] (-> (.-links @db) (.clear)))
                 (then-fn [] (mount/start))))))
 

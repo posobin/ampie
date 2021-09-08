@@ -79,29 +79,28 @@
 
 (defonce sidebar-visual-state
   (r/atom
-    {:last-shift-press     0
-     :force-open           false
-     :last-alt-shift-press 0
-     :hidden               false}))
+    {:last-shift-press 0
+     :force-open       false
+     :last-alt-press   0
+     :hidden           false}))
 
 (defn expand-sidebar! []
   (swap! sidebar-visual-state assoc :force-open true))
 
 (defn process-key-down
-  "Toggles the sidebar on double shift, closes it on double alt-shift"
+  "Toggles the sidebar on double shift, closes it on double alt"
   [e]
-  (if (= (str/lower-case (.-key e)) "shift")
-    (let [[last-time flag] (if (.-altKey e)
-                             [:last-alt-shift-press :hidden]
-                             [:last-shift-press :force-open])]
-      (if (> (+ (last-time @sidebar-visual-state) 400) (.getTime (js/Date.)))
-        (swap! sidebar-visual-state
-          (fn [visual-state] (-> visual-state (assoc last-time 0) (update flag not))))
-        (swap! sidebar-visual-state assoc last-time (.getTime (js/Date.)))))
-    (when-not (= (str/lower-case (.-key e)) "alt")
-      (swap! sidebar-visual-state assoc
-        :last-shift-press 0
-        :last-alt-shift-press 0))))
+  (if-let [[last-time flag] (case (str/lower-case (.-key e))
+                              "shift" [:last-shift-press :force-open]
+                              "alt"   [:last-alt-press :hidden]
+                              nil)]
+    (if (> (+ (last-time @sidebar-visual-state) 400) (.getTime (js/Date.)))
+      (swap! sidebar-visual-state
+        (fn [visual-state] (-> visual-state (assoc last-time 0) (update flag not))))
+      (swap! sidebar-visual-state assoc last-time (.getTime (js/Date.))))
+    (swap! sidebar-visual-state assoc
+      :last-shift-press 0
+      :last-alt-press 0)))
 
 (declare shadow-root)
 
@@ -190,7 +189,7 @@
                             (swap! sidebar-visual-state update :force-open not)
                             (log-analytics-event-once! :expand nil))}
                [:span.text-xs.whitespace-nowrap
-                "Shift × 2"]
+                "Shift-Shift"]
                (if (:force-open @sidebar-visual-state)
                  [:div.hide-sidebar-icon.w-4.h-4]
                  [:div.show-sidebar-icon.w-4.h-4])]
@@ -201,7 +200,7 @@
                             (swap! sidebar-visual-state update :hidden not)
                             (log-analytics-event-once! :close nil))}
                [:span.text-xs.whitespace-nowrap
-                "Alt-Shift × 2"]
+                "Alt-Alt"]
                [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
               [:div.sidebar-container.absolute.top-0.bottom-0
                {:class [(if (:force-open @sidebar-visual-state)

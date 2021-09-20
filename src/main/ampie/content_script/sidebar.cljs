@@ -15,7 +15,7 @@
             [reagent.core :as r]
             ["webextension-polyfill" :as browser]
             ["react-shadow-dom-retarget-events" :as retargetEvents]
-            [ampie.macros :refer [then-fn]]
+            [ampie.macros :refer [then-fn catch-fn]]
             [ampie.content-script.demo :refer [get-current-url send-message-to-page]]
             [reagent.dom :as rdom]
             [mount.core :as mount :refer [defstate]]))
@@ -23,16 +23,18 @@
 (defn load-page-info! [url]
   (send-message-to-page {:type :ampie-load-page-info :url url})
   (let [status (get-in @db [:url->context url :ampie/status])]
-    (when-not (#{:loaded :loading} status)
-      (swap! db assoc-in [:url->context url :ampie/status]
-        :loading)
-      (-> (.. browser -runtime
-            (sendMessage (clj->js {:type :get-url-context
-                                   :url  url})))
-        (.then #(js->clj % :keywordize-keys true))
-        (then-fn [{:keys [occurrences]}]
-          (swap! db assoc-in [:url->context url]
-            (assoc occurrences :ampie/status :loaded)))))))
+    (if-not (#{:loaded :loading} status)
+      (do (swap! db assoc-in [:url->context url :ampie/status]
+            :loading)
+          (-> (.. browser -runtime
+                (sendMessage (clj->js {:type :get-url-context
+                                       :url  url})))
+            (.then #(js->clj % :keywordize-keys true))
+            (then-fn [{:keys [occurrences]}]
+              (swap! db assoc-in [:url->context url]
+                (assoc occurrences :ampie/status :loaded))
+              true)))
+      (js/Promise.resolve false))))
 
 (defn url-blacklisted? [url]
   (.. browser -runtime
@@ -45,26 +47,81 @@
 
 (declare expand-sidebar! scroll-header-into-view! log-analytics-event! reset-analytics-log!)
 
+(defn has-contexts? [url]
+  (let [url-context @(r/cursor db [:url->context url])]
+    {:has-domain-context (boolean (seq (url-context :domain)))
+     :has-page-context   (boolean (some #(seq (url-context %))
+                                    (remove #{:domain} db/url-context-origins)))}))
+
+(defn show-sidebar-on-url? [url]
+  (let [{:keys [has-domain-context has-page-context]} (has-contexts? url)]
+    (.. browser -runtime
+      (sendMessage (clj->js {:type               :show-sidebar-on-url?
+                             :url                url
+                             :has-domain-context has-domain-context
+                             :has-page-context   has-page-context})))))
+
+(defn mark-page-visited! [url]
+  (let [{:keys [has-domain-context has-page-context]} (has-contexts? url)]
+    (.. browser -runtime
+      (sendMessage (clj->js {:type               :mark-page-visited!
+                             :url                url
+                             :has-domain-context has-domain-context
+                             :has-page-context   has-page-context})))))
+
+(defonce sidebar-visual-state
+  (r/atom
+    {:last-shift-press 0
+     :force-open       false ;; Expand the sidebar without hover?
+     :last-alt-press   0
+     ;; Hide the sidebar completely?
+     :hidden           true
+     }))
+
+(defn load-all-origins-info-for-url!
+  "Returns a promise that resolves once all the info for all the origins
+  has been loaded for the given url"
+  [url]
+  (js/Promise.all
+    (array
+      (domain/load-next-batch-of-domain-links! url)
+      (domain/load-next-batch-of-backlinks! url)
+      (twitter/load-next-batch-of-tweets! url)
+      (amplified/load-next-batch-of-amplified-links! url)
+      (hn/load-next-batch-of-stories! url)
+      (hn/load-next-batch-of-comments! url))))
+
+(defn load-all-current-url-info!
+  "Makes sure the current active url has all its info loaded, returns a promise
+  that resolves once it is"
+  []
+  (let [url (first @(r/cursor db [:url]))]
+    (.then (load-page-info! url)
+      #(load-all-origins-info-for-url! url))))
+
 (defn set-sidebar-url!
   ([url] (set-sidebar-url! url {}))
-  ([url {:keys [expand-sidebar focus-origin from-search]
+  ([url {:keys [expand-sidebar focus-origin reason]
          :or   {expand-sidebar false
                 focus-origin   nil
-                from-search    false}}]
+                reason         :page-visit}}]
+   {:pre [(#{:page-visit :ampie-tag-click} reason)]}
    (reset-analytics-log!)
    (swap! db update :url conj url)
    (when expand-sidebar (expand-sidebar!))
-   (when from-search (log-analytics-event! :search-click nil))
-   (-> (or (some-> (load-page-info! url)
-             (then-fn []
-               (js/Promise.all
-                 (array (domain/load-next-batch-of-domain-links! url)
-                   (domain/load-next-batch-of-backlinks! url)
-                   (twitter/load-next-batch-of-tweets! url)
-                   (amplified/load-next-batch-of-amplified-links! url)
-                   (hn/load-next-batch-of-stories! url)
-                   (hn/load-next-batch-of-comments! url)))))
-         (js/Promise.resolve))
+   (when (= reason :ampie-tag-click) (log-analytics-event! :search-click nil))
+   (-> (load-page-info! url)
+     (then-fn []
+       (if (= reason :page-visit)
+         (-> (show-sidebar-on-url? url)
+           (then-fn [show?]
+             (.then (mark-page-visited! url)
+               (constantly show?))))
+         true))
+     (then-fn [show?]
+       (when show?
+         (swap! sidebar-visual-state assoc :hidden false)
+         (load-all-origins-info-for-url! url)))
      (then-fn []
        (when focus-origin
          (js/setTimeout
@@ -74,18 +131,12 @@
 (declare display-sidebar! remove-sidebar!)
 
 ;; For restoring the scroll position on remount when developing
-;; TODO: save it in the ui-state in the DB
+;; TODO: save it in the ui-state in the DB?
 (defonce scroll-position (atom 0))
 
-(defonce sidebar-visual-state
-  (r/atom
-    {:last-shift-press 0
-     :force-open       false
-     :last-alt-press   0
-     :hidden           false}))
-
 (defn expand-sidebar! []
-  (swap! sidebar-visual-state assoc :force-open true))
+  (swap! sidebar-visual-state
+    assoc :force-open true :hidden false))
 
 (defn process-key-down
   "Toggles the sidebar on double shift, closes it on double alt"
@@ -95,8 +146,12 @@
                               "alt"   [:last-alt-press :hidden]
                               nil)]
     (if (> (+ (last-time @sidebar-visual-state) 400) (.getTime (js/Date.)))
-      (swap! sidebar-visual-state
-        (fn [visual-state] (-> visual-state (assoc last-time 0) (update flag not))))
+      (let [[old new] (swap-vals! sidebar-visual-state
+                        (fn [visual-state]
+                          (-> visual-state (assoc last-time 0) (update flag not))))]
+        (when (and (not (:hidden new)) (:hidden old))
+          ;; When unhiding the sidebar, make sure that all of the info in it is loaded
+          (load-all-current-url-info!)))
       (swap! sidebar-visual-state assoc last-time (.getTime (js/Date.))))
     (swap! sidebar-visual-state assoc
       :last-shift-press 0
@@ -265,7 +320,6 @@
      :container         sidebar-div}))
 
 (defn display-sidebar! []
-  (js/console.log "loading sidebar")
   (when (. js/document querySelector ".ampie-sidebar-holder")
     (when goog.DEBUG
       (js/alert "ampie: attaching a second sidebar")
@@ -277,7 +331,8 @@
     (-> (url-blacklisted? url)
       (then-fn [blacklisted?]
         (when-not blacklisted?
-          (set-sidebar-url! url {:expand-sidebar false}))))
+          (set-sidebar-url! url {:expand-sidebar false
+                                 :reason         :page-visit}))))
     (rdom/render [sidebar-component] container call-after-render)
     {:remove-sidebar! remove-sidebar!}))
 

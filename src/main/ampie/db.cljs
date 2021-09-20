@@ -4,7 +4,7 @@
   (:require-macros [mount.core :refer [defstate]]))
 
 (defn init-db [db]
-  (-> (. db (version 5))
+  (-> (. db (version 6))
     (. stores
       #js {:visits         "&visitHash, normalizedUrl, firstOpened, url"
            :closedTabs     "++objId"
@@ -12,6 +12,7 @@
            :links          "&normalizedUrl"
            :seenBadgeLinks "&normalizedUrl"
            :visitedDomains "&domain"
+           :visitedUrls    "&normalizedUrl"
            :sawAmplifyOn   "&url"})))
 
 (defstate db

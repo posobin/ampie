@@ -1,6 +1,6 @@
 (ns ampie.visits.db
   (:require [ampie.db :refer [db]]
-            [taoensso.timbre :as log]
+            [ampie.macros :refer [then-fn]]
             [ampie.url :as url]
             [ampie.interop :as i]))
 
@@ -193,10 +193,67 @@
     (.get normalized-domain)
     (.then some?)))
 
+(def max-domain-visits-stored 2)
+
 (defn mark-domain-visited [normalized-domain]
   (-> (.-visitedDomains @db)
-    (.put (clj->js {:domain        normalized-domain
-                    :lastTimestamp (.getTime (js/Date.))}))))
+    (.get normalized-domain)
+    (.then i/js->clj)
+    (then-fn [{:keys [timestamps] :as entry}]
+      (-> (.-visitedDomains @db)
+        (.put (i/clj->js
+                (assoc entry
+                  :domain       normalized-domain
+                  :timestamps   (->> (conj (seq timestamps) (.getTime (js/Date.)))
+                                  (take max-domain-visits-stored)))))))))
+
+(def max-url-visits-stored 2)
+
+(defn mark-nurl-visited [normalized-url]
+  (-> (.-visitedUrls @db)
+    (.get normalized-url)
+    (.then i/js->clj)
+    (then-fn [{:keys [timestamps] :as entry}]
+      (-> (.-visitedUrls @db)
+        (.put (i/clj->js
+                (assoc entry
+                  :normalizedUrl normalized-url
+                  :timestamps    (->> (conj (seq timestamps)
+                                        (.getTime (js/Date.)))
+                                   (take max-url-visits-stored)))))))))
+
+(def visits-considered-many 2)
+
+(when goog.DEBUG
+  (assert (<= visits-considered-many max-domain-visits-stored))
+  (assert (<= visits-considered-many max-url-visits-stored)))
+
+(defn domain-visited-many-times?
+  "Resolves with true if there were at least `visits-considered-many`
+  visits to the `normalized-domain` within the last 60 days. Note that the DB
+  stores only the last `max-domain-visits-stored` visits, so make sure that
+  `visits-considered-many` <= `max-domain-visits-stored`."
+  [normalized-domain]
+  (-> (.-visitedDomains @db)
+    (.get normalized-domain)
+    (.then i/js->clj)
+    (then-fn [{:keys [timestamps]}]
+      (let [now (.getTime (js/Date.))]
+        ;; Count the number of visits in the last 60 days
+        (->> (filter #(< (- now %) (* 60 24 60 60 1000)) timestamps)
+          count
+          (<= visits-considered-many))))))
+
+(defn nurl-visited-many-times? [normalized-url]
+  (-> (.-visitedUrls @db)
+    (.get normalized-url)
+    (.then i/js->clj)
+    (then-fn [{:keys [timestamps]}]
+      (let [now (.getTime (js/Date.))]
+        ;; Count the number of visits in the last 60 days
+        (->> (filter #(< (- now %) (* 60 24 60 60 1000)) timestamps)
+          count
+          (<= visits-considered-many))))))
 
 (defn saw-amplify-before? [url]
   (-> (.-sawAmplifyOn @db)

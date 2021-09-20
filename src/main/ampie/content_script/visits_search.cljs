@@ -106,7 +106,7 @@
            :on-click (fn [e] (set-sidebar-url! (:url url-overview)
                                {:expand-sidebar true
                                 :focus-origin   origin
-                                :from-search    true})
+                                :reason         :ampie-tag-click})
                        (.stopPropagation e))}
           [:div.self-center.w-4.h-4.rounded {:class [(str (name origin) "-icon")]}]
           [:span (:count info)]])
@@ -121,7 +121,7 @@
 
 (defn- get-google-result-link-root [^js node]
   (let [root (reduce #(.-parentElement %1) node (range 4))]
-    (when (= (.-className root) "g")
+    (when (= (first (.-classList root)) "g")
       root)))
 
 (defn- add-search-result-tags
@@ -155,11 +155,13 @@
       (then-fn [response]
         (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
                 (map vector response ahrefs)
-                :when ahref]
+                :when ahref
+                :let  [root (get-google-result-link-root ahref)]
+                :when root]
           (add-search-result-tags
             {:overview         overview
              :set-sidebar-url! sidebar/set-sidebar-url!
-             :root             (get-google-result-link-root ahref)
+             :root             root
              :engine           :google}))))))
 
 (defn- get-ddg-result-link-root [^js node]

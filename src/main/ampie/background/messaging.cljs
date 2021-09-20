@@ -9,6 +9,7 @@
             [ampie.background.analytics :as analytics]
             [ampie.settings :refer [settings]]
             [ampie.background.link-cache-sync :as link-cache-sync]
+            [ampie.macros :refer [then-fn]]
             [clojure.set]
             [clojure.string]
             [taoensso.timbre :as log]
@@ -253,6 +254,25 @@
 (defn log-analytics-event [{:keys [event details]}]
   (analytics/log-event! event details))
 
+(defn mark-page-visited [{:keys [url has-domain-context has-page-context]}]
+  (let [normalized (url/normalize url)
+        domain     (url/get-domain-normalized normalized)]
+    (.then
+      (js/Promise.all
+        [(when has-domain-context (visits.db/mark-domain-visited domain))
+         (when has-page-context (visits.db/mark-nurl-visited normalized))])
+      (constantly true))))
+
+(defn show-sidebar-on-url? [{:keys [url has-domain-context has-page-context]}]
+  (let [normalized (url/normalize url)
+        domain     (url/get-domain-normalized normalized)]
+    (-> (js/Promise.all
+          [(visits.db/domain-visited-many-times? domain)
+           (visits.db/nurl-visited-many-times? normalized)])
+      (then-fn [[domain-frequent nurl-frequent]]
+        (or (and has-page-context (not nurl-frequent))
+          (and has-domain-context (not domain-frequent)))))))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -263,7 +283,7 @@
       :inc-badge-sightings       (inc-badge-sightings request sender)
       :get-urls-overview         (get-urls-overview request)
       :get-url-context           (get-url-context request)
-      :get-partial-url-context   (get-url-context request)
+      :get-partial-url-context   (get-partial-url-context request)
       :get-url-info              (get-url-info-based-on-local-cache request sender true)
       :get-local-url-info        (get-url-info-based-on-local-cache request sender false)
       :get-links-pages-info      (get-links-pages-info request sender)
@@ -293,6 +313,8 @@
       :open-page-context         (open-page-context request sender)
       :get-command-shortcuts     (get-command-shortcuts)
       :log-analytics-event       (log-analytics-event request)
+      :show-sidebar-on-url?      (show-sidebar-on-url? request)
+      :mark-page-visited!        (mark-page-visited request)
 
       (log/error "Unknown request type" request-type))))
 

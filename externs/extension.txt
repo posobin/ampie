@@ -4,4 +4,5 @@ links
 closedTabs
 seenBadgeLinks
 visitedDomains
+visitedUrls
 sawAmplifyOn

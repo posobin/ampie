@@ -155,7 +155,7 @@
     [:occurrences [:map-of OverviewOrigins [:map [:count number?]]]]
     [:title [:or string? nil?]]
     [:date {:optional true} [:or string? nil?]]
-    [:author [:or string? nil?]]
+    [:author {:optional true} [:or string? nil?]]
     [:ampie/status LoadStatus]]
    [:map
     [:error string?]

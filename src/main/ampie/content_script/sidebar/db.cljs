@@ -194,9 +194,13 @@
 
 (def url-context-origins (keys url-context-origins-schemas))
 
+(def UserState
+  [:map [:logged-out? boolean?]])
+
 (def DB
   (mu/optional-keys
     [:map {:closed true}
+     [:user-state UserState]
      [:url [:sequential string?]]
      [:tweet-id->tweet [:map-of :string Tweet]]
      [:hn-item-id->hn-item [:map-of number? HNItem]]

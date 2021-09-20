@@ -10,6 +10,7 @@
             [ampie.content-script.sidebar.amplified :as amplified]
             [ampie.content-script.sidebar.amplified-views :as amplified-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
+            [ampie.components.basics :as b]
             [clojure.string :as str]
             [clojure.edn]
             [reagent.core :as r]
@@ -30,10 +31,12 @@
                 (sendMessage (clj->js {:type :get-url-context
                                        :url  url})))
             (.then #(js->clj % :keywordize-keys true))
-            (then-fn [{:keys [occurrences]}]
+            (then-fn [{:keys [occurrences error]}]
               (swap! db assoc-in [:url->context url]
-                (assoc occurrences :ampie/status :loaded))
-              true)))
+                (assoc occurrences :ampie/status (if error :error :loaded)))
+              (when (= error "unauthorized")
+                (swap! db assoc-in [:user-state :logged-out?] true))
+              (boolean error))))
       (js/Promise.resolve false))))
 
 (defn url-blacklisted? [url]
@@ -44,6 +47,14 @@
 (defn sidebar-empty? [url]
   (let [url-context @(r/cursor db [:url->context url])]
     (not (some #(seq (url-context %)) db/url-context-origins))))
+
+(defn logged-out? []
+  @(r/cursor db [:user-state :logged-out?]))
+
+(defn show-sidebar? [url]
+  (or (and (= @(r/cursor db [:url->context url :ampie/status]) :loaded)
+        (not @(r/track sidebar-empty? url)))
+    (logged-out?)))
 
 (declare expand-sidebar! scroll-header-into-view! log-analytics-event! reset-analytics-log!)
 
@@ -112,7 +123,8 @@
    (when (= reason :ampie-tag-click) (log-analytics-event! :search-click nil))
    (-> (load-page-info! url)
      (then-fn []
-       (if (= reason :page-visit)
+       ;; Always show the sidebar when logged out to prompt the log in
+       (if (and (= reason :page-visit) (not (logged-out?)))
          (-> (show-sidebar-on-url? url)
            (then-fn [show?]
              (.then (mark-page-visited! url)
@@ -226,8 +238,7 @@
        :reagent-render
        (fn []
          (when-let [url (first @(r/cursor db [:url]))]
-           (when (and (= @(r/cursor db [:url->context url :ampie/status]) :loaded)
-                   (not @(r/track sidebar-empty? url)))
+           (when (show-sidebar? url)
              ;; It's ok to call this on every render since it logs at most once per mounted component
              (log-analytics-event-once! :seen nil)
              [:div.fixed.right-0.font-sans.transition-offsets
@@ -275,6 +286,10 @@
                                ((:on-scroll sticky) el)))))}
                  [(:render-context-provider sticky)
                   [:div.flex.flex-col.gap-2
+                   (when (logged-out?)
+                     [:div [:a.text-link-color.underline
+                            (b/ahref-opts "https://ampie.app/register") "Sign up"]
+                      " to use ampie"])
                    [amplified-views/amplified-context url]
                    [twitter-views/twitter-context url]
                    [hn-views/hn-stories-context url]

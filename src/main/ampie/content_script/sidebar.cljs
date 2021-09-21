@@ -80,14 +80,15 @@
                              :has-domain-context has-domain-context
                              :has-page-context   has-page-context})))))
 
-(defonce sidebar-visual-state
-  (r/atom
-    {:last-shift-press 0
-     :force-open       false ;; Expand the sidebar without hover?
-     :last-alt-press   0
-     ;; Hide the sidebar completely?
-     :hidden           true
-     }))
+(def initial-sidebar-visual-state
+  {:last-shift-press 0
+   :force-open       false ;; Expand the sidebar without hover?
+   :last-alt-press   0
+   ;; Hide the sidebar completely?
+   :hidden           true
+   })
+
+(defonce sidebar-visual-state (r/atom initial-sidebar-visual-state))
 
 (defn load-all-origins-info-for-url!
   "Returns a promise that resolves once all the info for all the origins
@@ -354,6 +355,7 @@
 (defn remove-sidebar! []
   (when-let [element (.. js/document -body (querySelector ".ampie-sidebar-holder"))]
     (.. js/document -body (removeChild element))
+    (reset! sidebar-visual-state initial-sidebar-visual-state)
     (let [shadow-root (.. element -shadowRoot (querySelector ".sidebar-wrapper"))]
       (rdom/unmount-component-at-node shadow-root))))
 

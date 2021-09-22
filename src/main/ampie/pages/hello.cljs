@@ -1,10 +1,8 @@
 (ns ampie.pages.hello
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
-            [taoensso.timbre :as log]
             [ampie.components.basics :as b]
             [ampie.background.backend :refer [user-info] :as backend]
-            ["webextension-polyfill" :as browser]
             [mount.core :as mount]))
 
 (def state (r/atom {}))
@@ -30,11 +28,18 @@
        [:a (b/ahref-opts "https://ampie.app/") "ampie.app"]
        " to see tweets about pages you visit. Then read on."]
       :else
-      [:p "Hi! Two things."])
+      [:p "Hi! Three things."])
     [subheader "Sidebar"]
     [:p "Easy: go to a page, sidebar pops up. "
      "Not to annoy you, it " [highlight "pops up at most twice per page" false] ". "
      "Use keyboard shortcuts, Luke: Alt-Alt, Shift-Shift."]
+
+    [subheader "Amplify pages"]
+    [:p "After two minutes on a page, "
+     [highlight "ampie suggests to you to amplify it" false] ". "
+     "Other ampie users will see who amplified the current page in their sidebar. "
+     "You can disable this suggestion in settings: "
+     "click on the ampie icon in the extensions menu near address bar."]
 
     [subheader "Leave feedback"]
     [:p [highlight "Scroll to the bottom of the sidebar" false]

@@ -41,8 +41,10 @@ manifest.json
 out/background.js
 out/bg-shared.js
 out/content-script.js
+out/hello-page.js
 out/popup-page.js
 out/shared.js
 out/update-page.js
 popup.html
 update.html
+hello.html

@@ -9,6 +9,7 @@
             [ampie.content-script.sidebar.domain-views :as domain-views]
             [ampie.content-script.sidebar.amplified :as amplified]
             [ampie.content-script.sidebar.amplified-views :as amplified-views]
+            [ampie.content-script.sidebar.feedback-views :as feedback-views]
             [ampie.content-script.sidebar.sticky-manager :as sticky-manager]
             [ampie.components.basics :as b]
             [clojure.string :as str]
@@ -296,7 +297,8 @@
                    [hn-views/hn-stories-context url]
                    [hn-views/hn-comments-context url]
                    [domain-views/backlinks-context url]
-                   [domain-views/domain-context url]]]]
+                   [domain-views/domain-context url]
+                   [feedback-views/feedback-form]]]]
                 (when goog.DEBUG
                   [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
                    [:div.text-link-color.hover:underline
@@ -355,7 +357,8 @@
 (defn remove-sidebar! []
   (when-let [element (.. js/document -body (querySelector ".ampie-sidebar-holder"))]
     (.. js/document -body (removeChild element))
-    (reset! sidebar-visual-state initial-sidebar-visual-state)
+    (when-not goog.DEBUG
+      (reset! sidebar-visual-state initial-sidebar-visual-state))
     (let [shadow-root (.. element -shadowRoot (querySelector ".sidebar-wrapper"))]
       (rdom/unmount-component-at-node shadow-root))))
 

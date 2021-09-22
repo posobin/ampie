@@ -365,3 +365,17 @@
           :params        {:data analytics-data}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
+
+(defn send-feedback
+  "Sends the given contents string to the feedback endpoint on the backend.
+  Rejects if the request fails."
+  [contents]
+  (js/Promise.
+    (fn [resolve reject]
+      (POST (endpoint "log/feedback")
+        (assoc (base-request-options)
+          :params        {:contents contents}
+          :handler       #(resolve (js->clj % :keywordize-keys true))
+          :error-handler #(reject (error->map %)))))))
+
+(comment (send-feedback "hello"))

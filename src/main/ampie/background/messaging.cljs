@@ -263,6 +263,11 @@
          (when has-page-context (visits.db/mark-nurl-visited normalized))])
       (constantly true))))
 
+(defn send-feedback [{:keys [contents]}]
+  (-> (backend/send-feedback contents)
+    (.then clj->js)
+    (.catch (fn [x] (js/console.log x) (clj->js x)))))
+
 (defn show-sidebar-on-url? [{:keys [url has-domain-context has-page-context]}]
   (let [normalized (url/normalize url)
         domain     (url/get-domain-normalized normalized)]
@@ -315,6 +320,7 @@
       :log-analytics-event       (log-analytics-event request)
       :show-sidebar-on-url?      (show-sidebar-on-url? request)
       :mark-page-visited!        (mark-page-visited request)
+      :send-feedback             (send-feedback request)
 
       (log/error "Unknown request type" request-type))))
 

@@ -57,25 +57,26 @@
                      (or (.-previousVersion details) "0.0.0.0"))
                 rest
                 (mapv (fnil js/parseInt "0")))]
-          (js/console.log "Previuos ampie version "
+          (js/console.log "Previous ampie version "
             (string/join "." previous-version))
-          (when (and (= (.-reason details) "update")
-                  (neg? (compare previous-version [2 4 0 0])))
-            (when-not goog.DEBUG
-              (mount/stop)
-              (-> (.. browser -storage -local (get "blacklisted-urls"))
-                (then-fn [^js blacklisted-urls]
-                  (-> (.. browser -storage -local (clear))
-                    (then-fn []
-                      (.. browser -storage -local
-                        (set blacklisted-urls)))))
-                (then-fn [] (-> (.-links @db) (.clear)))
-                (then-fn [] (mount/start))))))
+          #_(when (and (= (.-reason details) "update")
+                    (neg? (compare previous-version [2 4 0 0])))
+              (when-not goog.DEBUG
+                (mount/stop)
+                (-> (.. browser -storage -local (get "blacklisted-urls"))
+                  (then-fn [^js blacklisted-urls]
+                    (-> (.. browser -storage -local (clear))
+                      (then-fn []
+                        (.. browser -storage -local
+                          (set blacklisted-urls)))))
+                  (then-fn [] (-> (.-links @db) (.clear)))
+                  (then-fn [] (mount/start))))))
 
-        (when (or (= (.-reason details) "install")
-                (and (= (.-reason details) "update")
-                  (not (string/starts-with? (.-previousVersion details)
-                         "2.4."))))
+        (when (= (.-reason details) "install")
+          (.. browser -tabs
+            (create #js {:url (.. browser -runtime (getURL "hello.html"))})))
+
+        (when (= (.-reason details) "update")
           (.. browser -tabs
             (create #js {:url (.. browser -runtime (getURL "update.html"))}))))))
 

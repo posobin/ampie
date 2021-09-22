@@ -18,6 +18,7 @@
        " If you want me to know this page's URL, make sure to add it as well."]
       [:textarea.border.focus:outline-none.focus:border-blue-300.h-auto.rounded-md.w-full.resize-none.p-2
        {:rows      5
+        :placeholder "Type here"
         :disabled  (= @status :sending)
         :value     @contents
         :on-change #(reset! contents (.. % -target -value))}]

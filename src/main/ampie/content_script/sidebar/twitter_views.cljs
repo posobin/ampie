@@ -134,9 +134,10 @@
        :error
        [:div.p-1 "Couldn't load "
         [:a.text-link-color
-         {:href (str "https://twitter.com/" (or (:tweet/screen-name info) "")
-                  "/status/" root-tweet-id)}
-         "tweet"]])]))
+         (b/ahref-opts (str "https://twitter.com/" (or (:tweet/screen-name info) "")
+                         "/status/" root-tweet-id))
+         "tweet"] ". Make sure to log in with twitter at "
+        [:a.text-link-color (b/ahref-opts "https://ampie.app") "ampie.app"] "."])]))
 
 (defn twitter-context [url {:keys [hide-header]}]
   (let [{:keys [showing ampie/status]} (get-in @db [:url->ui-state url :twitter])

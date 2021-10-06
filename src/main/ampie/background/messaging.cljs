@@ -7,6 +7,7 @@
             [ampie.links :as links]
             [ampie.background.backend :as backend]
             [ampie.background.analytics :as analytics]
+            [ampie.background.top-10k-domains :refer [top-10k-domains]]
             [ampie.settings :refer [settings]]
             [ampie.background.link-cache-sync :as link-cache-sync]
             [ampie.macros :refer [then-fn]]
@@ -273,10 +274,12 @@
         domain     (url/get-domain-normalized normalized)]
     (-> (js/Promise.all
           [(visits.db/domain-visited-many-times? domain)
-           (visits.db/nurl-visited-many-times? normalized)])
-      (then-fn [[domain-frequent nurl-frequent]]
+           (visits.db/nurl-visited-many-times? normalized)
+           (contains? top-10k-domains (url/get-domain url))])
+      (then-fn [[domain-frequent nurl-frequent popular-domain]]
         (or (and has-page-context (not nurl-frequent))
-          (and has-domain-context (not domain-frequent)))))))
+          (and has-domain-context (and (not domain-frequent)
+                                    (not popular-domain))))))))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)

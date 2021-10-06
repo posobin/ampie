@@ -104,6 +104,38 @@
       (hn/load-next-batch-of-stories! url)
       (hn/load-next-batch-of-comments! url))))
 
+(defn set-sidebar-url!
+  ([url] (set-sidebar-url! url {}))
+  ([url {:keys [expand-sidebar focus-origin reason prevent-load]
+         :or   {expand-sidebar false
+                focus-origin   nil
+                prevent-load   false
+                reason         :page-visit}}]
+   {:pre [(#{:page-visit :ampie-tag-click} reason)]}
+   (reset-analytics-log!)
+   (swap! db update :url conj url)
+   (when expand-sidebar (expand-sidebar!))
+   (when (= reason :ampie-tag-click) (log-analytics-event! :search-click nil))
+   (when-not prevent-load
+     (-> (load-page-info! url)
+       (then-fn []
+         ;; Always show the sidebar when logged out to prompt the log in
+         (if (and (= reason :page-visit) (not (logged-out?)))
+           (-> (show-sidebar-on-url? url)
+             (then-fn [show?]
+               (.then (mark-page-visited! url)
+                 (constantly show?))))
+           true))
+       (then-fn [show?]
+         (when show?
+           (swap! sidebar-visual-state assoc :hidden false)
+           (load-all-origins-info-for-url! url)))
+       (then-fn []
+         (when focus-origin
+           (js/setTimeout
+             #(scroll-header-into-view! (name focus-origin))
+             500)))))))
+
 (defn load-all-current-url-info!
   "Makes sure the current active url has all its info loaded, returns a promise
   that resolves once it is"
@@ -111,36 +143,6 @@
   (let [url (first @(r/cursor db [:url]))]
     (.then (load-page-info! url)
       #(load-all-origins-info-for-url! url))))
-
-(defn set-sidebar-url!
-  ([url] (set-sidebar-url! url {}))
-  ([url {:keys [expand-sidebar focus-origin reason]
-         :or   {expand-sidebar false
-                focus-origin   nil
-                reason         :page-visit}}]
-   {:pre [(#{:page-visit :ampie-tag-click} reason)]}
-   (reset-analytics-log!)
-   (swap! db update :url conj url)
-   (when expand-sidebar (expand-sidebar!))
-   (when (= reason :ampie-tag-click) (log-analytics-event! :search-click nil))
-   (-> (load-page-info! url)
-     (then-fn []
-       ;; Always show the sidebar when logged out to prompt the log in
-       (if (and (= reason :page-visit) (not (logged-out?)))
-         (-> (show-sidebar-on-url? url)
-           (then-fn [show?]
-             (.then (mark-page-visited! url)
-               (constantly show?))))
-         true))
-     (then-fn [show?]
-       (when show?
-         (swap! sidebar-visual-state assoc :hidden false)
-         (load-all-origins-info-for-url! url)))
-     (then-fn []
-       (when focus-origin
-         (js/setTimeout
-           #(scroll-header-into-view! (name focus-origin))
-           500))))))
 
 (declare display-sidebar! remove-sidebar!)
 
@@ -348,9 +350,9 @@
         url (get-current-url)]
     (-> (url-blacklisted? url)
       (then-fn [blacklisted?]
-        (when-not blacklisted?
-          (set-sidebar-url! url {:expand-sidebar false
-                                 :reason         :page-visit}))))
+        (set-sidebar-url! url {:expand-sidebar false
+                               :prevent-load   blacklisted?
+                               :reason         :page-visit})))
     (rdom/render [sidebar-component] container call-after-render)
     {:remove-sidebar! remove-sidebar!}))
 

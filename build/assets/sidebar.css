@@ -16,6 +16,7 @@
 
     transition-property: right, box-shadow; transition-duration: 0.15s; transition-timing-function: ease;
     will-change: right;
+    color: black;
 }
 
 .sidebar-container:hover {

@@ -5,7 +5,7 @@
             [ampie.content-script.info-bar :refer [info-bar-state]]
             [ampie.content-script.sidebar :refer [sidebar-state]]
             [ampie.content-script.amplify :refer [amplify]]
-            [ampie.content-script.visits-search :refer [google-results ddg-results]]
+            [ampie.content-script.visits-search :refer [tags-adder]]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]))
 
@@ -28,8 +28,7 @@
                              #{#'page-service
                                ;; #'badge/seen-badges-ids #'badge/on-badge-remove
                                ;; #'badge/existing-badges 'badge/visible-badges
-                               #'google-results
-                               #'ddg-results
+                               #'tags-adder
                                #'sidebar-state
                                ;; Info bar should start lazily because it is referenced
                                ;; in page-service.
@@ -64,8 +63,7 @@
                  #{#'page-service
                    ;; #'badge/seen-badges-ids #'badge/on-badge-remove
                    ;; #'badge/existing-badges 'badge/visible-badges
-                   #'google-results
-                   #'ddg-results
+                   #'tags-adder
                    #'sidebar-state
                    ;; Info bar should start lazily because it is referenced
                    ;; in page service.

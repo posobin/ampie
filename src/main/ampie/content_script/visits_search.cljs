@@ -94,8 +94,9 @@
 (defn- search-result-tags [url-overview set-sidebar-url! engine]
   (let [{:keys [occurrences]} url-overview]
     (when (some (comp pos? :count val) occurrences)
-      [:div.flex.flex-row.gap-1.mt-1
-       {:class (when (= engine :google) :-mb-4)}
+      [:div.flex.flex-row.gap-1.mt-1.items-center
+       {:class (cond (= engine :google)  :-mb-4
+                     (= engine :youtube) :text-xs)}
        (for [origin sources
              :let   [info (get occurrences origin)]
              :when  (pos? (:count info))]
@@ -156,13 +157,14 @@
         (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
                 (map vector response ahrefs)
                 :when ahref
-                :let  [root (get-google-result-link-root ahref)]
-                :when root]
+                :let  [^js root (get-google-result-link-root ahref)]
+                :when (and root (not (.. root -dataset -addedAmpieTags)))]
           (add-search-result-tags
             {:overview         overview
              :set-sidebar-url! sidebar/set-sidebar-url!
              :root             root
-             :engine           :google}))))))
+             :engine           :google})
+          (set! (.. root -dataset -addedAmpieTags) true))))))
 
 (defn- get-ddg-result-link-root [^js node]
   (let [root (reduce #(.-parentElement %1) node (range 3))]
@@ -173,88 +175,91 @@
   (let [ahrefs (->> (array-seq (.querySelectorAll js/document.body ".result a[href].result__url"))
                  (filter #(nil? (.getAttribute % "processed-by-ampie"))))
         urls   (mapv #(.-href %) ahrefs)]
-    (js/console.log ahrefs)
-    (js/console.log urls)
     (-> (.. browser -runtime
           (sendMessage (clj->js {:type                :get-urls-overview
                                  :urls                urls
                                  :fast-but-incomplete true})))
       (.then #(js->clj % :keywordize-keys true))
       (then-fn [response]
-        (js/console.log response)
         (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
                 (map vector response ahrefs)
-                :when ahref]
+                :when ahref
+                :let  [^js root (get-ddg-result-link-root ahref)]
+                :when (and root (not (.. root -dataset -addedAmpieTags)))]
           (add-search-result-tags
             {:overview         overview
              :set-sidebar-url! sidebar/set-sidebar-url!
-             :root             (get-ddg-result-link-root ahref)
-             :engine           :ddg}))))))
+             :root             root
+             :engine           :ddg})
+          (set! (.. root -dataset -addedAmpieTags) true))))))
+
+(defn- get-youtube-result-link-root [^js node]
+  (or (.closest node ".text-wrapper") (.closest node ".metadata")
+    ; #meta appears on the homepage in the grid of suggested videos
+    (.closest node "#meta")))
+
+(defn- add-youtube-tags []
+  (let [ahrefs (->> (concat (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"]#video-title"))
+                      (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"]#video-title-link"))
+                      (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"].yt-simple-endpoint")))
+                 (filter #(nil? (.getAttribute % "processed-by-ampie"))))
+        urls   (mapv #(.-href %) ahrefs)]
+    (-> (.. browser -runtime
+          (sendMessage (clj->js {:type                :get-urls-overview
+                                 :urls                urls
+                                 :fast-but-incomplete true})))
+      (.then #(js->clj % :keywordize-keys true))
+      (.then (fn [response] (mapv #(update % :occurrences dissoc :domain) response)))
+      (then-fn [response]
+        (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
+                (map vector response ahrefs)
+                :when ahref
+                :let  [^js root (get-youtube-result-link-root ahref)]
+                :when (and root (not (.. root -dataset -addedAmpieTags)))]
+          (set! (.. root -dataset -addedAmpieTags) true)
+          (add-search-result-tags
+            {:overview         overview
+             :set-sidebar-url! sidebar/set-sidebar-url!
+             :root             root
+             :engine           :youtube}))))))
+
+(defonce youtube-tags-job (atom nil))
+
+(defn start-youtube-job! []
+  (js/setTimeout add-youtube-tags 500)
+  (some-> @youtube-tags-job js/clearInterval)
+  (reset! youtube-tags-job
+    (js/setInterval add-youtube-tags 5000)))
 
 (defn- delete-all-tags! []
-  (doseq [element
+  (doseq [^js element
           (array-seq
             (.. js/document -body
               (querySelectorAll (str "[data-ampie='"
                                   result-tags-attr-value "']"))))]
-    (.remove element)))
+    (.remove element))
+  (doseq [^js element
+          (array-seq
+            (.. js/document -body
+              (querySelectorAll (str "[data-added-ampie-tags='true']"))))]
+    (.removeAttribute element "data-added-ampie-tags")))
 
-(defstate google-results
-  :start (when (and (re-matches #"https://(www\.)?google\..{1,6}/search.*"
-                      (.. js/document -location -href))
-                 ;; Prevents showing ampie results when searching in local maps
-                 (not (string/includes? (.. js/document -location -href)
-                        "tbm=lcl")))
-           (add-google-tags)
-
-           #_(let [rhs-el        (. js/document getElementById "rhs")
-                   shadow-holder (. js/document createElement "div")
-                   shadow        (. shadow-holder (attachShadow #js {"mode" "open"}))
-                   shadow-style  (. js/document createElement "link")
-                   query         (.. (js/URL. (.. js/document -location -href))
-                                   -searchParams (get "q"))]
-               (set! (.-rel shadow-style) "stylesheet")
-               (.setAttribute shadow-holder "style"  "display: none;")
-               (set! (.-onload shadow-style) #(.setAttribute shadow-holder "style" ""))
-               (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-results.css")))
-               (set! (.-className shadow-holder)
-                 "rhs VjDLd ampie-results-holder google")
-               (.then
-                 (load-search-results query)
-                 (fn []
-                   (when (seq (:search-results @state))
-                     (rdom/render [visits-search-results] shadow)
-                     (. shadow (appendChild shadow-style))
-                     (.prepend rhs-el shadow-holder))))))
-  :stop (delete-all-tags!))
-
-(defstate ddg-results
-  :start (do
-           (when (re-matches #"https://(www\.)?duckduckgo\.com/\?.*"
-                   (.. js/document -location -href))
-             ;; Seems like DDG loads progressively so by the time we run this
-             ;; the search results aren't rendered yet. Load them after
-             ;; a delay instead.
-             (js/setTimeout add-ddg-tags 100)
-             #_(let [rhs-el        (. js/document querySelector ".sidebar-modules")
-                     wrapper       (. js/document createElement "div")
-                     shadow-holder (. js/document createElement "div")
-                     shadow        (. shadow-holder (attachShadow #js {"mode" "open"}))
-                     shadow-style  (. js/document createElement "link")
-                     query         (.. (js/URL. (.. js/document -location -href))
-                                     -searchParams (get "q"))]
-                 (set! (.-rel shadow-style) "stylesheet")
-                 (.setAttribute wrapper "style"  "display: none;")
-                 (set! (.-onload shadow-style) #(.setAttribute wrapper "style" ""))
-                 (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-results.css")))
-                 (set! (.-className wrapper) "module ampie-results-holder ddg")
-                 (.then
-                   (load-search-results query)
-                   (fn []
-                     (when (seq (:search-results @state))
-                       (rdom/render [visits-search-results] shadow)
-                       (. shadow (appendChild shadow-style))
-                       (set! (.-className shadow-holder) "module__content")
-                       (.appendChild wrapper shadow-holder)
-                       (.prepend rhs-el wrapper)))))))
-  :stop (delete-all-tags!))
+(defstate tags-adder
+  :start (do (when (re-matches #"https://(www\.)?duckduckgo\.com/\?.*"
+                     (.. js/document -location -href))
+               ;; Seems like DDG loads progressively so by the time we run this
+               ;; the search results aren't rendered yet. Load them after
+               ;; a delay instead.
+               (js/setTimeout add-ddg-tags 100))
+             (when (and (re-matches #"https://(www\.)?google\..{1,6}/search.*"
+                          (.. js/document -location -href))
+                     ;; Prevents showing ampie results when searching in local maps
+                     (not (string/includes? (.. js/document -location -href)
+                            "tbm=lcl")))
+               (add-google-tags))
+             (when (re-matches #"https://(www\.)?youtube\.com/.*"
+                     (.. js/document -location -href))
+               (start-youtube-job!)))
+  :stop (do (delete-all-tags!)
+            (some-> @youtube-tags-job js/clearInterval)
+            (reset! youtube-tags-job nil)))

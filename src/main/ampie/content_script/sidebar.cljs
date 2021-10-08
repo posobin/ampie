@@ -81,6 +81,8 @@
                              :has-domain-context has-domain-context
                              :has-page-context   has-page-context})))))
 
+(defn mac? [] (str/starts-with? (.-platform js/navigator) "Mac"))
+
 (def initial-sidebar-visual-state
   {:last-shift-press 0
    :force-open       false ;; Expand the sidebar without hover?
@@ -155,12 +157,15 @@
     assoc :force-open true :hidden false))
 
 (defn process-key-down
-  "Toggles the sidebar on double shift, closes it on double alt"
+  "Toggles the sidebar on double shift,
+  closes it on double opt on mac and double ctrl on other systems"
   [e]
-  (if-let [[last-time flag] (case (str/lower-case (.-key e))
-                              "shift" [:last-shift-press :force-open]
-                              "alt"   [:last-alt-press :hidden]
-                              nil)]
+  (if-let [[last-time flag]
+           (case (str/lower-case (.-key e))
+             "shift" [:last-shift-press :force-open]
+             (if (mac?) "alt" "control")
+             [:last-alt-press :hidden]
+             nil)]
     (if (> (+ (last-time @sidebar-visual-state) 400) (.getTime (js/Date.)))
       (let [[old new] (swap-vals! sidebar-visual-state
                         (fn [visual-state]
@@ -270,7 +275,7 @@
                             (swap! sidebar-visual-state update :hidden not)
                             (log-analytics-event-once! :close nil))}
                [:span.text-xs.whitespace-nowrap
-                "Alt-Alt"]
+                (if (mac?) "Opt-Opt" "Ctrl-Ctrl")]
                [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
               [:div.sidebar-container.absolute.top-0.bottom-0
                {:class [(if (:force-open @sidebar-visual-state)

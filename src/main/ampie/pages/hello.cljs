@@ -3,6 +3,7 @@
             [reagent.dom :as rdom]
             [ampie.components.basics :as b]
             [ampie.background.backend :refer [user-info] :as backend]
+            [clojure.string]
             [mount.core :as mount]))
 
 (def state (r/atom {}))
@@ -14,6 +15,8 @@
   [:span.rounded.pl-0dot5.pr-0dot5
    {:class (if bad? :bg-indigo-200 :bg-yellow-200)}
    text])
+
+(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
 
 (defn hello-page []
   [:div.font-sans.text-lg.leading-snug.ml-auto.mr-auto.w-fit-content.p-4.rounded-xl.shadow-xl.m-4.border.relative
@@ -32,7 +35,9 @@
     [subheader "Sidebar"]
     [:p "Easy: go to a page, sidebar pops up. "
      "Not to annoy you, it " [highlight "pops up at most twice per page" false] ". "
-     "Use keyboard shortcuts, Luke: Alt-Alt, Shift-Shift."]
+     "Use keyboard shortcuts, Luke: "
+     (if (mac?) "Opt-Opt" "Ctrl-Ctrl")
+     ", Shift-Shift."]
 
     [subheader "Amplify pages"]
     [:p "After two minutes on a page, "

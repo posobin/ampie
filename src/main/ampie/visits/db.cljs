@@ -222,7 +222,7 @@
                                         (.getTime (js/Date.)))
                                    (take max-url-visits-stored)))))))))
 
-(def visits-considered-many 2)
+(def visits-considered-many 1)
 
 (when goog.DEBUG
   (assert (<= visits-considered-many max-domain-visits-stored))

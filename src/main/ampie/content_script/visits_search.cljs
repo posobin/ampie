@@ -146,25 +146,28 @@
 
 (defn- add-google-tags []
   (let [ahrefs (->> (array-seq (.querySelectorAll js/document.body ".yuRUbf > a[href]"))
-                 (filter #(nil? (.getAttribute % "processed-by-ampie"))))
+                 (filter #(nil? (.getAttribute % "data-processed-by-ampie"))))
         urls   (mapv #(.-href %) ahrefs)]
-    (-> (.. browser -runtime
-          (sendMessage (clj->js {:type                :get-urls-overview
-                                 :urls                urls
-                                 :fast-but-incomplete true})))
-      (.then #(js->clj % :keywordize-keys true))
-      (then-fn [response]
-        (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
-                (map vector response ahrefs)
-                :when ahref
-                :let  [^js root (get-google-result-link-root ahref)]
-                :when (and root (not (.. root -dataset -addedAmpieTags)))]
-          (add-search-result-tags
-            {:overview         overview
-             :set-sidebar-url! sidebar/set-sidebar-url!
-             :root             root
-             :engine           :google})
-          (set! (.. root -dataset -addedAmpieTags) true))))))
+    (doseq [ahref ahrefs]
+      (.setAttribute ahref "data-processed-by-ampie" "true"))
+    (when (seq urls)
+      (-> (.. browser -runtime
+            (sendMessage (clj->js {:type                :get-urls-overview
+                                   :urls                urls
+                                   :fast-but-incomplete true})))
+        (.then #(js->clj % :keywordize-keys true))
+        (then-fn [response]
+          (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
+                  (map vector response ahrefs)
+                  :when ahref
+                  :let  [^js root (get-google-result-link-root ahref)]
+                  :when (and root (not (.. root -dataset -addedAmpieTags)))]
+            (add-search-result-tags
+              {:overview         overview
+               :set-sidebar-url! sidebar/set-sidebar-url!
+               :root             root
+               :engine           :google})
+            (set! (.. root -dataset -addedAmpieTags) true)))))))
 
 (defn- get-ddg-result-link-root [^js node]
   (let [root (reduce #(.-parentElement %1) node (range 3))]
@@ -173,25 +176,28 @@
 
 (defn- add-ddg-tags []
   (let [ahrefs (->> (array-seq (.querySelectorAll js/document.body ".result a[href].result__url"))
-                 (filter #(nil? (.getAttribute % "processed-by-ampie"))))
+                 (filter #(nil? (.getAttribute % "data-processed-by-ampie"))))
         urls   (mapv #(.-href %) ahrefs)]
-    (-> (.. browser -runtime
-          (sendMessage (clj->js {:type                :get-urls-overview
-                                 :urls                urls
-                                 :fast-but-incomplete true})))
-      (.then #(js->clj % :keywordize-keys true))
-      (then-fn [response]
-        (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
-                (map vector response ahrefs)
-                :when ahref
-                :let  [^js root (get-ddg-result-link-root ahref)]
-                :when (and root (not (.. root -dataset -addedAmpieTags)))]
-          (add-search-result-tags
-            {:overview         overview
-             :set-sidebar-url! sidebar/set-sidebar-url!
-             :root             root
-             :engine           :ddg})
-          (set! (.. root -dataset -addedAmpieTags) true))))))
+    (doseq [ahref ahrefs]
+      (.setAttribute ahref "data-processed-by-ampie" "true"))
+    (when (seq urls)
+      (-> (.. browser -runtime
+            (sendMessage (clj->js {:type                :get-urls-overview
+                                   :urls                urls
+                                   :fast-but-incomplete true})))
+        (.then #(js->clj % :keywordize-keys true))
+        (then-fn [response]
+          (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
+                  (map vector response ahrefs)
+                  :when ahref
+                  :let  [^js root (get-ddg-result-link-root ahref)]
+                  :when (and root (not (.. root -dataset -addedAmpieTags)))]
+            (add-search-result-tags
+              {:overview         overview
+               :set-sidebar-url! sidebar/set-sidebar-url!
+               :root             root
+               :engine           :ddg})
+            (set! (.. root -dataset -addedAmpieTags) true)))))))
 
 (defn- get-youtube-result-link-root [^js node]
   (or (.closest node ".text-wrapper") (.closest node ".metadata")
@@ -202,31 +208,34 @@
   (let [ahrefs (->> (concat (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"]#video-title"))
                       (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"]#video-title-link"))
                       (array-seq (.querySelectorAll js/document.body "a[href*=\"/watch?\"].yt-simple-endpoint")))
-                 (filter #(nil? (.getAttribute % "processed-by-ampie"))))
+                 (filter #(nil? (.getAttribute % "data-processed-by-ampie"))))
         urls   (mapv #(.-href %) ahrefs)]
-    (-> (.. browser -runtime
-          (sendMessage (clj->js {:type                :get-urls-overview
-                                 :urls                urls
-                                 :fast-but-incomplete true})))
-      (.then #(js->clj % :keywordize-keys true))
-      (.then (fn [response] (mapv #(update % :occurrences dissoc :domain) response)))
-      (then-fn [response]
-        (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
-                (map vector response ahrefs)
-                :when ahref
-                :let  [^js root (get-youtube-result-link-root ahref)]
-                :when (and root (not (.. root -dataset -addedAmpieTags)))]
-          (set! (.. root -dataset -addedAmpieTags) true)
-          (add-search-result-tags
-            {:overview         overview
-             :set-sidebar-url! sidebar/set-sidebar-url!
-             :root             root
-             :engine           :youtube}))))))
+    (doseq [ahref ahrefs]
+      (.setAttribute ahref "data-processed-by-ampie" "true"))
+    (when (seq urls)
+      (-> (.. browser -runtime
+            (sendMessage (clj->js {:type                :get-urls-overview
+                                   :urls                urls
+                                   :fast-but-incomplete true})))
+        (.then #(js->clj % :keywordize-keys true))
+        (.then (fn [response] (mapv #(update % :occurrences dissoc :domain) response)))
+        (then-fn [response]
+          (doseq [[{:keys [occurrences url normalized-url] :as overview} ahref]
+                  (map vector response ahrefs)
+                  :when ahref
+                  :let  [^js root (get-youtube-result-link-root ahref)]
+                  :when (and root (not (.. root -dataset -addedAmpieTags)))]
+            (set! (.. root -dataset -addedAmpieTags) true)
+            (add-search-result-tags
+              {:overview         overview
+               :set-sidebar-url! sidebar/set-sidebar-url!
+               :root             root
+               :engine           :youtube})))))))
 
 (defonce youtube-tags-job (atom nil))
 
 (defn start-youtube-job! []
-  (js/setTimeout add-youtube-tags 500)
+  (js/setTimeout add-youtube-tags 100)
   (some-> @youtube-tags-job js/clearInterval)
   (reset! youtube-tags-job
     (js/setInterval add-youtube-tags 5000)))

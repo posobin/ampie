@@ -1,7 +1,11 @@
 (ns ampie.content-script.sidebar.feedback-views
   (:require [reagent.core :as r]
             [clojure.string :as str]
+            [ampie.content-script.sidebar.db :as db :refer [db]]
             [ampie.content-script.sidebar.feedback :as feedback]))
+
+(defn logged-out? []
+  @(r/cursor db [:user-state :logged-out?]))
 
 (defn highlight [text bad?]
   [:span.rounded.pl-0dot5.pr-0dot5.bg-yellow-200 text])
@@ -15,13 +19,14 @@
      [:div.flex.flex-col.gap-1 {:class ["w-3/4"]}
       [:div "Put any ideas/bug reports/questions here, I'll get an email and respond to you ASAP. "
        [highlight "Or just say hi =)"]
-       " If you want me to know this page's URL, make sure to add it as well."]
+       " If you want me to know this page's URL, make sure to add it as well. "
+       (when logged-out? "And add your email as you are not logged in!")]
       [:textarea.border.focus:outline-none.focus:border-blue-300.h-auto.rounded-md.w-full.resize-none.p-2
-       {:rows      5
+       {:rows        5
         :placeholder "Type here"
-        :disabled  (= @status :sending)
-        :value     @contents
-        :on-change #(reset! contents (.. % -target -value))}]
+        :disabled    (= @status :sending)
+        :value       @contents
+        :on-change   #(reset! contents (.. % -target -value))}]
       (when (= @status :success)
         [:div.p-1.border.border-green-300.rounded-md.self-start
          "Feedback sent! Thank you so much, I'll be in touch =)"])

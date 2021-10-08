@@ -84,11 +84,14 @@
 (defn mac? [] (str/starts-with? (.-platform js/navigator) "Mac"))
 
 (def initial-sidebar-visual-state
-  {:last-shift-press 0
-   :force-open       false ;; Expand the sidebar without hover?
-   :last-alt-press   0
+  {:last-shift-press   0
+   :force-open         false ;; Expand the sidebar without hover?
+   :last-alt-press     0
    ;; Hide the sidebar completely?
-   :hidden           true
+   :hidden             true
+   ;; Show a notice that says that the sidebar is empty.
+   ;; Triggered by pressing opt-opt/ctrl-ctrl on a page that doesn't have context
+   :show-empty-notice? false
    })
 
 (defonce sidebar-visual-state (r/atom initial-sidebar-visual-state))
@@ -172,7 +175,12 @@
                           (-> visual-state (assoc last-time 0) (update flag not))))]
         (when (and (not (:hidden new)) (:hidden old))
           ;; When unhiding the sidebar, make sure that all of the info in it is loaded
-          (load-all-current-url-info!)))
+          (.then (load-all-current-url-info!)
+            (fn []
+              ;; If there is no info for the page, show the notice
+              (when (-> (first @(r/cursor db [:url]))
+                      sidebar-empty?)
+                (swap! sidebar-visual-state assoc :show-empty-notice? true))))))
       (swap! sidebar-visual-state assoc last-time (.getTime (js/Date.))))
     (swap! sidebar-visual-state assoc
       :last-shift-press 0
@@ -247,75 +255,87 @@
        :reagent-render
        (fn []
          (when-let [url (first @(r/cursor db [:url]))]
-           (when (show-sidebar? url)
-             ;; It's ok to call this on every render since it logs at most once per mounted component
-             (log-analytics-event-once! :seen nil)
-             [:div.fixed.right-0.font-sans.transition-offsets
-              {:key           url
-               :class         (if (:force-open @sidebar-visual-state)
-                                [:top-5 :bottom-5]
-                                [:top-14 :bottom-14])
-               :on-wheel      #(log-analytics-event-once! :scroll nil)
-               :on-mouse-down log-click-event!}
-              [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
-               {:class    (when (:hidden @sidebar-visual-state) :hidden)
-                :role     :button
-                :on-click (fn []
-                            (swap! sidebar-visual-state update :force-open not)
-                            (log-analytics-event-once! :expand nil))}
-               [:span.text-xs.whitespace-nowrap
-                "Shift-Shift"]
-               (if (:force-open @sidebar-visual-state)
-                 [:div.hide-sidebar-icon.w-4.h-4]
-                 [:div.show-sidebar-icon.w-4.h-4])]
-              [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
-               {:class    (when (:hidden @sidebar-visual-state) :hidden)
-                :role     :button
-                :on-click (fn []
-                            (swap! sidebar-visual-state update :hidden not)
-                            (log-analytics-event-once! :close nil))}
-               [:span.text-xs.whitespace-nowrap
-                (if (mac?) "Opt-Opt" "Ctrl-Ctrl")]
-               [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
-              [:div.sidebar-container.absolute.top-0.bottom-0
-               {:class [(if (:force-open @sidebar-visual-state)
-                          :right-0
-                          :hover:right-0)
-                        (when (:hidden @sidebar-visual-state) :hidden)]}
-               [:div.absolute.left-0dot5.top-0dot5.bottom-0dot5.right-0.bg-white
-                [:div.p-2.overscroll-contain.max-h-full.overflow-auto
-                 {:ref (fn [el]
-                         ((:container-ref sticky) el)
-                         (reset! sidebar-element el)
-                         (when el
-                           (.observe resize-observer el)
-                           (.addEventListener el "scroll"
-                             (fn []
-                               (reset! scroll-position (.-scrollTop el))
-                               ((:on-scroll sticky) el)))))}
-                 [(:render-context-provider sticky)
-                  [:div.flex.flex-col.gap-2
-                   (when (logged-out?)
-                     [:div [:a.text-link-color.underline
-                            (b/ahref-opts "https://ampie.app/register") "Sign up"]
-                      " to use ampie"])
-                   [amplified-views/amplified-context url]
-                   [twitter-views/twitter-context url]
-                   [hn-views/hn-stories-context url]
-                   [hn-views/hn-comments-context url]
-                   [domain-views/backlinks-context url]
-                   [domain-views/domain-context url]
-                   [feedback-views/feedback-form]]]]
-                (when goog.DEBUG
-                  [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
-                   [:div.text-link-color.hover:underline
-                    {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
-                     :role     :button}
-                    "Full"]
-                   [:div.text-link-color.hover:underline
-                    {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
-                     :role     :button}
-                    "Reload"]])]]])))})))
+           [:div.contents
+            (when (and (:show-empty-notice? @sidebar-visual-state)
+                    (not (:hidden @sidebar-visual-state)))
+              [:div.fixed.right-2.font-sans.transition-offsets.w-24.transform.leading-tight
+               {:class    ["top-1/2" "-translate-y-1/2" "p-1dot5" "rounded-md"
+                           "border" "border-blue-300"
+                           "bg-white" "bg-opacity-80"]
+                :role     "button"
+                :on-click #(swap! sidebar-visual-state assoc
+                             :show-empty-notice? false
+                             :hidden true)}
+               "Didn't find any context for the page"])
+            (when (show-sidebar? url)
+              ;; It's ok to call this on every render since it logs at most once per mounted component
+              (log-analytics-event-once! :seen nil)
+              [:div.fixed.right-0.font-sans.transition-offsets
+               {:key           url
+                :class         (if (:force-open @sidebar-visual-state)
+                                 [:top-5 :bottom-5]
+                                 [:top-14 :bottom-14])
+                :on-wheel      #(log-analytics-event-once! :scroll nil)
+                :on-mouse-down log-click-event!}
+               [:div.absolute.right-px.translate-y-full.bottom-0.transform.pt-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
+                {:class    (when (:hidden @sidebar-visual-state) :hidden)
+                 :role     :button
+                 :on-click (fn []
+                             (swap! sidebar-visual-state update :force-open not)
+                             (log-analytics-event-once! :expand nil))}
+                [:span.text-xs.whitespace-nowrap
+                 "Shift-Shift"]
+                (if (:force-open @sidebar-visual-state)
+                  [:div.hide-sidebar-icon.w-4.h-4]
+                  [:div.show-sidebar-icon.w-4.h-4])]
+               [:div.absolute.right-px.-translate-y-full.transform.pb-px.flex.flex-row.gap-1.items-center.bg-opacity-50.bg-white
+                {:class    (when (:hidden @sidebar-visual-state) :hidden)
+                 :role     :button
+                 :on-click (fn []
+                             (swap! sidebar-visual-state update :hidden not)
+                             (log-analytics-event-once! :close nil))}
+                [:span.text-xs.whitespace-nowrap
+                 (if (mac?) "Opt-Opt" "Ctrl-Ctrl")]
+                [:div.close-icon.w-2dot5.h-2dot5.p-0dot5]]
+               [:div.sidebar-container.absolute.top-0.bottom-0
+                {:class [(if (:force-open @sidebar-visual-state)
+                           :right-0
+                           :hover:right-0)
+                         (when (:hidden @sidebar-visual-state) :hidden)]}
+                [:div.absolute.left-0dot5.top-0dot5.bottom-0dot5.right-0.bg-white
+                 [:div.p-2.overscroll-contain.max-h-full.overflow-auto
+                  {:ref (fn [el]
+                          ((:container-ref sticky) el)
+                          (reset! sidebar-element el)
+                          (when el
+                            (.observe resize-observer el)
+                            (.addEventListener el "scroll"
+                              (fn []
+                                (reset! scroll-position (.-scrollTop el))
+                                ((:on-scroll sticky) el)))))}
+                  [(:render-context-provider sticky)
+                   [:div.flex.flex-col.gap-2
+                    (when (logged-out?)
+                      [:div [:a.text-link-color.underline
+                             (b/ahref-opts "https://ampie.app/register") "Sign up"]
+                       " to use ampie"])
+                    [amplified-views/amplified-context url]
+                    [twitter-views/twitter-context url]
+                    [hn-views/hn-stories-context url]
+                    [hn-views/hn-comments-context url]
+                    [domain-views/backlinks-context url]
+                    [domain-views/domain-context url]
+                    [feedback-views/feedback-form]]]]
+                 (when goog.DEBUG
+                   [:div.absolute.p-2.pt-1.pb-1.bottom-0.right-0.font-sans.flex.gap-1.bg-white.border-t.border-l
+                    [:div.text-link-color.hover:underline
+                     {:on-click (fn [] (reset! db {}) (remove-sidebar!) (display-sidebar!))
+                      :role     :button}
+                     "Full"]
+                    [:div.text-link-color.hover:underline
+                     {:on-click (fn [] (remove-sidebar!) (display-sidebar!))
+                      :role     :button}
+                     "Reload"]])]]])]))})))
 
 (def shadow-root (atom nil))
 

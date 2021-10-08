@@ -157,6 +157,7 @@
       (-> (.. browser -runtime
             (sendMessage (clj->js {:type                :get-urls-overview
                                    :urls                urls
+                                   :src                 :google-search
                                    :fast-but-incomplete true})))
         (.then #(js->clj % :keywordize-keys true))
         (then-fn [response]
@@ -187,6 +188,7 @@
       (-> (.. browser -runtime
             (sendMessage (clj->js {:type                :get-urls-overview
                                    :urls                urls
+                                   :src                 :ddg
                                    :fast-but-incomplete true})))
         (.then #(js->clj % :keywordize-keys true))
         (then-fn [response]
@@ -219,6 +221,7 @@
       (-> (.. browser -runtime
             (sendMessage (clj->js {:type                :get-urls-overview
                                    :urls                urls
+                                   :src                 :youtube
                                    :fast-but-incomplete true})))
         (.then #(js->clj % :keywordize-keys true))
         (.then (fn [response] (mapv #(update % :occurrences dissoc :domain) response)))

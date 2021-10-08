@@ -19,6 +19,7 @@
       (swap! db assoc-in [:url->overview url :ampie/status] :loading))
     (-> (.. browser -runtime
           (sendMessage (clj->js {:type :get-urls-overview
+                                 :src  :sidebar
                                  :urls urls})))
       (.then #(js->clj % :keywordize-keys true))
       (then-fn [response]

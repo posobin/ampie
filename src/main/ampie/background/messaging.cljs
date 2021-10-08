@@ -108,8 +108,8 @@
         (let [seen (first seen)]
           (clj->js (assoc links :history seen :normalized-url normalized-url)))))))
 
-(defn get-urls-overview [{:keys [urls fast-but-incomplete]}]
-  (-> (backend/get-urls-overview urls fast-but-incomplete)
+(defn get-urls-overview [{:keys [urls fast-but-incomplete src]}]
+  (-> (backend/get-urls-overview urls fast-but-incomplete src)
     (.then #(clj->js % :keyword-fn i/name-with-ns))
     (.catch #(clj->js % :keyword-fn i/name-with-ns))))
 

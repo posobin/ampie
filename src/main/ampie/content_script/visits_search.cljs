@@ -135,7 +135,10 @@
     (set! (.-rel tailwind) "stylesheet")
     (.setAttribute badge-div "style" "display: none;")
     (.setAttribute badge-div "data-ampie" result-tags-attr-value)
-    (set! (.-onload shadow-style) #(.setAttribute badge-div "style" ""))
+    (set! (.-onload shadow-style) #(.setAttribute badge-div "style"
+                                     (if (= engine :ddg)
+                                       "order: 4;"
+                                       "")))
     (set! (.-href shadow-style) (.. browser -runtime (getURL "assets/search-result-info.css")))
     (set! (.-onload tailwind) #(.setAttribute badge-div "style" ""))
     (set! (.-href tailwind) (.. browser -runtime (getURL "assets/tailwind.css")))
@@ -235,7 +238,7 @@
 (defonce youtube-tags-job (atom nil))
 
 (defn start-youtube-job! []
-  (js/setTimeout add-youtube-tags 100)
+  (js/setTimeout add-youtube-tags 300)
   (some-> @youtube-tags-job js/clearInterval)
   (reset! youtube-tags-job
     (js/setInterval add-youtube-tags 5000)))
@@ -259,7 +262,7 @@
                ;; Seems like DDG loads progressively so by the time we run this
                ;; the search results aren't rendered yet. Load them after
                ;; a delay instead.
-               (js/setTimeout add-ddg-tags 100))
+               (js/setTimeout add-ddg-tags 300))
              (when (and (re-matches #"https://(www\.)?google\..{1,6}/search.*"
                           (.. js/document -location -href))
                      ;; Prevents showing ampie results when searching in local maps

@@ -165,9 +165,9 @@
   [e]
   (if-let [[last-time flag]
            (case (str/lower-case (.-key e))
-             "shift" [:last-shift-press :force-open]
-             (if (mac?) "alt" "control")
-             [:last-alt-press :hidden]
+             "shift"   [:last-shift-press :force-open]
+             "alt"     (when (mac?) [:last-alt-press :hidden])
+             "control" (when-not (mac?) [:last-alt-press :hidden])
              nil)]
     (if (> (+ (last-time @sidebar-visual-state) 400) (.getTime (js/Date.)))
       (let [[old new] (swap-vals! sidebar-visual-state

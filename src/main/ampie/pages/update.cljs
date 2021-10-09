@@ -4,6 +4,7 @@
             [taoensso.timbre :as log]
             [ampie.components.visit :as components.visit]
             [ampie.components.basics :as b]
+            [clojure.string]
             ["webextension-polyfill" :as browser]))
 
 (def state (r/atom {}))
@@ -16,31 +17,37 @@
    {:class (if bad? :bg-indigo-200 :bg-yellow-200)}
    text])
 
+(defn mac? [] (clojure.string/starts-with? (.-platform js/navigator) "Mac"))
+
 (defn update-page []
   [:div.font-sans.text-lg.leading-snug.ml-auto.mr-auto.w-fit-content.p-4.rounded-xl.shadow-xl.m-4.border.relative
    [:h1.text-2xl.font-italic.pb-3 "Ampie updated"]
    [:div.max-w-md
     [:p "Hello!"]
-    [subheader "Sidebar opens twice per domain"]
-    [:p "Previously, if a domain had interesting links, sidebar would show up on every page. "
-     "Now it shows up " [highlight "twice per domain" false]
+
+    (when (not (mac?))
+      [:<>
+       [subheader "Changed Alt-Alt to Ctrl-Ctrl on non-Macs"]
+       [:p "The Alt-Alt shorcut didn't work on windows (and on some linux systems as well). "
+        "I changed it to " [highlight "Ctrl-Ctrl" false] ". "
+        "Now you can finally close/open the sidebar from your keyboard!"]])
+
+    [subheader "Sidebar opens once per domain"]
+    [:p "Previously, when a domain had interesting links, sidebar would show up twice on the domain. "
+     "It will show up " [highlight "only once now" false]
      ", except for pages that have their own context to show. "
-     "For those pages sidebar would also be shown only on the first two visits. "
-     "If you still want to bring the sidebar up, press Alt-Alt."]
+     "For those pages sidebar would also be shown only on the first visit."]
 
-    [subheader "Simpler close/open shortcut"]
-    [:p "Now you can "
-     [highlight "press Alt-Alt" false]
-     " to close/open the sidebar, instead of Alt-Shift - Alt-Shift."]
+    [subheader "Top 10k domains are ignored"]
+    [:p "The above doesn't apply to the top 10k popular domains: "
+     "only those pages that have their own mentions will pop up the sidebar."]
 
-    [subheader "Feedback form"]
-    [:p "If you want to give any thoughts about ampie (or anything else) "
-     "you can "
-     [highlight "scroll to the bottom of the sidebar" false]
-     " and easily reach me. "
-     "Looking forward to hearing from you =)"]
+    [subheader "Ampie context on youtube"]
+    [:p "Now you will see ampie context below youtube videos on search page and in recommended videos:"]
+    [:p [:img {:src   "assets/images/youtube-tags.png"
+               :style {:width "279px"}}]]
 
-    [:p.pt-4 "Tell me what you think (through the form or any other way)!"]
+    [:p.pt-4 "Tell me what you think (through the form at the bottom of the sidebar or any other way)!"]
 
     [:p.pt-2 "& "
      [:a.text-underline (b/ahref-opts "https://twitter.com/posobin") "posobin"] " &"]]])

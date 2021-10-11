@@ -281,6 +281,9 @@
           (and has-domain-context (and (not domain-frequent)
                                     (not popular-domain))))))))
 
+(defn update-auth-token! [{:keys [auth-token]}]
+  (js/Promise.resolve (backend/set-auth-token! auth-token)))
+
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)
         request-type (:type request)]
@@ -324,6 +327,7 @@
       :show-sidebar-on-url?      (show-sidebar-on-url? request)
       :mark-page-visited!        (mark-page-visited request)
       :send-feedback             (send-feedback request)
+      :update-auth-token         (update-auth-token! request)
 
       (log/error "Unknown request type" request-type))))
 

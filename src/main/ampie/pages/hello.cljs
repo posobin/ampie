@@ -2,11 +2,14 @@
   (:require [reagent.core :as r]
             [reagent.dom :as rdom]
             [ampie.components.basics :as b]
-            [ampie.background.backend :refer [user-info] :as backend]
+            [ampie.background.backend :as backend]
             [clojure.string]
+            ["webextension-polyfill" :as browser]
             [mount.core :as mount]))
 
 (def state (r/atom {}))
+
+(def user-info (r/atom nil))
 
 (defn subheader [text]
   [:h3.pt-4.pb-2.text-2xl text])
@@ -23,10 +26,10 @@
    [:h1.text-2xl.font-italic.pb-3 "Ampie installed"]
    [:div.max-w-md
     (cond
-      (not @@user-info)
+      (not @user-info)
       [:p "First, please sign up at "
        [:a (b/ahref-opts "https://ampie.app/register") "ampie.app"] "."]
-      (not (:twitter-username @@user-info))
+      (not (:twitter-username @user-info))
       [:p.border.border-2.border-red-50.rounded-md.p-2 "Log in with twitter at "
        [:a (b/ahref-opts "https://ampie.app/") "ampie.app"]
        " to see tweets about pages you visit. Then read on."]
@@ -34,8 +37,8 @@
       [:p "Hi! Three things."])
     [subheader "Sidebar"]
     [:p "Easy: go to a page, sidebar pops up. "
-     "Not to annoy you, it " [highlight "pops up at most twice per page" false] ". "
-     "Use keyboard shortcuts, Luke: "
+     "Not to annoy you, it " [highlight "pops up at most once per page" false] ". "
+     "Use the shortcuts, Luke: "
      (if (mac?) "Opt-Opt" "Ctrl-Ctrl")
      ", Shift-Shift."]
 
@@ -56,9 +59,18 @@
     [:p.pt-2 "& "
      [:a.text-underline (b/ahref-opts "https://twitter.com/posobin") "posobin"] " &"]]])
 
+(def user-info-updater (atom nil))
+
+(defn ^:dev/before-load stop []
+  (some-> @user-info-updater js/clearInterval))
+
 (defn ^:dev/after-load init []
   (mount/start (mount/only #{#'ampie.background.backend/auth-token
-                             #'ampie.background.backend/user-info
+                             ;; #'ampie.background.backend/user-info
                              #'ampie.background.backend/cookie-watcher}))
+  (reset! user-info-updater
+    (js/setInterval
+      #(ampie.background.backend/load-user-info user-info)
+      1000))
   (rdom/render [hello-page]
     (. js/document getElementById "hello-content")))

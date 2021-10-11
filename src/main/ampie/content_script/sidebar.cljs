@@ -316,8 +316,12 @@
                   [(:render-context-provider sticky)
                    [:div.flex.flex-col.gap-2
                     (when (logged-out?)
-                      [:div [:a.text-link-color.underline
-                             (b/ahref-opts "https://ampie.app/register") "Sign up"]
+                      [:div
+                       [:a.text-link-color.underline
+                        (b/ahref-opts "https://ampie.app/login") "Log in"]
+                       " or "
+                       [:a.text-link-color.underline
+                        (b/ahref-opts "https://ampie.app/register") "sign up"]
                        " to use ampie"])
                     [amplified-views/amplified-context url]
                     [twitter-views/twitter-context url]

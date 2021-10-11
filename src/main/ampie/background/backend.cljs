@@ -13,11 +13,17 @@
             [ampie.time :as time])
   (:require-macros [mount.core :refer [defstate]]))
 
+(defn is-safari? []
+  (boolean
+    (re-find
+      #"(?i)^((?!chrome|android).)*safari"
+      (.-userAgent js/navigator))))
+
 (def ampie-version (.. browser -runtime (getManifest) -version))
-(def api-url (if goog.DEBUG "http://localhost:5000" "https://api.ampie.app"))
+(def api-url (if goog.DEBUG "https://localhost:5001" "https://api.ampie.app"))
 (defn endpoint [& params] (string/join "/" (concat [api-url] params)))
 
-(defn get-token
+(defn- get-token
   "Returns a promise that resolves with the auth token
   or nil if the auth token is not set in the cookies."
   []
@@ -31,8 +37,14 @@
       (js/Promise.resolve nil))
     #(js->clj % :keywordize-keys true)))
 
-(defn load-token [token] (.then (get-token) #(reset! token (:value %))))
-(defstate auth-token :start (doto (r/atom nil) (load-token)))
+(defn- load-token! [token] (.then (get-token) #(reset! token (:value %))))
+(defstate auth-token
+  :start (let [atom (r/atom nil)]
+           ;; We can't read HTTP only cookies on safari, this will be populated
+           ;; when user opens ampie.app and extension reads the auth token
+           ;; from the local storage.
+           (when-not (is-safari?) (load-token! atom))
+           atom))
 (defn logged-in? [] (some? @@auth-token))
 (defn on-logged-in
   "Calls f once the auth token changes to a new non-nil value.
@@ -45,6 +57,13 @@
       (when (and new (not= old new)) (f)))))
 (defn remove-on-logged-in [key]
   (remove-watch @auth-token key))
+
+(defn set-auth-token!
+  "Sets the auth token to `new-value` and returns false if the new value
+  is the same as the old one."
+  [new-value]
+  (let [[old new] (reset-vals! @auth-token new-value)]
+    (not= old new)))
 
 (defn base-request-options []
   {:headers          {:Authorization (str "Token " @@auth-token)

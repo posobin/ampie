@@ -24,6 +24,7 @@ assets/icons/show-sidebar.svg
 assets/icons/twitter.svg
 assets/images/in-search-results.png
 assets/images/settings-menu.png
+assets/images/youtube-tags.png
 assets/info-bar.css
 assets/message.css
 assets/popup.css

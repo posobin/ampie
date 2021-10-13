@@ -1,14 +1,9 @@
 (ns ampie.background.analytics
   (:require [ampie.background.backend :as backend]
-            [ampie.background.demo :as demo]
-            [ampie.links :as links]
-            [ampie.db :refer [db]]
-            [ampie.interop :as i]
-            [ampie.macros :refer [then-fn catch-fn]]
+            [ampie.macros :refer [then-fn]]
             [cljs.pprint]
             [taoensso.timbre :as log]
             ["webextension-polyfill" :as browser]
-            ["jsonparse" :as JSONParser]
             [mount.core :refer [defstate]]))
 
 (defn initial-state []
@@ -20,10 +15,6 @@
    :scroll       0
    :seen         0
    :click-info   []})
-
-(comment
-  (upload-analytics!)
-  @analytics-state)
 
 (defonce analytics-state (atom (initial-state)))
 
@@ -41,19 +32,18 @@
         (reset! analytics-state (initial-state))))
     (js/Promise.resolve)))
 
-(def interval (* 60 60 1000))
+(def analytics-interval-min 60)
+(def analytics-alarm-name "analytics-updater-alarm")
+
+(defn- on-alarm [^js alarm-info]
+  (when (= (.-name alarm-info) analytics-alarm-name)
+    (upload-analytics!)))
 
 (defstate analytics
-  :start (letfn [(try-upload [time]
-                   (when @@analytics (js/clearTimeout @@analytics))
-                   (-> (upload-analytics!)
-                     (.finally
-                       (fn [_]
-                         (let [timeout (js/setTimeout try-upload time time)]
-                           (reset! @analytics timeout))))))]
+  :start (do
            (js/console.log "Logger started")
-           (js/setTimeout try-upload interval interval)
-           (atom nil))
-  :stop (do (when @@analytics
-              (js/clearTimeout @@analytics))
-            (upload-analytics!)))
+           (.. browser -alarms (create analytics-alarm-name
+                                 #js {:periodInMinutes analytics-interval-min}))
+           (.. browser -alarms -onAlarm (addListener on-alarm)))
+  :stop (do (.. browser -alarms -onAlarm (removeListener on-alarm))
+            (.. browser -alarms (clear analytics-alarm-name))))

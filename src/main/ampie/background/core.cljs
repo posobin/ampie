@@ -13,7 +13,7 @@
             [clojure.string :as string]
             [taoensso.timbre :as log]))
 
-(defonce active-tab-interval-id (atom nil))
+#_(defonce active-tab-interval-id (atom nil))
 
 (defn handle-shortcut [command]
   (case command
@@ -40,8 +40,8 @@
 
   (mount/stop)
 
-  (. js/window clearInterval @active-tab-interval-id)
-  (reset! active-tab-interval-id nil)
+  #_(. js/window clearInterval @active-tab-interval-id)
+  #_(reset! active-tab-interval-id nil)
 
   (tabs.monitoring/stop))
 
@@ -83,13 +83,12 @@
   #_(.. browser -tabs
       (query #js {} process-already-open-tabs))
 
-  (when (some? @active-tab-interval-id)
-    (. js/window clearInterval @active-tab-interval-id)
-    (reset! active-tab-interval-id nil))
+  #_(when (some? @active-tab-interval-id)
+      (. js/window clearInterval @active-tab-interval-id)
+      (reset! active-tab-interval-id nil))
 
-  (reset! active-tab-interval-id
-    (. js/window setInterval
-      tabs.monitoring/check-active-tab
-      1000))
+  #_(reset! active-tab-interval-id (. js/window setInterval
+                                     tabs.monitoring/check-active-tab
+                                     1000))
 
   (tabs.monitoring/start))

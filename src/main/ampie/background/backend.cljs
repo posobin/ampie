@@ -6,10 +6,6 @@
             [ajax.core :refer [GET POST HEAD PUT DELETE]]
             [mount.core]
             [clojure.string :as string]
-            [ampie.db :refer [db]]
-            [ampie.interop :as i]
-            [clojure.set :as set]
-            ["dexie" :default Dexie]
             [ampie.time :as time])
   (:require-macros [mount.core :refer [defstate]]))
 
@@ -78,9 +74,10 @@
     (assoc response :fail true :status status)))
 
 (defn request-user-info
-  "Get user info from the ampie backend."
+  "Get user info from the ampie backend and cache it in local storage.
+  Rejects with :not-logged-in if the auth token is not loaded."
   [user-info-atom]
-  (when (logged-in?)
+  (if (logged-in?)
     (js/Promise.
       (fn [resolve reject]
         (GET (endpoint "user-info")
@@ -97,16 +94,23 @@
                 (reset! @auth-token nil)
                 (reset! user-info-atom nil))
               (log/error "Couldn't get user's info" e)
-              (reject e))))))))
+              (reject e))))))
+    (js/Promise.reject :not-logged-in)))
+
+(defn get-user-info-from-ls
+  "Returns a promise that resolves with the user info object
+  cached in local storage. Can be nil."
+  []
+  (-> (.. browser -storage -local (get "user-info"))
+    (.then #(js->clj % :keywordize-keys true))
+    (.then #(get % :user-info))))
 
 (defn load-user-info [user-info-atom]
   (.then
-    (.. browser -storage -local (get "user-info"))
+    (get-user-info-from-ls)
     (fn [user-info]
-      (let [user-info (-> (js->clj user-info :keywordize-keys true)
-                        :user-info)]
-        (when user-info (reset! user-info-atom user-info))
-        (on-logged-in :user-info-atom #(request-user-info user-info-atom))))))
+      (when user-info (reset! user-info-atom user-info))
+      (on-logged-in :user-info-atom #(request-user-info user-info-atom)))))
 
 (defstate user-info :start (doto (r/atom nil) (load-user-info)))
 
@@ -396,5 +400,3 @@
           :params        {:contents contents}
           :handler       #(resolve (js->clj % :keywordize-keys true))
           :error-handler #(reject (error->map %)))))))
-
-(comment (send-feedback "hello"))

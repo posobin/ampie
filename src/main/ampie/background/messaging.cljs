@@ -281,8 +281,18 @@
           (and has-domain-context (and (not domain-frequent)
                                     (not popular-domain))))))))
 
-(defn update-auth-token! [{:keys [auth-token]}]
-  (js/Promise.resolve (backend/set-auth-token! auth-token)))
+(defn- notify-all-tabs-of-login! []
+  (-> (.. browser -tabs (query #js {}))
+    (.then (fn [^js tabs]
+             (doseq [tab tabs]
+               (.. browser -tabs (sendMessage (.-id tab)
+                                   #js {:type "logged-in"})))))))
+
+(defn- update-auth-token! [{:keys [auth-token]}]
+  (let [changed? (backend/set-auth-token! auth-token)]
+    (when (and changed? (not (clojure.string/blank? auth-token)))
+      (notify-all-tabs-of-login!))
+    (js/Promise.resolve changed?)))
 
 (defn message-received [request sender]
   (let [request      (js->clj request :keywordize-keys true)

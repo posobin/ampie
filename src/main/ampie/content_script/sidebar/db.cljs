@@ -234,7 +234,11 @@
          (mapv (fn [[key schema]] [key {:optional true} schema])
            url-context-origins-schemas))]]]))
 
-(defonce db (r/atom {}))
+(def db-initial-value {})
+
+(defonce db (r/atom db-initial-value))
+
+(defn reset-db! [] (reset! db db-initial-value))
 
 (defn validate-db [value]
   (when-not (m/validate DB value)

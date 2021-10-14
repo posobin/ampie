@@ -393,7 +393,27 @@
     (let [shadow-root (.. element -shadowRoot (querySelector ".sidebar-wrapper"))]
       (rdom/unmount-component-at-node shadow-root))))
 
-(defstate sidebar-state
-  :start (display-sidebar!)
-  :stop (do (remove-sidebar!)
-            ((:remove-sidebar! @sidebar-state))))
+(defonce sidebar-state (atom nil))
+
+(defn- start-sidebar! []
+  (reset! sidebar-state (display-sidebar!)))
+
+(defn- stop-sidebar! []
+  (remove-sidebar!)
+  ((:remove-sidebar! @sidebar-state))
+  (reset! sidebar-state nil))
+
+(defn- message-listener [message]
+  (let [message (js->clj message :keywordize-keys true)]
+    (when (and (= (:type message) "logged-in")
+            (logged-out?))
+      (stop-sidebar!)
+      (reset! sidebar-visual-state initial-sidebar-visual-state)
+      (db/reset-db!)
+      (start-sidebar!))))
+
+(defstate sidebar-service
+  :start (do (start-sidebar!)
+             (.. browser -runtime -onMessage (addListener message-listener)))
+  :stop (do (stop-sidebar!)
+            (.. browser -runtime -onMessage (removeListener message-listener))))

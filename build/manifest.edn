@@ -1,5 +1,5 @@
 {:name             "Ampie"
- :version          "2.4.0"
+ :version          "2.4.4"
  :description      "Social navigator for the web"
  :manifest-version 2
  :icons            {:32  "icons/ampie-32.png"
@@ -21,12 +21,13 @@
                                       :init-fn     ampie.pages.hello/init}
                   :update-page       {:output-type :chrome/single-file
                                       :init-fn     ampie.pages.update/init}}
+ :background {:persistent true}
 
- :permissions              ["webNavigation" "tabs"
-                            "storage" "cookies"
-                            "unlimitedStorage"
+ :permissions              ["tabs" "storage" "cookies"
+                            "unlimitedStorage" "alarms"
                             ;; "http://localhost/"
                             ;; "http://localhost:5000/"
+                            ;; "http://localhost:5001/"
                             ;; "https://ampie-dev.s3.amazonaws.com/"
                             "https://ampie.s3.amazonaws.com/"
                             "https://hacker-news.firebaseio.com/"
@@ -35,7 +36,7 @@
  :content-scripts          [{:css     ["assets/content-style.css" "assets/fonts-content-style.css"]
                              :matches ["<all_urls>"]}]
  :browser-action           {:default-popup "popup.html"}
- :commands                 {;; Using underscore for clarity, because shadow
+ :commands                 { ;; Using underscore for clarity, because shadow
                             ;; replaces hypen with underscore.
                             "amplify_page"
                             {:suggested_key
@@ -60,12 +61,12 @@
                              :description "Downvote current page"}}
 
  :content-security-policy ["default-src 'self';"
-                           "connect-src *;"
+                           "connect-src * https://hacker-news.firebaseio.com/ https://*.ampie.app;"
                            "script-src 'self';"
                            ;; "default-src 'self' 'unsafe-eval';"
                            ;; ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
                            ;; "script-src 'self' 'unsafe-eval';"
-                           ;; "connect-src * data: blob: filesystem:;"
+                           ;; "connect-src * 'self' https://localhost:5001 *://localhost:9630 data: blob: filesystem:;"
                            ;; "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
                            ;; "img-src 'self' data: chrome-extension-resource:;"
                            ;; ;; FIXME: localhost only? don't want to allow any origin though

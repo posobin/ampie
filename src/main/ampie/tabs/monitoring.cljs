@@ -8,6 +8,7 @@
             [ampie.tabs.event-handlers :as evt]
             [ampie.interop :as i]
             [ampie.url :as url]
+            [ampie.utils]
             [mount.core])
   (:require-macros [mount.core :refer [defstate]]))
 
@@ -58,22 +59,24 @@
               (visits.db/set-visit-title! visit-hash title))))))))
 
 (defn stop []
-  (.. browser -tabs -onUpdated
-    (removeListener evt/tab-updated))
-  (.. browser -windows -onFocusChanged
-    (removeListener evt/window-focus-changed))
-  (.. browser -tabs -onRemoved
-    (removeListener evt/tab-removed))
-  (.. browser -webNavigation -onHistoryStateUpdated
-    (removeListener evt/history-state-updated))
-  (.. browser -webNavigation -onCommitted
-    (removeListener evt/committed))
-  (.. browser -webNavigation -onCreatedNavigationTarget
-    (removeListener evt/created-navigation-target)))
+  (when (ampie.utils/is-safari?)
+    (.. browser -tabs -onUpdated
+      (removeListener evt/tab-updated)))
+  #_(.. browser -windows -onFocusChanged
+      (removeListener evt/window-focus-changed))
+  #_(.. browser -tabs -onRemoved
+      (removeListener evt/tab-removed))
+  #_(.. browser -webNavigation -onHistoryStateUpdated
+      (removeListener evt/history-state-updated))
+  #_(.. browser -webNavigation -onCommitted
+      (removeListener evt/committed))
+  #_(.. browser -webNavigation -onCreatedNavigationTarget
+      (removeListener evt/created-navigation-target)))
 
 (defn start []
-  (.. browser -tabs -onUpdated
-    (addListener evt/tab-updated))
+  (when (ampie.utils/is-safari?)
+    (.. browser -tabs -onUpdated
+      (addListener evt/tab-updated)))
   #_(.. browser -windows -onFocusChanged
       (addListener evt/window-focus-changed))
   #_(.. browser -tabs -onRemoved

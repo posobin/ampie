@@ -15,3 +15,9 @@
       (= tag-name "textarea")
       (and (= tag-name "input")
         (contains? text-node-types (.. el -type (toLowerCase)))))))
+
+(defn is-safari? []
+  (boolean
+    (re-find
+      #"(?i)^((?!chrome|android).)*safari"
+      (.-userAgent js/navigator))))

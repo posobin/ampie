@@ -1,6 +1,6 @@
 {
   "name": "ampie",
-  "version": "2.4.0",
+  "version": "2.4.4",
   "private": true,
   "devDependencies": {
     "autoprefixer": "^10.2.6",

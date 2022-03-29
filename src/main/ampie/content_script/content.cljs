@@ -9,14 +9,9 @@
             [ampie.interop :as i]
             [cljs.reader]
             [clojure.string]
+            [ampie.utils]
             ["webextension-polyfill" :as browser]
             [mount.core :as mount :refer [defstate]]))
-
-(defn is-safari? []
-  (boolean
-    (re-find
-      #"(?i)^((?!chrome|android).)*safari"
-      (.-userAgent js/navigator))))
 
 (declare message-listener url-change-tracker)
 
@@ -26,7 +21,7 @@
   :start (do (.. browser -runtime -onMessage (addListener message-listener))
              ;; Safari doesn't emit the tabs.onUpdated event on url changes,
              ;; so we have to track it ourselves from the content script.
-             (when (is-safari?)
+             (when (ampie.utils/is-safari?)
                (reset! url-change-tracker-interval
                  (js/setInterval url-change-tracker 1000)))
              #_(assoc (badge/start (:show-info @info-bar-state))

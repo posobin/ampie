@@ -17,5 +17,5 @@
            :devtools         {:watch-dir "build/assets"}
            :compiler-options {:closure-output-charset "US-ASCII"
                               :source-map-inline      true
-                              :optimizations          :advanced
+                              :optimizations          :simple
                               :infer-externs          :auto}}}}

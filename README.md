@@ -2,19 +2,15 @@
 Ampie helps you discover interesting links online and share them.
 This is ampie's browser extension.
 
-To build the release version of the extension, do:
+To build the release version of the extension, first install Java version 8+.
+OpenJDK should work: http://openjdk.java.net/install/. Then do:
 ``` shell
-npm install -g shadow-cljs
-npx shadow-cljs release :extension
+npm install
+bash release.sh
 ```
-This will compile the extension inside the `build` directory.
-
-The archive that is ready for submission to the Mozilla store / Chrome store is
-obtained by
-``` shell
-cd build
-zip ../build.zip -@ < ../build_list.txt
-```
+This will compile the extension inside the `build` directory, and also create
+a `build.zip` archive that is ready for submission to the Mozilla store /
+Chrome store.
 
 If you want to hack on the extension, run `npx shadow-cljs watch :extension`
 instead.
